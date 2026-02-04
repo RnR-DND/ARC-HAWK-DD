@@ -43,7 +43,7 @@ services:
       arc-platform-internal:
         ipv4_address: 172.28.0.11
     environment:
-      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-password123}
+      NEO4J_AUTH: neo4j/password123
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_dbms_security_procedures_unrestricted: apoc.*
       NEO4J_dbms_memory_heap_max__size: 2G

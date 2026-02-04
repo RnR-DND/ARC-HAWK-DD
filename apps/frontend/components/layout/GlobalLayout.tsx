@@ -2,12 +2,16 @@
 
 import React, { ReactNode, useState } from 'react';
 import { motion } from 'framer-motion';
-import { EnhancedLeftNav } from './EnhancedLeftNav';
+import { Sidebar } from './Sidebar';
 import { ScanContextBar } from './ScanContextBar';
-import { Plus, Play, FileText, Bell, User, Shield } from 'lucide-react';
+import { Plus, Play, FileText, Bell, User, Shield, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { AddSourceModal } from '../sources/AddSourceModal';
 import { ScanConfigModal } from '../scans/ScanConfigModal';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import ErrorBoundary from '../ErrorBoundary';
 
 interface GlobalLayoutProps {
@@ -19,17 +23,15 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
     const [isRunScanOpen, setIsRunScanOpen] = useState(false);
 
     return (
-        <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        <div className="flex h-screen bg-background">
             {/* Left Navigation */}
-            <EnhancedLeftNav />
+            <Sidebar />
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Top Bar */}
                 <motion.header
-                    initial={{ y: -20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-800/50 shadow-lg"
+                    className="bg-card border-b shadow-sm"
                 >
                     <div className="flex items-center justify-between px-6 py-4">
                         {/* Left: Brand & Title */}
@@ -93,20 +95,48 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
 
                             {/* User Menu */}
                             <div className="flex items-center gap-3 pl-4 border-l border-slate-700">
-                                <button className="relative p-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white rounded-lg transition-all">
-                                    <Bell className="w-5 h-5" />
-                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs flex items-center justify-center">3</span>
-                                </button>
+                                <Button variant="ghost" size="icon" className="relative">
+                                    <Bell className="h-5 w-5" />
+                                    <Badge
+                                        variant="destructive"
+                                        className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px]"
+                                    >
+                                        3
+                                    </Badge>
+                                </Button>
 
-                                <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-all">
-                                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                                        <User className="w-4 h-4 text-white" />
-                                    </div>
-                                    <div className="hidden md:block">
-                                        <div className="text-sm font-medium text-white">Admin User</div>
-                                        <div className="text-xs text-slate-400">admin@company.com</div>
-                                    </div>
-                                </div>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="gap-3 h-auto">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarImage src="" />
+                                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                                                    AU
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="hidden md:block text-left">
+                                                <div className="text-sm font-medium">Admin User</div>
+                                                <div className="text-xs text-muted-foreground">admin@company.com</div>
+                                            </div>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem>
+                                            <User className="mr-2 h-4 w-4" />
+                                            <span>Profile</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem>
+                                            <Settings className="mr-2 h-4 w-4" />
+                                            <span>Settings</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem>
+                                            <span>Log out</span>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </div>
                     </div>
@@ -116,7 +146,7 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                 </motion.header>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+                <main className="flex-1 overflow-auto bg-muted/30">
                     <ErrorBoundary>
                         {children}
                     </ErrorBoundary>
