@@ -4,7 +4,11 @@ import './globals.css';
 import { GlobalLayout } from '@/components/layout/GlobalLayout';
 import { ScanContextProvider } from '@/contexts/ScanContext';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({
+    subsets: ['latin'],
+    display: 'swap',
+    variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
     title: 'ARC-Hawk Enterprise Risk',
@@ -18,7 +22,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en">
-            <body className={inter.className}>
+            <body className={`${inter.className} antialiased`}>
                 <ScanContextProvider>
                     <GlobalLayout>{children}</GlobalLayout>
                 </ScanContextProvider>
