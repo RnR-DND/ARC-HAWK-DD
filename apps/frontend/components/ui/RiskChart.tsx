@@ -43,10 +43,10 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
 
     if (loading) {
         return (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6">
+            <div className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6">
                 <div className="animate-pulse space-y-4">
-                    <div className="h-6 w-32 bg-slate-700 rounded" />
-                    <div className="h-64 bg-slate-700/50 rounded" />
+                    <div className="h-6 w-32 bg-accent rounded" />
+                    <div className="h-64 bg-accent rounded" />
                 </div>
             </div>
         );
@@ -102,7 +102,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6"
+                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
             >
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
@@ -111,11 +111,11 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                         </div>
                         <div>
                             <h3 className="text-lg font-semibold text-white">PII Type Distribution</h3>
-                            <p className="text-slate-400 text-sm">Breakdown by sensitive data types</p>
+                            <p className="text-muted-foreground text-sm">Breakdown by sensitive data types</p>
                         </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-slate-400 text-sm">Total Types</p>
+                        <p className="text-muted-foreground text-sm">Total Types</p>
                         <p className="text-white text-lg font-semibold">{piiTypeData.length}</p>
                     </div>
                 </div>
@@ -167,7 +167,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6"
+                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
             >
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -175,7 +175,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                     </div>
                     <div>
                         <h3 className="text-lg font-semibold text-white">Asset Risk Overview</h3>
-                        <p className="text-slate-400 text-sm">Findings distribution by asset</p>
+                        <p className="text-muted-foreground text-sm">Findings distribution by asset</p>
                     </div>
                 </div>
 
@@ -219,7 +219,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6"
+                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
             >
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-emerald-500/20 rounded-lg">
@@ -227,7 +227,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                     </div>
                     <div>
                         <h3 className="text-lg font-semibold text-white">Confidence Distribution</h3>
-                        <p className="text-slate-400 text-sm">Detection confidence levels</p>
+                        <p className="text-muted-foreground text-sm">Detection confidence levels</p>
                     </div>
                 </div>
 
@@ -242,7 +242,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                                 <span className="text-slate-300 font-medium">{item.level}</span>
                             </div>
                             <div className="flex items-center gap-3">
-                                <div className="w-24 bg-slate-700 rounded-full h-2">
+                                <div className="w-24 bg-accent rounded-full h-2">
                                     <div
                                         className="h-2 rounded-full transition-all duration-500"
                                         style={{
@@ -251,7 +251,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                                         }}
                                     />
                                 </div>
-                                <span className="text-slate-400 text-sm w-8 text-right">{item.count}</span>
+                                <span className="text-muted-foreground text-sm w-8 text-right">{item.count}</span>
                             </div>
                         </div>
                     ))}

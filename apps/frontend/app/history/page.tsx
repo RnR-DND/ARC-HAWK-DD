@@ -33,14 +33,14 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <History className="w-6 h-6 text-slate-400" />
+                            <History className="w-6 h-6 text-muted-foreground" />
                             Remediation History
                         </h1>
-                        <p className="text-slate-400 mt-1">Audit log of all remediation actions and policy enforcements.</p>
+                        <p className="text-muted-foreground mt-1">Audit log of all remediation actions and policy enforcements.</p>
                     </div>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
-                    <div className="text-slate-400">Loading remediation history...</div>
+                <div className="bg-card border border-border rounded-xl p-12 text-center">
+                    <div className="text-muted-foreground">Loading remediation history...</div>
                 </div>
             </div>
         );
@@ -52,17 +52,17 @@ export default function HistoryPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                            <History className="w-6 h-6 text-slate-400" />
+                            <History className="w-6 h-6 text-muted-foreground" />
                             Remediation History
                         </h1>
-                        <p className="text-slate-400 mt-1">Audit log of all remediation actions and policy enforcements.</p>
+                        <p className="text-muted-foreground mt-1">Audit log of all remediation actions and policy enforcements.</p>
                     </div>
                 </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
+                <div className="bg-card border border-border rounded-xl p-12 text-center">
                     <div className="text-red-400 mb-4">{error}</div>
                     <button
                         onClick={loadHistory}
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-white"
+                        className="px-4 py-2 bg-muted hover:bg-accent rounded text-white"
                     >
                         Retry
                     </button>
@@ -76,17 +76,17 @@ export default function HistoryPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                        <History className="w-6 h-6 text-slate-400" />
+                        <History className="w-6 h-6 text-muted-foreground" />
                         Remediation History
                     </h1>
-                    <p className="text-slate-400 mt-1">Audit log of all remediation actions and policy enforcements.</p>
+                    <p className="text-muted-foreground mt-1">Audit log of all remediation actions and policy enforcements.</p>
                 </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                 <table className="w-full text-left text-sm">
                     <thead>
-                        <tr className="bg-slate-800/50 text-slate-400 border-b border-slate-700">
+                        <tr className="bg-secondary text-muted-foreground border-b border-border">
                             <th className="px-6 py-4 font-medium">Date</th>
                             <th className="px-6 py-4 font-medium">Action</th>
                             <th className="px-6 py-4 font-medium">Target Asset</th>
@@ -95,16 +95,16 @@ export default function HistoryPage() {
                             <th className="px-6 py-4 font-medium">Status</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-border">
                         {history.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                                     No remediation actions found
                                 </td>
                             </tr>
                         ) : (
                             history.map((event) => (
-                                <tr key={event.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={event.id} className="hover:bg-muted transition-colors">
                                     <td className="px-6 py-4 text-slate-300 font-mono text-xs">
                                         {new Date(event.executed_at).toLocaleString()}
                                     </td>
@@ -127,12 +127,12 @@ export default function HistoryPage() {
                                     <td className="px-6 py-4 text-slate-200">
                                         {event.target}
                                     </td>
-                                    <td className="px-6 py-4 text-slate-400">
+                                    <td className="px-6 py-4 text-muted-foreground">
                                         {event.executed_by}
                                     </td>
                                     <td className="px-6 py-4">
                                         {event.scan_id ? (
-                                            <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700 text-xs font-mono">
+                                            <span className="px-2 py-1 rounded bg-muted text-slate-300 border border-border text-xs font-mono">
                                                 {event.scan_id}
                                             </span>
                                         ) : (

@@ -132,23 +132,23 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-slate-900 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-700">
+            <div className="bg-card rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-border">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-green-500/10 rounded-lg">
                             <Play className="w-5 h-5 text-green-400" />
                         </div>
                         <div>
                             <h2 className="text-xl font-semibold text-white">Run Scan</h2>
-                            <p className="text-sm text-slate-400 mt-0.5">Configure and execute PII detection scan</p>
+                            <p className="text-sm text-muted-foreground mt-0.5">Configure and execute PII detection scan</p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
                     >
-                        <X className="w-5 h-5 text-slate-400" />
+                        <X className="w-5 h-5 text-muted-foreground" />
                     </button>
                 </div>
 
@@ -164,7 +164,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                             value={scanName}
                             onChange={(e) => setScanName(e.target.value)}
                             placeholder={`Scan_${new Date().toISOString().split('T')[0]}`}
-                            className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                            className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                         />
                     </div>
 
@@ -175,7 +175,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                         </label>
                         <div className="grid grid-cols-3 gap-3">
                             {loadingSources ? (
-                                <div className="col-span-3 text-center py-8 text-slate-400">
+                                <div className="col-span-3 text-center py-8 text-muted-foreground">
                                     Loading data sources...
                                 </div>
                             ) : sourcesError ? (
@@ -183,13 +183,13 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                     <p className="text-red-400 mb-2">{sourcesError}</p>
                                     <button
                                         onClick={loadSources}
-                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-white"
+                                        className="px-4 py-2 bg-muted hover:bg-accent rounded text-sm text-white"
                                     >
                                         Retry
                                     </button>
                                 </div>
                             ) : sources.length === 0 ? (
-                                <div className="col-span-3 text-center py-8 text-slate-400">
+                                <div className="col-span-3 text-center py-8 text-muted-foreground">
                                     No data sources configured. Please add a source first.
                                 </div>
                             ) : (
@@ -201,12 +201,12 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                     p-3 rounded-lg border-2 transition-all text-left
                     ${selectedSources.includes(source.profile_name)
                                                 ? 'border-green-500 bg-green-500/10'
-                                                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                                                : 'border-border bg-secondary hover:border-border'
                                             }
                   `}
                                     >
                                         <div className="font-medium text-white text-sm">{source.profile_name}</div>
-                                        <div className="text-xs text-slate-400 mt-1">{source.source_type}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{source.source_type}</div>
                                         {source.validation_status && (
                                             <div className={`text-xs mt-1 ${source.validation_status === 'valid' ? 'text-green-400' : 'text-yellow-400'
                                                 }`}>
@@ -250,7 +250,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                     px-3 py-2 rounded-lg text-sm font-medium transition-all
                     ${selectedPiiTypes.includes(pii.id)
                                             ? 'bg-green-500 text-white'
-                                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                                            : 'bg-muted text-slate-300 hover:bg-accent'
                                         }
                   `}
                                 >
@@ -272,7 +272,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                   p-4 rounded-lg border-2 transition-all text-left
                   ${executionMode === 'sequential'
                                         ? 'border-green-500 bg-green-500/10'
-                                        : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                                        : 'border-border bg-secondary hover:border-border'
                                     }
                 `}
                             >
@@ -280,7 +280,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                     <Clock className="w-4 h-4 text-green-400" />
                                     <span className="font-semibold text-white">Sequential</span>
                                 </div>
-                                <p className="text-xs text-slate-400">
+                                <p className="text-xs text-muted-foreground">
                                     Lower resource usage, longer duration
                                 </p>
                             </button>
@@ -291,7 +291,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                   p-4 rounded-lg border-2 transition-all text-left
                   ${executionMode === 'parallel'
                                         ? 'border-green-500 bg-green-500/10'
-                                        : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                                        : 'border-border bg-secondary hover:border-border'
                                     }
                 `}
                             >
@@ -299,7 +299,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                     <Zap className="w-4 h-4 text-green-400" />
                                     <span className="font-semibold text-white">Parallel</span>
                                 </div>
-                                <p className="text-xs text-slate-400">
+                                <p className="text-xs text-muted-foreground">
                                     Faster execution, higher resource usage
                                 </p>
                             </button>
@@ -307,17 +307,17 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                     </div>
 
                     {/* Performance Impact */}
-                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+                    <div className="bg-secondary rounded-lg p-4 border border-border">
                         <div className="text-sm font-medium text-slate-300 mb-3">
                             Performance Impact Estimate
                         </div>
                         <div className="space-y-3">
                             <div>
-                                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                                     <span>CPU Usage</span>
                                     <span>{cpuUsage}%</span>
                                 </div>
-                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-2 bg-accent rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-gradient-to-r from-green-500 to-yellow-500 transition-all"
                                         style={{ width: `${cpuUsage}%` }}
@@ -326,11 +326,11 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                             </div>
 
                             <div>
-                                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                                     <span>I/O Usage</span>
                                     <span>{ioUsage}%</span>
                                 </div>
-                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-2 bg-accent rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all"
                                         style={{ width: `${ioUsage}%` }}
@@ -338,8 +338,8 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-                                <span className="text-xs text-slate-400">Estimated Time</span>
+                            <div className="flex items-center justify-between pt-2 border-t border-border">
+                                <span className="text-xs text-muted-foreground">Estimated Time</span>
                                 <span className="text-sm font-semibold text-white">{estimatedTime}m</span>
                             </div>
                         </div>
@@ -347,17 +347,17 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-slate-700 bg-slate-800/50">
+                <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-secondary">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                        className="px-4 py-2 text-muted-foreground hover:text-white transition-colors"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleRunScan}
                         disabled={selectedSources.length === 0 || selectedPiiTypes.length === 0}
-                        className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-medium transition-colors"
+                        className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-accent disabled:text-slate-500 text-white rounded-lg font-medium transition-colors"
                     >
                         <Play className="w-4 h-4" />
                         <span>Run Scan</span>

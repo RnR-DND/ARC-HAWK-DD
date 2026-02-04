@@ -122,12 +122,12 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
 
     if (loading) {
         return (
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6">
+            <div className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6">
                 <div className="animate-pulse space-y-4">
-                    <div className="h-6 w-48 bg-slate-700 rounded" />
+                    <div className="h-6 w-48 bg-accent rounded" />
                     <div className="space-y-3">
                         {[1, 2, 3, 4, 5].map(i => (
-                            <div key={i} className="h-16 bg-slate-700/50 rounded-lg" />
+                            <div key={i} className="h-16 bg-accent rounded-lg" />
                         ))}
                     </div>
                 </div>
@@ -139,7 +139,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl overflow-hidden"
+            className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl overflow-hidden"
         >
             <RemediationConfirmationModal
                 isOpen={showRemediationModal}
@@ -149,12 +149,12 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                 actionType={remediationAction}
             />
 
-            <div className="p-6 border-b border-slate-600/30 space-y-4">
+            <div className="p-6 border-b border-border/30 space-y-4">
                 {/* Header with stats */}
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-semibold text-white">PII Findings</h2>
-                        <p className="text-slate-400 text-sm mt-1">
+                        <p className="text-muted-foreground text-sm mt-1">
                             {filteredFindings.length} of {findings.length} findings
                             {(searchQuery || riskFilter !== 'all' || sourceFilter !== 'all') && (
                                 <span className="ml-2 text-blue-400">(filtered)</span>
@@ -162,10 +162,10 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                         </p>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                        <div className="px-3 py-1 bg-slate-700/50 rounded-lg text-slate-300">
+                        <div className="px-3 py-1 bg-accent rounded-lg text-slate-300">
                             {findings.filter(f => f.risk === 'Critical').length} Critical
                         </div>
-                        <div className="px-3 py-1 bg-slate-700/50 rounded-lg text-slate-300">
+                        <div className="px-3 py-1 bg-accent rounded-lg text-slate-300">
                             {findings.filter(f => f.risk === 'High').length} High
                         </div>
                     </div>
@@ -175,13 +175,13 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                 <div className="flex flex-col sm:flex-row gap-4">
                     {/* Search */}
                     <div className="flex-1 relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                             type="text"
                             placeholder="Search findings by asset, PII type, or field..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                            className="w-full pl-10 pr-4 py-2 bg-accent border border-border/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                         />
                     </div>
 
@@ -190,7 +190,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                         <select
                             value={riskFilter}
                             onChange={(e) => setRiskFilter(e.target.value)}
-                            className="px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="px-3 py-2 bg-accent border border-border/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                         >
                             <option value="all">All Risks</option>
                             <option value="critical">Critical</option>
@@ -203,7 +203,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                         <select
                             value={sourceFilter}
                             onChange={(e) => setSourceFilter(e.target.value)}
-                            className="px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="px-3 py-2 bg-accent border border-border/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                         >
                             <option value="all">All Sources</option>
                             <option value="database">Database</option>
@@ -227,7 +227,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
 
             <div className="overflow-x-auto">
                 <table className="w-full">
-                    <thead className="bg-slate-700/30">
+                    <thead className="bg-accent/30">
                         <tr>
                             {[
                                 { key: 'assetName', label: 'Asset' },
@@ -238,7 +238,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                             ].map(({ key, label }) => (
                                 <th
                                     key={key}
-                                    className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors"
+                                    className="px-6 py-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-white transition-colors"
                                     onClick={() => handleSort(key)}
                                 >
                                     <div className="flex items-center gap-2">
@@ -251,7 +251,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                     </div>
                                 </th>
                             ))}
-                            <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                            <th className="px-6 py-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 Actions
                             </th>
                         </tr>
@@ -267,13 +267,13 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                     <motion.tr
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
-                                        className="hover:bg-slate-700/20 transition-colors cursor-pointer"
+                                        className="hover:bg-accent/20 transition-colors cursor-pointer"
                                         onClick={() => toggleRowExpansion(finding.id)}
                                     >
                                         <td className="px-6 py-4">
                                             <div>
                                                 <div className="text-white font-medium">{finding.assetName}</div>
-                                                <div className="text-slate-400 text-sm truncate max-w-xs">
+                                                <div className="text-muted-foreground text-sm truncate max-w-xs">
                                                     {finding.assetPath}
                                                 </div>
                                             </div>
@@ -298,7 +298,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <SourceIcon className="w-4 h-4 text-slate-400" />
+                                                <SourceIcon className="w-4 h-4 text-muted-foreground" />
                                                 <span className="text-slate-300">{finding.sourceType}</span>
                                             </div>
                                         </td>
@@ -338,21 +338,21 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                             animate={{ opacity: 1, height: 'auto' }}
                                             exit={{ opacity: 0, height: 0 }}
                                         >
-                                            <td colSpan={6} className="px-6 py-4 bg-slate-700/20">
+                                            <td colSpan={6} className="px-6 py-4 bg-accent/20">
                                                 <div className="space-y-3">
                                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                                         <div>
-                                                            <span className="text-slate-400">Field:</span>
+                                                            <span className="text-muted-foreground">Field:</span>
                                                             <span className="text-white ml-2">{finding.field}</span>
                                                         </div>
                                                         <div>
-                                                            <span className="text-slate-400">Asset Path:</span>
+                                                            <span className="text-muted-foreground">Asset Path:</span>
                                                             <span className="text-white ml-2 font-mono text-xs">{finding.assetPath}</span>
                                                         </div>
                                                     </div>
-                                                    <div className="pt-2 border-t border-slate-600/30">
-                                                        <div className="text-slate-400 text-xs mb-1">Sample Data:</div>
-                                                        <div className="bg-slate-900/50 rounded p-2 font-mono text-xs text-slate-300">
+                                                    <div className="pt-2 border-t border-border/30">
+                                                        <div className="text-muted-foreground text-xs mb-1">Sample Data:</div>
+                                                        <div className="bg-card/50 rounded p-2 font-mono text-xs text-slate-300">
                                                             Sample PII data would appear here...
                                                         </div>
                                                     </div>
@@ -370,7 +370,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
             {findings.length === 0 && (
                 <div className="p-12 text-center">
                     <Database className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-slate-400 mb-2">No Findings Yet</h3>
+                    <h3 className="text-lg font-medium text-muted-foreground mb-2">No Findings Yet</h3>
                     <p className="text-slate-500">Run a scan to discover PII in your data sources.</p>
                 </div>
             )}

@@ -29,17 +29,17 @@ const FALLBACK_DATA: DashboardData = {
 
 // Skeleton component for loading state
 const DashboardSkeleton = () => (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 space-y-8">
+    <div className="min-h-screen bg-background p-6 space-y-8">
         <div className="flex justify-between items-center animate-pulse">
-            <div className="h-10 w-64 bg-slate-800 rounded"></div>
-            <div className="h-10 w-32 bg-slate-800 rounded"></div>
+            <div className="h-10 w-64 bg-muted rounded"></div>
+            <div className="h-10 w-32 bg-muted rounded"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-slate-800 rounded-xl animate-pulse"></div>
+                <div key={i} className="h-32 bg-muted rounded-xl animate-pulse"></div>
             ))}
         </div>
-        <div className="h-64 bg-slate-800 rounded-xl animate-pulse"></div>
+        <div className="h-64 bg-muted rounded-xl animate-pulse"></div>
     </div>
 );
 
@@ -109,7 +109,7 @@ export default function Home() {
     // Empty state for no data sources
     if (!loading && !displayData.latestScanId && displayData.metrics.totalPII === 0) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+            <div className="min-h-screen bg-background">
                 <div className="max-w-7xl mx-auto p-6">
                     {/* Modals */}
                     <AddSourceModal
@@ -135,7 +135,7 @@ export default function Home() {
                         <h1 className="text-3xl font-bold text-white mb-4">
                             Welcome to ARC-Hawk
                         </h1>
-                        <p className="text-xl text-slate-400 mb-8 max-w-2xl mx-auto">
+                        <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
                             Your enterprise-grade PII governance platform. Start by connecting your data sources and running your first scan to discover sensitive information.
                         </p>
 
@@ -144,13 +144,13 @@ export default function Home() {
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.2 }}
-                                className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6"
+                                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
                             >
                                 <div className="p-3 bg-blue-500/20 rounded-lg w-fit mb-4">
                                     <Database className="w-6 h-6 text-blue-400" />
                                 </div>
                                 <h3 className="text-lg font-semibold text-white mb-2">Connect Data Sources</h3>
-                                <p className="text-slate-400 text-sm">
+                                <p className="text-muted-foreground text-sm">
                                     Link databases, file systems, cloud storage, and APIs to scan for PII.
                                 </p>
                             </motion.div>
@@ -159,13 +159,13 @@ export default function Home() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.4 }}
-                                className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6"
+                                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
                             >
                                 <div className="p-3 bg-emerald-500/20 rounded-lg w-fit mb-4">
                                     <Play className="w-6 h-6 text-emerald-400" />
                                 </div>
                                 <h3 className="text-lg font-semibold text-white mb-2">Run Your First Scan</h3>
-                                <p className="text-slate-400 text-sm">
+                                <p className="text-muted-foreground text-sm">
                                     Execute comprehensive PII discovery across all connected sources.
                                 </p>
                             </motion.div>
@@ -174,13 +174,13 @@ export default function Home() {
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.6 }}
-                                className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6"
+                                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
                             >
                                 <div className="p-3 bg-purple-500/20 rounded-lg w-fit mb-4">
                                     <CheckCircle className="w-6 h-6 text-purple-400" />
                                 </div>
                                 <h3 className="text-lg font-semibold text-white mb-2">Review & Remediate</h3>
-                                <p className="text-slate-400 text-sm">
+                                <p className="text-muted-foreground text-sm">
                                     Analyze findings and take automated remediation actions.
                                 </p>
                             </motion.div>
@@ -200,7 +200,7 @@ export default function Home() {
                             </button>
                             <button
                                 onClick={() => window.open('https://docs.arc-hawk.io', '_blank')}
-                                className="px-8 py-3 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-white rounded-lg font-medium transition-all border border-slate-600/50 hover:border-slate-500/50"
+                                className="px-8 py-3 bg-secondary hover:bg-accent text-slate-300 hover:text-white rounded-lg font-medium transition-all border border-border/50 hover:border-slate-500/50"
                             >
                                 View Documentation
                             </button>
@@ -212,7 +212,7 @@ export default function Home() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="min-h-screen bg-background">
             <div className="max-w-7xl mx-auto p-6 space-y-8">
                 {/* Header */}
                 <motion.div
@@ -224,7 +224,7 @@ export default function Home() {
                         <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                             ARC-Hawk Dashboard
                         </h1>
-                        <p className="text-slate-400 mt-2">
+                        <p className="text-muted-foreground mt-2">
                             Real-time PII governance and risk management
                         </p>
                     </div>
@@ -243,14 +243,14 @@ export default function Home() {
                         </div>
 
                         <div className="text-right">
-                            <div className="text-sm text-slate-400">Last updated</div>
+                            <div className="text-sm text-muted-foreground">Last updated</div>
                             <div className="text-white font-medium">
                                 {lastUpdated.toLocaleTimeString()}
                             </div>
                         </div>
                         <button
                             onClick={fetchDashboardData}
-                            className="p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                            className="p-3 bg-muted hover:bg-accent rounded-lg transition-colors"
                             title="Refresh data"
                         >
                             <RefreshCw className="w-5 h-5 text-slate-300" />
@@ -320,7 +320,7 @@ export default function Home() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.25 }}
-                        className="bg-slate-800/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6"
+                        className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
                     >
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
@@ -328,7 +328,7 @@ export default function Home() {
                             </div>
                             <div>
                                 <h3 className="text-lg font-semibold text-white">Live Findings</h3>
-                                <p className="text-sm text-slate-400">Real-time PII detections from active scans</p>
+                                <p className="text-sm text-muted-foreground">Real-time PII detections from active scans</p>
                             </div>
                         </div>
 
@@ -339,7 +339,7 @@ export default function Home() {
                                     initial={{ opacity: 0, x: -20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: index * 0.1 }}
-                                    className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600/30"
+                                    className="flex items-center justify-between p-3 bg-accent rounded-lg border border-border/30"
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={`w-2 h-2 rounded-full ${finding.severity === 'Critical' ? 'bg-red-400' :
@@ -350,7 +350,7 @@ export default function Home() {
                                             <div className="text-sm font-medium text-white">
                                                 {finding.pii_type} in {finding.asset_name}
                                             </div>
-                                            <div className="text-xs text-slate-400">
+                                            <div className="text-xs text-muted-foreground">
                                                 {finding.asset_path}
                                             </div>
                                         </div>
@@ -408,14 +408,14 @@ export default function Home() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
-                    className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-slate-600/30 rounded-xl p-6"
+                    className="bg-card backdrop-blur-sm border border-border/30 rounded-xl p-6"
                 >
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
-                            <p className="text-slate-400 text-sm mt-1">Common tasks to manage your PII governance</p>
+                            <p className="text-muted-foreground text-sm mt-1">Common tasks to manage your PII governance</p>
                         </div>
-                        <div className="text-xs text-slate-500 bg-slate-900/50 px-2 py-1 rounded">
+                        <div className="text-xs text-slate-500 bg-card/50 px-2 py-1 rounded">
                             {displayData.latestScanId ? 'System Active' : 'Setup Required'}
                         </div>
                     </div>
@@ -433,7 +433,7 @@ export default function Home() {
                             </div>
                             <div className="text-center">
                                 <span className="text-sm font-medium text-slate-300 group-hover:text-white block">New Scan</span>
-                                <span className="text-xs text-slate-500 group-hover:text-slate-400 block mt-1">Discover PII</span>
+                                <span className="text-xs text-slate-500 group-hover:text-muted-foreground block mt-1">Discover PII</span>
                             </div>
                         </motion.button>
 
@@ -449,7 +449,7 @@ export default function Home() {
                             </div>
                             <div className="text-center">
                                 <span className="text-sm font-medium text-slate-300 group-hover:text-white block">Add Source</span>
-                                <span className="text-xs text-slate-500 group-hover:text-slate-400 block mt-1">Connect Data</span>
+                                <span className="text-xs text-slate-500 group-hover:text-muted-foreground block mt-1">Connect Data</span>
                             </div>
                         </motion.button>
 
@@ -466,7 +466,7 @@ export default function Home() {
                                 </div>
                                 <div className="text-center">
                                     <span className="text-sm font-medium text-slate-300 group-hover:text-white block">Remediate</span>
-                                    <span className="text-xs text-slate-500 group-hover:text-slate-400 block mt-1">
+                                    <span className="text-xs text-slate-500 group-hover:text-muted-foreground block mt-1">
                                         Action Center
                                     </span>
                                 </div>

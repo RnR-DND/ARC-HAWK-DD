@@ -47,7 +47,7 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-full bg-slate-950 text-slate-400">
+            <div className="flex items-center justify-center h-full bg-background text-muted-foreground">
                 <Loader2 className="w-8 h-8 animate-spin mr-3" />
                 <span>Loading scan details...</span>
             </div>
@@ -56,11 +56,11 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
 
     if (error || !scan) {
         return (
-            <div className="flex flex-col items-center justify-center h-full bg-slate-950 text-slate-400">
+            <div className="flex flex-col items-center justify-center h-full bg-background text-muted-foreground">
                 <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">Error Loading Scan</h3>
                 <p>{error || 'Scan not found'}</p>
-                <Link href="/scans" className="mt-6 px-4 py-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors text-white">
+                <Link href="/scans" className="mt-6 px-4 py-2 bg-muted rounded-lg hover:bg-accent transition-colors text-white">
                     Return to Scans
                 </Link>
             </div>
@@ -71,13 +71,13 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
     const piiSummary = scan.metadata?.pii_summary || []; // Assuming backend passes this structure, adaptable if needed
 
     return (
-        <div className="flex flex-col h-full bg-slate-950">
+        <div className="flex flex-col h-full bg-background">
             {/* Header */}
-            <div className="bg-slate-900 border-b border-slate-800 px-8 py-6">
+            <div className="bg-card border-b border-border px-8 py-6">
                 <div className="flex items-center gap-4 mb-4">
                     <Link
                         href="/scans"
-                        className="p-2 -ml-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                        className="p-2 -ml-2 text-muted-foreground hover:text-white hover:bg-muted rounded-lg transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
@@ -90,9 +90,9 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-8 text-sm text-slate-400">
+                <div className="flex items-center gap-8 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
-                        <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">
+                        <span className="font-mono bg-muted px-2 py-0.5 rounded text-slate-300">
                             {scan.id.substring(0, 8)}...
                         </span>
                     </div>
@@ -116,26 +116,26 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                 <div className="max-w-4xl mx-auto space-y-8">
                     {/* PII Detection Summary - Only show if we have summary data or mock integration if needed */}
                     {piiSummary.length > 0 ? (
-                        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-                            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                            <div className="px-6 py-4 border-b border-border flex justify-between items-center">
                                 <h2 className="text-lg font-semibold text-white">PII Detection Summary</h2>
-                                <span className="text-sm text-slate-400">
+                                <span className="text-sm text-muted-foreground">
                                     Click a PII type to filter findings
                                 </span>
                             </div>
                             <table className="w-full text-left text-sm">
                                 <thead>
-                                    <tr className="bg-slate-800/50 text-slate-400 border-b border-slate-700">
+                                    <tr className="bg-secondary text-muted-foreground border-b border-border">
                                         <th className="px-6 py-3 font-medium">PII Type</th>
                                         <th className="px-6 py-3 font-medium text-right">Detected Count</th>
                                         <th className="px-6 py-3 font-medium">Status</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-800">
+                                <tbody className="divide-y divide-border">
                                     {piiSummary.map((item: any) => (
                                         <tr
                                             key={item.type}
-                                            className="hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                                            className="hover:bg-secondary transition-colors cursor-pointer group"
                                         >
                                             <td className="px-6 py-4 font-medium text-slate-200">
                                                 {item.type}
@@ -155,9 +155,9 @@ export default function ScanDetailPage({ params }: { params: { id: string } }) {
                             </table>
                         </div>
                     ) : (
-                        <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center">
+                        <div className="bg-card border border-border rounded-xl p-8 text-center">
                             <h3 className="text-lg font-medium text-white mb-2">No PII Summary Available</h3>
-                            <p className="text-slate-400">This scan did not produce a detailed breakdown summary or no PII was found.</p>
+                            <p className="text-muted-foreground">This scan did not produce a detailed breakdown summary or no PII was found.</p>
                         </div>
                     )}
                 </div>

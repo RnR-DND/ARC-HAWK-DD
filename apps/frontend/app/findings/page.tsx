@@ -144,12 +144,12 @@ export default function FindingsPage() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-950">
+        <div className="flex flex-col h-full bg-background">
             {/* Header with Title and Global Actions */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-800 bg-slate-900">
+            <div className="flex items-center justify-between px-8 py-6 border-b border-border bg-card">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Findings Explorer</h1>
-                    <p className="text-slate-400 mt-1">Detailed breakdown of PII detections and display security risks.</p>
+                    <p className="text-muted-foreground mt-1">Detailed breakdown of PII detections and display security risks.</p>
                 </div>
                 {findingsData && findingsData.findings.length > 0 && (
                     <button
@@ -157,7 +157,7 @@ export default function FindingsPage() {
                             const { exportToCSV } = require('@/utils/export');
                             exportToCSV(findingsData.findings, 'findings');
                         }}
-                        className="px-4 py-2 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700 hover:text-white transition-colors text-sm font-medium flex items-center gap-2"
+                        className="px-4 py-2 bg-muted border border-border text-slate-300 rounded-lg hover:bg-accent hover:text-white transition-colors text-sm font-medium flex items-center gap-2"
                     >
                         📊 Export CSV
                     </button>
@@ -165,13 +165,13 @@ export default function FindingsPage() {
             </div>
 
             {/* Sticky Filters Bar */}
-            <div className="sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-8 py-3 flex items-center gap-4 overflow-x-auto">
-                <div className="flex items-center gap-2 text-sm text-slate-400 font-medium whitespace-nowrap">
+            <div className="sticky top-0 z-20 bg-card border-b border-border px-8 py-3 flex items-center gap-4 overflow-x-auto">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium whitespace-nowrap">
                     <span className="text-slate-500">Filters:</span>
                 </div>
 
                 {/* Scan Filter (Mock) */}
-                <select className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <select className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
                     <option>All Scans</option>
                     <option>SCAN_021 (Latest)</option>
                     <option>SCAN_020</option>
@@ -179,7 +179,7 @@ export default function FindingsPage() {
 
                 {/* PII Type Filter */}
                 <select
-                    className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     value={piiTypeFilter}
                     onChange={(e) => setPiiTypeFilter(e.target.value)}
                 >
@@ -191,7 +191,7 @@ export default function FindingsPage() {
 
                 {/* Asset Filter */}
                 <select
-                    className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     value={assetFilter}
                     onChange={(e) => setAssetFilter(e.target.value)}
                 >
@@ -202,7 +202,7 @@ export default function FindingsPage() {
 
                 {/* Risk Filter */}
                 <select
-                    className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     value={severityFilter}
                     onChange={(e) => setSeverityFilter(e.target.value)}
                 >
@@ -214,7 +214,7 @@ export default function FindingsPage() {
 
                 {/* Status Filter */}
                 <select
-                    className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                 >
@@ -230,7 +230,7 @@ export default function FindingsPage() {
                     placeholder="Search path/field..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="ml-auto bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 w-64"
+                    className="ml-auto bg-muted border border-border text-slate-200 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 w-64"
                 />
             </div>
 
@@ -245,7 +245,7 @@ export default function FindingsPage() {
                 {loading && !findingsData ? (
                     <LoadingState message="Loading findings..." />
                 ) : (
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                         {findingsData ? (
                             <FindingsTable
                                 findings={findingsData.findings}

@@ -57,7 +57,7 @@ export default function FindingsTable({
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead>
-                        <tr className="bg-slate-800/50 text-slate-400 border-b border-slate-700">
+                        <tr className="bg-secondary text-muted-foreground border-b border-border">
                             <th className="px-4 py-3 font-medium">Asset</th>
                             <th className="px-4 py-3 font-medium">Object/Path</th>
                             <th className="px-4 py-3 font-medium">Field</th>
@@ -68,7 +68,7 @@ export default function FindingsTable({
                             <th className="px-4 py-3 font-medium text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-border">
                         {findings.length === 0 ? (
                             <tr>
                                 <td colSpan={8} className="text-center py-12 text-slate-500">
@@ -91,12 +91,12 @@ export default function FindingsTable({
                                     <tr
                                         key={finding.id}
                                         onClick={() => handleRowClick(finding)}
-                                        className="hover:bg-slate-800/30 cursor-pointer transition-colors group"
+                                        className="hover:bg-muted cursor-pointer transition-colors group"
                                     >
                                         <td className="px-4 py-3 font-medium text-slate-200">
                                             {finding.asset_name}
                                         </td>
-                                        <td className="px-4 py-3 text-slate-400 text-xs font-mono truncate max-w-[150px]" title={path}>
+                                        <td className="px-4 py-3 text-muted-foreground text-xs font-mono truncate max-w-[150px]" title={path}>
                                             {path}
                                         </td>
                                         <td className="px-4 py-3 text-blue-300 text-xs font-mono font-medium">
@@ -128,13 +128,13 @@ export default function FindingsTable({
                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); /* View lineage logic */ }}
-                                                    className="px-2 py-1 text-xs font-medium text-slate-400 hover:text-white bg-slate-800 rounded border border-slate-700 hover:border-slate-500 transition-colors"
+                                                    className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-white bg-muted rounded border border-border hover:border-slate-500 transition-colors"
                                                 >
                                                     Lineage
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleRemediate(finding.id, 'MASK'); }}
-                                                    className="px-2 py-1 text-xs font-medium text-blue-400 hover:text-white bg-slate-800 rounded border border-slate-700 hover:border-blue-500/50 transition-colors"
+                                                    className="px-2 py-1 text-xs font-medium text-blue-400 hover:text-white bg-muted rounded border border-border hover:border-blue-500/50 transition-colors"
                                                 >
                                                     Mask
                                                 </button>

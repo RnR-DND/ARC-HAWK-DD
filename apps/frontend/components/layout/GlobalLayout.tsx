@@ -78,7 +78,7 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                             <div className="flex items-center gap-2">
                                 <Link
                                     href="/reports"
-                                    className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-white rounded-lg text-sm font-medium transition-all"
+                                    className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-accent text-slate-300 hover:text-white rounded-lg text-sm font-medium transition-all"
                                 >
                                     <FileText className="w-4 h-4" />
                                     <span className="hidden lg:inline">Reports</span>
@@ -86,7 +86,7 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
 
                                 <Link
                                     href="/settings"
-                                    className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-white rounded-lg text-sm font-medium transition-all"
+                                    className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-accent text-slate-300 hover:text-white rounded-lg text-sm font-medium transition-all"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15-.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
                                     <span className="hidden lg:inline">Settings</span>
@@ -94,7 +94,7 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                             </div>
 
                             {/* User Menu */}
-                            <div className="flex items-center gap-3 pl-4 border-l border-slate-700">
+                            <div className="flex items-center gap-3 pl-4 border-l border-border">
                                 <Button variant="ghost" size="icon" className="relative">
                                     <Bell className="h-5 w-5" />
                                     <Badge

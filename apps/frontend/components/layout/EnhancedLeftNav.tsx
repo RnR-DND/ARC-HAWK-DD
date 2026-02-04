@@ -37,12 +37,12 @@ export function EnhancedLeftNav() {
     };
 
     return (
-        <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-screen sticky top-0">
+        <aside className="w-64 bg-card border-r border-border flex flex-col h-screen sticky top-0">
             {/* Logo */}
-            <div className="p-4 border-b border-slate-800">
+            <div className="p-4 border-b border-border">
                 <div className="flex items-center gap-2">
                     <div className="text-lg font-bold text-white">ARComply</div>
-                    <div className="text-slate-400">▸</div>
+                    <div className="text-muted-foreground">▸</div>
                     <div className="text-sm font-semibold text-blue-400">ARC-HAWK</div>
                 </div>
             </div>
@@ -62,13 +62,13 @@ export function EnhancedLeftNav() {
                   flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all
                   ${active
                                         ? 'bg-blue-500/10 text-blue-400 border-l-2 border-blue-500'
-                                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                                        : 'text-muted-foreground hover:text-slate-200 hover:bg-secondary'
                                     }
                 `}
                             >
                                 <Icon className="w-4 h-4" />
                                 <span className="flex-1">{item.name}</span>
-                                <kbd className="px-1.5 py-0.5 text-xs bg-slate-800 rounded text-slate-500">
+                                <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded text-slate-500">
                                     {item.shortcut}
                                 </kbd>
                             </Link>
@@ -77,7 +77,7 @@ export function EnhancedLeftNav() {
                 </div>
 
                 {/* System Section */}
-                <div className="mt-8 pt-4 border-t border-slate-800">
+                <div className="mt-8 pt-4 border-t border-border">
                     <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2">
                         System
                     </div>
@@ -94,7 +94,7 @@ export function EnhancedLeftNav() {
                     flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all
                     ${active
                                             ? 'bg-blue-500/10 text-blue-400 border-l-2 border-blue-500'
-                                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                                            : 'text-muted-foreground hover:text-slate-200 hover:bg-secondary'
                                         }
                   `}
                                 >
@@ -108,7 +108,7 @@ export function EnhancedLeftNav() {
             </nav>
 
             {/* Footer */}
-            <div className="p-4 border-t border-slate-800">
+            <div className="p-4 border-t border-border">
                 <a
                     href="https://digitalindia.gov.in/dpdpa"
                     target="_blank"

@@ -106,7 +106,7 @@ export default function MetricCards({
                                     ? `bg-gradient-to-br ${metric.color} shadow-lg`
                                     : 'bg-slate-600/50'
                                 }`}>
-                                <Icon className={`w-6 h-6 transition-colors duration-300 ${hasValue ? 'text-white' : 'text-slate-400'
+                                <Icon className={`w-6 h-6 transition-colors duration-300 ${hasValue ? 'text-white' : 'text-muted-foreground'
                                     }`} />
                             </div>
 
@@ -146,13 +146,13 @@ export default function MetricCards({
                             </div>
 
                             {/* Label with better hierarchy */}
-                            <h3 className={`font-semibold text-lg mb-1 transition-colors duration-300 ${hasValue ? 'text-white' : 'text-slate-400'
+                            <h3 className={`font-semibold text-lg mb-1 transition-colors duration-300 ${hasValue ? 'text-white' : 'text-muted-foreground'
                                 }`}>
                                 {metric.label}
                             </h3>
 
                             {/* Subtitle with action hint */}
-                            <p className="text-slate-400 text-sm mb-3">
+                            <p className="text-muted-foreground text-sm mb-3">
                                 {metric.subtitle}
                             </p>
 
@@ -169,7 +169,7 @@ export default function MetricCards({
                         <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
 
                         {/* Tooltip on hover */}
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-10 border border-slate-600">
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-card text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-10 border border-border">
                             {metric.description}
                             <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
                         </div>

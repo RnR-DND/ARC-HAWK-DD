@@ -213,7 +213,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g., Production DB"
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
             </div>
             <div>
@@ -221,7 +221,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                 <select
                     value={environment}
                     onChange={(e) => setEnvironment(e.target.value)}
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="prod">Production</option>
                     <option value="dev">Development</option>
@@ -238,7 +238,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                 <select
                     value={dbConfig.type}
                     onChange={(e) => setDbConfig({ ...dbConfig, type: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="postgresql">PostgreSQL</option>
                     <option value="mysql">MySQL</option>
@@ -252,7 +252,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                         value={dbConfig.host}
                         onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
                         placeholder="localhost"
-                        className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div>
@@ -262,7 +262,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                         value={dbConfig.port}
                         onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
                         placeholder="5432"
-                        className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
             </div>
@@ -273,7 +273,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     value={dbConfig.database}
                     onChange={(e) => setDbConfig({ ...dbConfig, database: e.target.value })}
                     placeholder="my_database"
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -284,7 +284,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                         value={dbConfig.username}
                         onChange={(e) => setDbConfig({ ...dbConfig, username: e.target.value })}
                         placeholder="admin"
-                        className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div>
@@ -294,7 +294,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                         value={dbConfig.password}
                         onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
                         placeholder="••••••••"
-                        className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
             </div>
@@ -310,7 +310,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     value={fsConfig.path}
                     onChange={(e) => setFsConfig({ ...fsConfig, path: e.target.value })}
                     placeholder="/var/www/html or C:\Users\Data"
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div>
@@ -318,7 +318,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                 <select
                     value={fsConfig.osType}
                     onChange={(e) => setFsConfig({ ...fsConfig, osType: e.target.value })}
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="linux">Linux / Unix</option>
                     <option value="windows">Windows</option>
@@ -338,7 +338,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                         value={s3Config.bucket}
                         onChange={(e) => setS3Config({ ...s3Config, bucket: e.target.value })}
                         placeholder="my-company-data"
-                        className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div>
@@ -348,7 +348,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                         value={s3Config.region}
                         onChange={(e) => setS3Config({ ...s3Config, region: e.target.value })}
                         placeholder="us-east-1"
-                        className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
             </div>
@@ -359,7 +359,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     value={s3Config.accessKeyId}
                     onChange={(e) => setS3Config({ ...s3Config, accessKeyId: e.target.value })}
                     placeholder="AKIA..."
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div>
@@ -369,7 +369,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     value={s3Config.secretAccessKey}
                     onChange={(e) => setS3Config({ ...s3Config, secretAccessKey: e.target.value })}
                     placeholder="Within AWS IAM console..."
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
         </div>
@@ -384,7 +384,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     value={gcsConfig.projectId}
                     onChange={(e) => setGcsConfig({ ...gcsConfig, projectId: e.target.value })}
                     placeholder="my-gcp-project"
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div>
@@ -394,7 +394,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     value={gcsConfig.bucket}
                     onChange={(e) => setGcsConfig({ ...gcsConfig, bucket: e.target.value })}
                     placeholder="my-gcs-bucket"
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div>
@@ -404,7 +404,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     onChange={(e) => setGcsConfig({ ...gcsConfig, serviceAccountJson: e.target.value })}
                     placeholder="{ ... }"
                     rows={3}
-                    className="w-full px-4 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
                 />
             </div>
         </div>
@@ -416,22 +416,22 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
             case 'filesystem': return renderFilesystemForm();
             case 's3': return renderS3Form();
             case 'gcs': return renderGCSForm();
-            default: return <div className="p-4 text-slate-400 text-center">Generic configuration not yet implemented for this type.</div>;
+            default: return <div className="p-4 text-muted-foreground text-center">Generic configuration not yet implemented for this type.</div>;
         }
     };
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="bg-slate-900 rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden border border-slate-700 flex flex-col">
+            <div className="bg-card rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden border border-border flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
                     <div>
                         <h2 className="text-xl font-semibold text-white">Add Data Source</h2>
-                        <p className="text-sm text-slate-400 mt-1">
+                        <p className="text-sm text-muted-foreground mt-1">
                             {step === 1 ? 'Select Source Type' : `Configure ${SOURCE_TYPES.find(s => s.id === selectedType)?.name}`}
                         </p>
                     </div>
-                    <button onClick={handleClose} className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
+                    <button onClick={handleClose} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-white">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -444,7 +444,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                 <CheckCircle className="w-8 h-8 text-green-500" />
                             </div>
                             <h3 className="text-xl font-semibold text-white mb-2">Connection Added!</h3>
-                            <p className="text-slate-400">Successfully connected to {name}</p>
+                            <p className="text-muted-foreground">Successfully connected to {name}</p>
                         </div>
                     ) : step === 1 ? (
                         <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-right duration-300">
@@ -454,13 +454,13 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                     onClick={() => setSelectedType(source.id)}
                                     className={`
                                         p-4 rounded-lg border-2 transition-all text-left group
-                                        ${selectedType === source.id ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800 bg-slate-800/50 hover:border-slate-600 hover:bg-slate-800'}
+                                        ${selectedType === source.id ? 'border-blue-500 bg-blue-500/10' : 'border-border bg-secondary hover:border-border hover:bg-muted'}
                                     `}
                                 >
                                     <div className="flex items-start gap-4">
                                         <div className={`
                                             p-3 rounded-lg transition-colors
-                                            ${selectedType === source.id ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700 group-hover:bg-slate-600 text-slate-400 group-hover:text-slate-200'}
+                                            ${selectedType === source.id ? 'bg-blue-500/20 text-blue-400' : 'bg-accent group-hover:bg-slate-600 text-muted-foreground group-hover:text-slate-200'}
                                         `}>
                                             {source.icon}
                                         </div>
@@ -468,7 +468,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                             <div className={`font-semibold ${selectedType === source.id ? 'text-white' : 'text-slate-200'}`}>
                                                 {source.name}
                                             </div>
-                                            <div className="text-sm text-slate-400 mt-1">{source.description}</div>
+                                            <div className="text-sm text-muted-foreground mt-1">{source.description}</div>
                                         </div>
                                     </div>
                                 </button>
@@ -485,11 +485,11 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
 
                             {renderCommonFields()}
 
-                            <div className="bg-slate-950/50 p-6 border border-slate-800 rounded-xl">
+                            <div className="bg-background/50 p-6 border border-border rounded-xl">
                                 {renderConfigForm()}
                             </div>
 
-                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-3">
+                            <div className="bg-background p-4 rounded-lg border border-border space-y-3">
                                 <label className="block text-sm font-medium text-slate-300">
                                     Connection Scope
                                 </label>
@@ -500,13 +500,13 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                             id="read-only"
                                             checked={isReadOnly}
                                             onChange={(e) => setIsReadOnly(e.target.checked)}
-                                            className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-slate-900"
+                                            className="w-4 h-4 rounded border-border bg-muted text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-slate-900"
                                         />
-                                        <label htmlFor="read-only" className="text-sm text-slate-400 select-none cursor-pointer">
+                                        <label htmlFor="read-only" className="text-sm text-muted-foreground select-none cursor-pointer">
                                             Read-only access
                                         </label>
                                     </div>
-                                    <div className="w-px h-4 bg-slate-700 mx-2"></div>
+                                    <div className="w-px h-4 bg-accent mx-2"></div>
                                     <div className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Remediation is currently disabled">
                                         <input
                                             type="checkbox"
@@ -514,9 +514,9 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                             checked={allowRemediation}
                                             onChange={(e) => setAllowRemediation(e.target.checked)}
                                             disabled={true}
-                                            className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-slate-900 cursor-not-allowed"
+                                            className="w-4 h-4 rounded border-border bg-muted text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-slate-900 cursor-not-allowed"
                                         />
-                                        <label htmlFor="allow-remediation" className="text-sm text-slate-400 select-none cursor-not-allowed">
+                                        <label htmlFor="allow-remediation" className="text-sm text-muted-foreground select-none cursor-not-allowed">
                                             Allow remediation actions (Coming Soon)
                                         </label>
                                     </div>
@@ -540,11 +540,11 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-slate-900">
+                <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-card">
                     <button
                         onClick={handleClose}
                         disabled={isSubmitting || isTesting}
-                        className="px-4 py-2 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+                        className="px-4 py-2 text-muted-foreground hover:text-white transition-colors disabled:opacity-50"
                     >
                         Cancel
                     </button>
@@ -555,14 +555,14 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                     <button
                                         onClick={() => setStep(1)}
                                         disabled={isSubmitting || isTesting}
-                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors border border-slate-700 disabled:opacity-50"
+                                        className="px-4 py-2 bg-muted hover:bg-accent text-white rounded-lg font-medium transition-colors border border-border disabled:opacity-50"
                                     >
                                         Back
                                     </button>
                                     <button
                                         onClick={handleTestConnection}
                                         disabled={isSubmitting || isTesting}
-                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors border border-slate-700 disabled:opacity-50 flex items-center gap-2"
+                                        className="px-4 py-2 bg-muted hover:bg-accent text-white rounded-lg font-medium transition-colors border border-border disabled:opacity-50 flex items-center gap-2"
                                     >
                                         {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                                         Test Connection
@@ -587,7 +587,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                 <button
                                     onClick={() => setStep(2)}
                                     disabled={!selectedType}
-                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/20"
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted disabled:text-slate-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/20"
                                 >
                                     Next Step
                                 </button>

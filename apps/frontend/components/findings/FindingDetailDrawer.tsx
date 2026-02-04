@@ -38,19 +38,19 @@ export function FindingDetailDrawer({
 
             {/* Drawer */}
             <div className={`
-                fixed top-0 right-0 h-full w-[480px] bg-slate-900 border-l border-slate-800 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out
+                fixed top-0 right-0 h-full w-[480px] bg-card border-l border-border shadow-2xl z-50 transform transition-transform duration-300 ease-in-out
                 ${isOpen ? 'translate-x-0' : 'translate-x-full'}
             `}>
                 <div className="flex flex-col h-full">
                     {/* Header */}
-                    <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+                    <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
                         <div>
                             <h2 className="text-lg font-semibold text-white">Finding Details</h2>
-                            <p className="text-sm text-slate-400 font-mono mt-0.5">{finding.id}</p>
+                            <p className="text-sm text-muted-foreground font-mono mt-0.5">{finding.id}</p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                            className="p-2 text-muted-foreground hover:text-white hover:bg-muted rounded-lg transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -59,7 +59,7 @@ export function FindingDetailDrawer({
                     {/* Content */}
                     <div className="flex-1 overflow-y-auto p-6 space-y-8">
                         {/* Key Info Card */}
-                        <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 space-y-4">
+                        <div className="bg-secondary rounded-lg p-4 border border-border space-y-4">
                             <div>
                                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                                     Asset Path
@@ -106,7 +106,7 @@ export function FindingDetailDrawer({
                         {/* Detection Method */}
                         <div>
                             <h3 className="text-sm font-semibold text-white mb-3">Detection Logic</h3>
-                            <div className="bg-slate-950 rounded border border-slate-800 p-3">
+                            <div className="bg-background rounded border border-border p-3">
                                 <div className="flex items-center gap-2 text-sm text-slate-300 mb-2">
                                     <Shield className="w-4 h-4 text-green-400" />
                                     <span>Presidio Analysis + Context Validation</span>
@@ -120,17 +120,17 @@ export function FindingDetailDrawer({
                         {/* Evidence */}
                         <div>
                             <h3 className="text-sm font-semibold text-white mb-3">Matching Evidence</h3>
-                            <div className="bg-slate-950 rounded border border-slate-800 p-3 font-mono text-xs text-slate-400 overflow-x-auto whitespace-pre-wrap">
+                            <div className="bg-background rounded border border-border p-3 font-mono text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap">
                                 {finding.matches?.join('\n') || finding.sample_text}
                             </div>
                         </div>
                     </div>
 
                     {/* Footer / Actions */}
-                    <div className="p-6 border-t border-slate-800 bg-slate-900 space-y-3">
+                    <div className="p-6 border-t border-border bg-card space-y-3">
                         <button
                             onClick={() => onMarkFalsePositive(finding.id)}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg font-medium transition-colors"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-muted hover:bg-accent border border-border text-slate-300 rounded-lg font-medium transition-colors"
                         >
                             <CheckCircle className="w-4 h-4" />
                             Mark as False Positive

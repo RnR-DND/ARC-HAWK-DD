@@ -54,21 +54,21 @@ export function RemediationConfirmationModal({
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
-            <div className="bg-slate-900 rounded-lg shadow-2xl w-full max-w-md border border-slate-700 transform transition-all">
+            <div className="bg-card rounded-lg shadow-2xl w-full max-w-md border border-border transform transition-all">
                 {isSuccess ? (
                     <div className="p-8 flex flex-col items-center justify-center text-center">
                         <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4 border border-green-500/20">
                             <CheckCircle className="w-8 h-8 text-green-500" />
                         </div>
                         <h3 className="text-xl font-bold text-white mb-2">Action Completed</h3>
-                        <p className="text-slate-400">
+                        <p className="text-muted-foreground">
                             The remediation action has been successfully applied.
                         </p>
                     </div>
                 ) : (
                     <>
                         {/* Header */}
-                        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
+                        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-secondary">
                             <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-lg ${actionType === 'DELETE' ? 'bg-red-500/10' : 'bg-blue-500/10'}`}>
                                     <Shield className={`w-5 h-5 ${actionType === 'DELETE' ? 'text-red-400' : 'text-blue-400'}`} />
@@ -77,13 +77,13 @@ export function RemediationConfirmationModal({
                                     <h3 className="text-lg font-semibold text-white">
                                         Confirm {actionType === 'MASK' ? 'Masking' : 'Deletion'}
                                     </h3>
-                                    <p className="text-xs text-slate-400 font-mono">{findingId}</p>
+                                    <p className="text-xs text-muted-foreground font-mono">{findingId}</p>
                                 </div>
                             </div>
                             <button
                                 onClick={onClose}
                                 disabled={isProcessing}
-                                className="text-slate-400 hover:text-white transition-colors"
+                                className="text-muted-foreground hover:text-white transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -102,46 +102,46 @@ export function RemediationConfirmationModal({
                             </div>
 
                             <div className="space-y-4">
-                                <label className="flex items-center justify-between p-3 rounded-lg border border-slate-700 bg-slate-800/30 hover:bg-slate-800/50 cursor-pointer transition-colors">
+                                <label className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted hover:bg-secondary cursor-pointer transition-colors">
                                     <div className="flex items-center gap-3">
                                         <ArchiveRestore className="w-5 h-5 text-purple-400" />
                                         <div>
                                             <div className="text-sm font-medium text-white">Create Rollback Point</div>
-                                            <div className="text-xs text-slate-400">Save original value for 30 days</div>
+                                            <div className="text-xs text-muted-foreground">Save original value for 30 days</div>
                                         </div>
                                     </div>
                                     <input
                                         type="checkbox"
                                         checked={options.createRollback}
                                         onChange={(e) => setOptions({ ...options, createRollback: e.target.checked })}
-                                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-offset-slate-900"
+                                        className="w-4 h-4 rounded border-border bg-accent text-blue-500 focus:ring-offset-slate-900"
                                     />
                                 </label>
 
-                                <label className="flex items-center justify-between p-3 rounded-lg border border-slate-700 bg-slate-800/30 hover:bg-slate-800/50 cursor-pointer transition-colors">
+                                <label className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted hover:bg-secondary cursor-pointer transition-colors">
                                     <div className="flex items-center gap-3">
-                                        <Shield className="w-5 h-5 text-slate-400" />
+                                        <Shield className="w-5 h-5 text-muted-foreground" />
                                         <div>
                                             <div className="text-sm font-medium text-white">Notify Data Owner</div>
-                                            <div className="text-xs text-slate-400">Send email notification</div>
+                                            <div className="text-xs text-muted-foreground">Send email notification</div>
                                         </div>
                                     </div>
                                     <input
                                         type="checkbox"
                                         checked={options.notifyOwner}
                                         onChange={(e) => setOptions({ ...options, notifyOwner: e.target.checked })}
-                                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-offset-slate-900"
+                                        className="w-4 h-4 rounded border-border bg-accent text-blue-500 focus:ring-offset-slate-900"
                                     />
                                 </label>
                             </div>
                         </div>
 
                         {/* Footer */}
-                        <div className="px-6 py-4 border-t border-slate-800 bg-slate-800/30 flex justify-end gap-3">
+                        <div className="px-6 py-4 border-t border-border bg-muted flex justify-end gap-3">
                             <button
                                 onClick={onClose}
                                 disabled={isProcessing}
-                                className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-white transition-colors"
                             >
                                 Cancel
                             </button>

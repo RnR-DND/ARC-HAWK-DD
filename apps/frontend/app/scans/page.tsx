@@ -58,7 +58,7 @@ export default function ScansPage() {
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Scans</h1>
-                    <p className="text-slate-400 mt-1">Manage and review PII detection scans.</p>
+                    <p className="text-muted-foreground mt-1">Manage and review PII detection scans.</p>
                 </div>
                 <button
                     onClick={() => setShowScanConfigModal(true)}
@@ -69,15 +69,15 @@ export default function ScansPage() {
                 </button>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                 {loading ? (
-                    <div className="flex items-center justify-center p-12 text-slate-400">
+                    <div className="flex items-center justify-center p-12 text-muted-foreground">
                         <Loader2 className="w-8 h-8 animate-spin mr-3" />
                         <span>Loading scan history...</span>
                     </div>
                 ) : scans.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-12 text-slate-400">
-                        <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                    <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
+                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
                             <Clock className="w-8 h-8 text-slate-500" />
                         </div>
                         <h3 className="text-lg font-medium text-white mb-1">No Scans Found</h3>
@@ -86,7 +86,7 @@ export default function ScansPage() {
                 ) : (
                     <table className="w-full text-left text-sm">
                         <thead>
-                            <tr className="bg-slate-800/50 text-slate-400 border-b border-slate-700">
+                            <tr className="bg-secondary text-muted-foreground border-b border-border">
                                 <th className="px-6 py-4 font-medium">Scan Name</th>
                                 <th className="px-6 py-4 font-medium">Date</th>
                                 <th className="px-6 py-4 font-medium">Status</th>
@@ -94,11 +94,11 @@ export default function ScansPage() {
                                 <th className="px-6 py-4 font-medium text-right">Findings</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800">
+                        <tbody className="divide-y divide-border">
                             {scans.map((scan) => (
                                 <tr
                                     key={scan.id}
-                                    className="group hover:bg-slate-800/50 transition-colors cursor-pointer"
+                                    className="group hover:bg-secondary transition-colors cursor-pointer"
                                 >
                                     <td className="px-6 py-4">
                                         <Link href={`/scans/${scan.id}`} className="block">

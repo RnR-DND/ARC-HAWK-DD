@@ -50,12 +50,12 @@ export default function RiskDistribution({
             </div>
 
             {/* Tabs */}
-            <div className="flex p-1 bg-slate-900 rounded-lg mb-6 border border-slate-800">
+            <div className="flex p-1 bg-card rounded-lg mb-6 border border-border">
                 <button
                     onClick={() => setActiveTab('type')}
                     className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === 'type'
-                            ? 'bg-slate-700 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                            ? 'bg-accent text-white shadow-sm'
+                            : 'text-muted-foreground hover:text-white hover:bg-muted'
                         }`}
                 >
                     By Type
@@ -63,8 +63,8 @@ export default function RiskDistribution({
                 <button
                     onClick={() => setActiveTab('asset')}
                     className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === 'asset'
-                            ? 'bg-slate-700 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                            ? 'bg-accent text-white shadow-sm'
+                            : 'text-muted-foreground hover:text-white hover:bg-muted'
                         }`}
                 >
                     By Asset
@@ -72,8 +72,8 @@ export default function RiskDistribution({
                 <button
                     onClick={() => setActiveTab('confidence')}
                     className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === 'confidence'
-                            ? 'bg-slate-700 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                            ? 'bg-accent text-white shadow-sm'
+                            : 'text-muted-foreground hover:text-white hover:bg-muted'
                         }`}
                 >
                     By Confidence
@@ -87,9 +87,9 @@ export default function RiskDistribution({
                         <div key={label} className="space-y-1">
                             <div className="flex justify-between text-sm">
                                 <span className="text-slate-200 truncate pr-4" title={label}>{label}</span>
-                                <span className="text-slate-400 whitespace-nowrap">{count} ({percentage.toFixed(0)}%)</span>
+                                <span className="text-muted-foreground whitespace-nowrap">{count} ({percentage.toFixed(0)}%)</span>
                             </div>
-                            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
                                 <div
                                     className={`h-full rounded-full transition-all duration-500 ease-out ${activeTab === 'confidence'
                                             ? label.includes('High') || label === '> 90%' ? 'bg-green-500' : 'bg-blue-500'

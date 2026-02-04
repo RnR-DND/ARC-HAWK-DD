@@ -14,8 +14,8 @@ interface AssetTableProps {
 export default function AssetTable({ assets, loading, onAssetClick }: AssetTableProps) {
     if (loading) {
         return (
-            <div className="p-8 text-center text-slate-400 flex flex-col items-center">
-                <div className="animate-pulse w-12 h-12 bg-slate-800 rounded-full mb-4"></div>
+            <div className="p-8 text-center text-muted-foreground flex flex-col items-center">
+                <div className="animate-pulse w-12 h-12 bg-muted rounded-full mb-4"></div>
                 Loading assets...
             </div>
         );
@@ -23,10 +23,10 @@ export default function AssetTable({ assets, loading, onAssetClick }: AssetTable
 
     if (assets.length === 0) {
         return (
-            <div className="p-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
+            <div className="p-12 text-center border-2 border-dashed border-border rounded-xl">
                 <div className="text-4xl mb-4 opacity-50">📦</div>
                 <h3 className="text-lg font-semibold text-white mb-2">No Assets Found</h3>
-                <p className="text-slate-400">Run a scan or adjust filters to see assets.</p>
+                <p className="text-muted-foreground">Run a scan or adjust filters to see assets.</p>
             </div>
         );
     }
@@ -35,7 +35,7 @@ export default function AssetTable({ assets, loading, onAssetClick }: AssetTable
         <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
                 <thead>
-                    <tr className="bg-slate-800/50 text-slate-400 border-b border-slate-700">
+                    <tr className="bg-secondary text-muted-foreground border-b border-border">
                         <th className="px-6 py-4 font-medium">Asset Name</th>
                         <th className="px-6 py-4 font-medium">Type</th>
                         <th className="px-6 py-4 font-medium">Risk Score</th>
@@ -43,7 +43,7 @@ export default function AssetTable({ assets, loading, onAssetClick }: AssetTable
                         <th className="px-6 py-4 font-medium">Findings</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y divide-border">
                     {assets.map((asset) => (
                         <AssetRow key={asset.id} asset={asset} onClick={() => onAssetClick(asset.id)} />
                     ))}
@@ -57,7 +57,7 @@ function AssetRow({ asset, onClick }: { asset: Asset; onClick: () => void }) {
     return (
         <tr
             onClick={onClick}
-            className="group hover:bg-slate-800/30 cursor-pointer transition-colors"
+            className="group hover:bg-muted cursor-pointer transition-colors"
         >
             <td className="px-6 py-4">
                 <div className="font-semibold text-slate-200 group-hover:text-blue-400 transition-colors">
@@ -76,7 +76,7 @@ function AssetRow({ asset, onClick }: { asset: Asset; onClick: () => void }) {
             <td className="px-6 py-4">
                 <RiskBadge score={asset.risk_score} />
             </td>
-            <td className="px-6 py-4 text-slate-400">
+            <td className="px-6 py-4 text-muted-foreground">
                 <div className="flex items-center gap-2">
                     <Server className="w-4 h-4 text-slate-600" />
                     {asset.source_system}
@@ -104,7 +104,7 @@ function TypeBadge({ type }: { type: string }) {
     if (type === 'Table') icon = <Database className="w-3 h-3" />;
 
     return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-slate-300 border border-border">
             {icon}
             {type}
         </span>
@@ -112,7 +112,7 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 function RiskBadge({ score }: { score: number }) {
-    let colorClass = "bg-slate-800 text-slate-400 border-slate-700";
+    let colorClass = "bg-muted text-muted-foreground border-border";
 
     if (score >= 90) colorClass = "bg-red-500/10 text-red-500 border-red-500/20";
     else if (score >= 70) colorClass = "bg-orange-500/10 text-orange-500 border-orange-500/20";
