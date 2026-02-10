@@ -1,8 +1,8 @@
 # 📚 findings.md - Research & Discoveries (CORRECTED)
 
-**Date:** 2026-01-22
-**Analyst:** AI Codebase Analysis
-**Scope:** Complete ARC-Hawk Platform Analysis
+**Date:** 2026-02-10 (Last Updated)
+**Analyst:** AI Codebase Deep Analysis
+**Scope:** Complete ARC-Hawk Platform Analysis + Agent Tool Integration
 
 ---
 
@@ -19,6 +19,10 @@ Through comprehensive analysis of the ARC-Hawk codebase, we have discovered a pr
 **Key Finding:** The platform enforces strict architectural principles where the Scanner SDK is the SOLE AUTHORITY for PII validation, ensuring zero false positives through mathematical validation algorithms.
 
 **Another Key Finding:** Each data source connector requires UNIQUE connection parameters. They are NOT identical across source types.
+
+**New Finding (2026-02-10):** The project now integrates an "Agentic Operation System" consisting of **Get Shit Done (GSD)** for planning (30 workflows, 24 templates), **Ralph** for autonomous execution loops, **Hive** for multi-agent orchestration, **Antigravity Skills** (626+ skills, 90+ directly relevant), and **Superpowers** (14 meta-skills). All installed in `agent_tools/` directory.
+
+**Deep Analysis Finding (2026-02-10):** Backend has **12 modules** (not 7 as previously documented), **130+ files**. Scanner SDK has **14 data source connectors**, **11 custom Presidio recognizers**, **15 validators** (including Verhoeff, Luhn, context validation). Frontend has **12 page routes**, **26+ components**, **11 service APIs**. Infrastructure runs **7 Docker containers** with static IP networking on `172.28.0.0/16`.
 
 ---
 
@@ -67,18 +71,25 @@ Scanner SDK          Backend API          PostgreSQL           Neo4j            
 
 ### 3. Modular Monolith Structure
 
-**Discovery:** The Go backend uses a modular monolith architecture with 7 core modules.
+**Discovery:** The Go backend uses a modular monolith architecture with **12 modules** (130+ files total).
 
-**Module Inventory:**
-| Module | Location | Purpose |
-|--------|----------|---------|
-| **scanning** | `modules/scanning/` | Scan ingestion and classification |
-| **assets** | `modules/assets/` | Asset management |
-| **lineage** | `modules/lineage/` | Graph lineage services |
-| **compliance** | `modules/compliance/` | Compliance reporting |
-| **masking** | `modules/masking/` | Data masking (future) |
-| **analytics** | `modules/analytics/` | Risk analytics |
-| **connections** | `modules/connections/` | External integrations |
+**Module Inventory (Updated 2026-02-10):**
+| Module | Location | Files | Purpose |
+|--------|----------|-------|---------|
+| **scanning** | `modules/scanning/` | 19 | Scan ingestion, classification, dashboard metrics, SDK ingest |
+| **connections** | `modules/connections/` | 8 | Connection CRUD, sync, test, scan orchestration |
+| **assets** | `modules/assets/` | 7 | Asset management, AssetManager interface |
+| **lineage** | `modules/lineage/` | 6 | Neo4j graph lineage services |
+| **compliance** | `modules/compliance/` | 8 | DPDPA compliance reporting, policy management |
+| **remediation** | `modules/remediation/` | 11 | Remediation execution + 6 connectors (S3, FS, MySQL, etc.) |
+| **auth** | `modules/auth/` | 7 | JWT authentication, middleware |
+| **analytics** | `modules/analytics/` | 3 | Risk analytics |
+| **masking** | `modules/masking/` | 3 | Data masking |
+| **fplearning** | `modules/fplearning/` | 6 | False positive learning from user feedback |
+| **websocket** | `modules/websocket/` | 2 | Real-time scan status updates |
+| **shared** | `modules/shared/` | 50 | 12 domain entities, 17 persistence repos, encryption, audit |
+
+**Module Pattern:** Each module follows `module.go` → `Initialize(deps)` → `RegisterRoutes(router)` pattern.
 
 **File:** `apps/backend/modules/scanning/module.go:13-31`
 
@@ -469,9 +480,18 @@ func (h *Handler) Process(finding Finding) error {
 - **Styling:** Tailwind CSS, CSS Modules
 
 #### Scanner (Python 3.9+)
-- **NLP:** spaCy (en_core_web_sm)
-- **Validation:** Custom algorithms (Verhoeff, Luhn)
-- **Connectors:** PostgreSQL, MySQL, MongoDB, S3, GCS, Redis, Slack, Firebase, Google Drive
+- **NLP:** spaCy (`en_core_web_sm`) via Presidio singleton engine (RAM < 1GB)
+- **SDK Engine:** `SharedAnalyzerEngine` singleton pattern in `sdk/engine.py`
+- **Recognizers (11):** Aadhaar, PAN, CreditCard, Passport, UPI, IFSC, BankAccount, Phone, Email, VoterID, DrivingLicense
+- **Validators (15):** Verhoeff, Luhn, PAN, Phone, Email, Passport, UPI, IFSC, BankAccount, VoterID, DrivingLicense + `context_validator`, `blacklists`, `dummy_detector`, `__init__`
+- **Connectors (14):** mysql, postgresql, mongodb, redis, s3, gcs, gdrive, gdrive_workspace, firebase, slack, fs, couchdb, text, all
+- **API:** Flask REST API (`scanner_api.py`) for scan triggering and result ingestion
+
+#### Infrastructure
+- **Containers:** 7 Docker services (Postgres, Neo4j, Temporal+UI, Presidio, Backend, Frontend, Scanner)
+- **Network:** Bridge `172.28.0.0/16` with static IPs per container
+- **Monitoring:** Prometheus + Grafana stack (`infra/monitoring/`)
+- **Database Migrations:** 11 versioned PostgreSQL migrations + Neo4j Cypher schema
 
 ---
 

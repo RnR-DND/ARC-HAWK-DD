@@ -54,19 +54,8 @@ export default function PosturePage() {
         setError(null);
 
         try {
-            // Call backend API to trigger scan
-            const response = await fetch('http://localhost:8080/api/v1/scans/trigger', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to trigger scan: ${response.statusText}`);
-            }
-
-            const result = await response.json();
+            // Call backend API to trigger scan via centralized API client
+            const result = await scansApi.triggerScan({});
             console.log('Scan triggered:', result);
 
             // Simulate progress while scan runs in background

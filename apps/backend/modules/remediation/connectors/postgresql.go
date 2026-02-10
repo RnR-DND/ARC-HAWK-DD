@@ -4,9 +4,23 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 
 	_ "github.com/lib/pq"
 )
+
+// validIdentifier matches safe SQL identifiers (letters, digits, underscores)
+var validIdentifier = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// sanitizePgIdentifier validates and quotes a PostgreSQL identifier to prevent SQL injection.
+// Table and column names cannot be parameterized with $1, so we must validate them.
+func sanitizePgIdentifier(name string) (string, error) {
+	if !validIdentifier.MatchString(name) {
+		return "", fmt.Errorf("invalid SQL identifier: %q", name)
+	}
+	// Double-quote the identifier for safety (handles reserved words)
+	return fmt.Sprintf(`"%s"`, name), nil
+}
 
 // PostgreSQLConnector implements remediation for PostgreSQL databases
 type PostgreSQLConnector struct {
@@ -47,8 +61,16 @@ func (c *PostgreSQLConnector) Close() error {
 
 // Mask redacts PII in place
 func (c *PostgreSQLConnector) Mask(ctx context.Context, location string, fieldName string, recordID string) error {
-	query := fmt.Sprintf("UPDATE %s SET %s = 'REDACTED' WHERE id = $1", location, fieldName)
-	_, err := c.db.ExecContext(ctx, query, recordID)
+	safeTable, err := sanitizePgIdentifier(location)
+	if err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
+	safeField, err := sanitizePgIdentifier(fieldName)
+	if err != nil {
+		return fmt.Errorf("invalid field name: %w", err)
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s = 'REDACTED' WHERE id = $1", safeTable, safeField)
+	_, err = c.db.ExecContext(ctx, query, recordID)
 	if err != nil {
 		return fmt.Errorf("failed to mask PII: %w", err)
 	}
@@ -57,8 +79,12 @@ func (c *PostgreSQLConnector) Mask(ctx context.Context, location string, fieldNa
 
 // Delete removes the entire record
 func (c *PostgreSQLConnector) Delete(ctx context.Context, location string, recordID string) error {
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", location)
-	_, err := c.db.ExecContext(ctx, query, recordID)
+	safeTable, err := sanitizePgIdentifier(location)
+	if err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
+	query := fmt.Sprintf("DELETE FROM %s WHERE id = $1", safeTable)
+	_, err = c.db.ExecContext(ctx, query, recordID)
 	if err != nil {
 		return fmt.Errorf("failed to delete record: %w", err)
 	}
@@ -76,7 +102,15 @@ func (c *PostgreSQLConnector) Encrypt(ctx context.Context, location string, fiel
 	// Encrypt value (simplified - in production use proper encryption)
 	encryptedValue := fmt.Sprintf("ENC:%s", originalValue) // Placeholder
 
-	query := fmt.Sprintf("UPDATE %s SET %s = $1 WHERE id = $2", location, fieldName)
+	safeTable, err := sanitizePgIdentifier(location)
+	if err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
+	safeField, err := sanitizePgIdentifier(fieldName)
+	if err != nil {
+		return fmt.Errorf("invalid field name: %w", err)
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s = $1 WHERE id = $2", safeTable, safeField)
 	_, err = c.db.ExecContext(ctx, query, encryptedValue, recordID)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt PII: %w", err)
@@ -86,10 +120,18 @@ func (c *PostgreSQLConnector) Encrypt(ctx context.Context, location string, fiel
 
 // GetOriginalValue retrieves original value before remediation
 func (c *PostgreSQLConnector) GetOriginalValue(ctx context.Context, location string, fieldName string, recordID string) (string, error) {
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE id = $1", fieldName, location)
+	safeField, err := sanitizePgIdentifier(fieldName)
+	if err != nil {
+		return "", fmt.Errorf("invalid field name: %w", err)
+	}
+	safeTable, err := sanitizePgIdentifier(location)
+	if err != nil {
+		return "", fmt.Errorf("invalid table name: %w", err)
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE id = $1", safeField, safeTable)
 
 	var value string
-	err := c.db.QueryRowContext(ctx, query, recordID).Scan(&value)
+	err = c.db.QueryRowContext(ctx, query, recordID).Scan(&value)
 	if err != nil {
 		return "", fmt.Errorf("failed to get original value: %w", err)
 	}
@@ -99,8 +141,16 @@ func (c *PostgreSQLConnector) GetOriginalValue(ctx context.Context, location str
 
 // RestoreValue restores original value (rollback)
 func (c *PostgreSQLConnector) RestoreValue(ctx context.Context, location string, fieldName string, recordID string, originalValue string) error {
-	query := fmt.Sprintf("UPDATE %s SET %s = $1 WHERE id = $2", location, fieldName)
-	_, err := c.db.ExecContext(ctx, query, originalValue, recordID)
+	safeTable, err := sanitizePgIdentifier(location)
+	if err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
+	safeField, err := sanitizePgIdentifier(fieldName)
+	if err != nil {
+		return fmt.Errorf("invalid field name: %w", err)
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s = $1 WHERE id = $2", safeTable, safeField)
+	_, err = c.db.ExecContext(ctx, query, originalValue, recordID)
 	if err != nil {
 		return fmt.Errorf("failed to restore value: %w", err)
 	}

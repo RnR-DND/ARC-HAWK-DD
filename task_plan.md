@@ -1,8 +1,9 @@
 # 📋 task_plan.md - ARC-Hawk Project Blueprint
 
-**Status:** Phase 1 Complete (CORRECTED)
+**Status:** Phase 2: Agentic Integration (In Progress)
 **Created:** 2026-01-22
-**Version:** 2.1.0
+**Last Updated:** 2026-02-10
+**Version:** 3.0.0
 
 ---
 
@@ -33,7 +34,7 @@
 3. **Architecture Defined**
    - 3-layer architecture (Tools, Navigation, Architecture SOPs)
    - Data flow: Scanner → Backend → PostgreSQL → Neo4j → Frontend
-   - 7 backend modules: scanning, assets, lineage, compliance, masking, analytics, connections
+   - 12 backend modules (130+ files): scanning, connections, assets, lineage, compliance, remediation, auth, analytics, masking, fplearning, websocket, shared
 
 4. **Data Schemas Finalized (CORRECTED)**
    - Trigger schema (input)
@@ -52,7 +53,59 @@
 
 ---
 
-## ⚡ Phase 2: Link (Connectivity Verification)
+## 🤖 Phase 2: Agentic Integration (In Progress)
+
+### Objectives
+
+Integrate and configure the new Agentic Operation System to boost productivity.
+
+### Tasks
+
+#### 2.1 Tool Configuration
+- [x] **2.1.1** Install MCP Tools
+  - Tools: Supermemory, Get Shit Done, Ralph, Antigravity Awesome Skills, Hive, Superpowers
+  - Location: `~/.agent`
+  - Status: ✅ Complete
+
+- [x] **2.1.2** Configure MCP Server
+  - File: `mcp_config_snippet.json`
+  - Server: `filesystem` pointing to `agent_tools`
+  - Status: ✅ Complete
+
+- [x] **2.1.3** Deep Codebase Analysis
+  - Backend: 12 Go modules, 130+ files
+  - Scanner: 14 connectors, 11 recognizers, 15 validators, Flask API
+  - Frontend: 12 routes, 26+ components, 11 service APIs
+  - Infrastructure: 7 Docker containers, Prometheus + Grafana
+  - Status: ✅ Complete
+
+- [x] **2.1.4** Map Agent Tools to B.L.A.S.T. Phases
+  - GSD → Blueprint/Architect phases (planning, research)
+  - Ralph → Link/Stylize phases (autonomous execution)
+  - Hive → Trigger phase (multi-agent deploy)
+  - Skills: 90+ relevant mapped (golang-pro, python-pro, nextjs, docker, security, etc.)
+  - Status: ✅ Complete
+
+- [ ] **2.1.5** Initialize GSD Project
+  - Command: `npx get-shit-done-cc`
+  - Output: `PROJECT.md`, `REQUIREMENTS.md`
+  - Action: Map existing `gemini.md` content to GSD format
+
+- [ ] **2.1.6** Configure Ralph
+  - Action: Create `scripts/ralph` directory
+  - Action: Copy `ralph.sh` and prompts
+
+#### 2.2 Workflow Adoption
+- [ ] **2.2.1** Update System Prompt
+  - Action: Add skill-trigger rules from `gemini.md`
+  - Load `@brainstorming` BEFORE all creative work
+  - Load language-specific skills per component
+- [ ] **2.2.2** Create First PRD with GSD
+  - Target: Phase 3 (Link) verification scripts
+
+---
+
+## ⚡ Phase 3: Link (Connectivity Verification) — Tools: `@docker-expert`, `@systematic-debugging`
 
 ### Objectives
 
@@ -181,7 +234,7 @@ Verify all infrastructure connections and API endpoints are operational before p
 
 ---
 
-## ⚙️ Phase 3: Architect (3-Layer Build)
+## ⚙️ Phase 4: Architect (3-Layer Build) — Tools: `@golang-pro`, `@python-pro`, `@api-design-principles`
 
 ### Objectives
 
@@ -256,7 +309,7 @@ Implement deterministic automation logic following the 3-layer architecture.
 
 ---
 
-## ✨ Phase 4: Stylize (Refinement)
+## ✨ Phase 5: Stylize (Refinement) — Tools: `@nextjs-best-practices`, `@react-patterns`
 
 ### Objectives
 
@@ -309,7 +362,7 @@ Format outputs professionally and apply UI/UX improvements.
 
 ---
 
-## 🛰️ Phase 5: Trigger (Deployment)
+## 🛰️ Phase 6: Trigger (Deployment) — Tools: `@docker-expert`, `@security-auditor`
 
 ### Objectives
 
@@ -365,6 +418,7 @@ Deploy to production and set up automation.
 | Phase | Criteria | Status |
 |-------|----------|--------|
 | **Blueprint** | All 5 discovery questions answered (CORRECTED) | ✅ Complete |
+| **Agentic Integration** | All tools mapped, GSD/Ralph configured | 🔄 In Progress |
 | **Link** | All services responding to health checks | ⏳ Pending |
 | **Architect** | All tools implemented and tested | ⏳ Pending |
 | **Stylize** | Dashboard receives valid data | ⏳ Pending |
@@ -380,10 +434,10 @@ Deploy to production and set up automation.
 ### Dependencies Between Phases
 
 ```
-Phase 1 (Blueprint) → Phase 2 (Link) → Phase 3 (Architect) → Phase 4 (Stylize) → Phase 5 (Trigger)
-        ↓                    ↓                     ↓                    ↓                   ↓
-   gemini.md           verify scripts          tools/*.py         dashboard          deployment
-   task_plan.sh        connectivity            navigation         formatting         automation
+Phase 1 (Blueprint) → Phase 2 (Agentic) → Phase 3 (Link) → Phase 4 (Architect) → Phase 5 (Stylize) → Phase 6 (Trigger)
+       ↓                    ↓                   ↓                   ↓                    ↓                   ↓
+   gemini.md          GSD+Ralph          verify scripts         tools/*.py          dashboard          deployment
+   task_plan.md       skill-triggers     connectivity            navigation          formatting         automation
 ```
 
 ---
@@ -420,7 +474,10 @@ Phase 1 (Blueprint) → Phase 2 (Link) → Phase 3 (Architect) → Phase 4 (Styl
 | 2026-01-22 | Blueprint | Initial plan creation (CORRECTED) | AI Analysis |
 | 2026-01-22 | Blueprint | Added all discovery answers (CORRECTED) | AI Analysis |
 | 2026-01-22 | Blueprint | Defined data schemas (CORRECTED - each source has unique params) | AI Analysis |
-| 2026-01-22 | Blueprint | Corrected connection.yml.sample reference (was using wrong file) | AI Analysis |
+| 2026-01-22 | Blueprint | Corrected connection.yml.sample reference | AI Analysis |
+| 2026-02-10 | Agentic | Deep codebase analysis (12 modules, 14 connectors, 12 routes) | AI Analysis |
+| 2026-02-10 | Agentic | Mapped agent tools → B.L.A.S.T. phases, 90+ skills identified | AI Analysis |
+| 2026-02-10 | Agentic | Updated gemini.md v3.0.0 with tool-to-phase + skill-trigger rules | AI Analysis |
 
 ---
 

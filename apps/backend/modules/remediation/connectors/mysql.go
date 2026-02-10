@@ -4,9 +4,22 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 
 	_ "github.com/go-sql-driver/mysql"
 )
+
+// validIdentifier matches safe SQL identifiers (letters, digits, underscores)
+var validIdentifierMySQL = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// sanitizeMySQLIdentifier validates and quotes a MySQL identifier to prevent SQL injection.
+func sanitizeMySQLIdentifier(name string) (string, error) {
+	if !validIdentifierMySQL.MatchString(name) {
+		return "", fmt.Errorf("invalid SQL identifier: %q", name)
+	}
+	// Backtick-quote the identifier for MySQL
+	return fmt.Sprintf("`%s`", name), nil
+}
 
 // MySQLConnector implements remediation for MySQL databases
 type MySQLConnector struct {
@@ -46,8 +59,16 @@ func (c *MySQLConnector) Close() error {
 
 // Mask redacts PII in place
 func (c *MySQLConnector) Mask(ctx context.Context, location string, fieldName string, recordID string) error {
-	query := fmt.Sprintf("UPDATE %s SET %s = 'REDACTED' WHERE id = ?", location, fieldName)
-	_, err := c.db.ExecContext(ctx, query, recordID)
+	safeTable, err := sanitizeMySQLIdentifier(location)
+	if err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
+	safeField, err := sanitizeMySQLIdentifier(fieldName)
+	if err != nil {
+		return fmt.Errorf("invalid field name: %w", err)
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s = 'REDACTED' WHERE id = ?", safeTable, safeField)
+	_, err = c.db.ExecContext(ctx, query, recordID)
 	if err != nil {
 		return fmt.Errorf("failed to mask PII: %w", err)
 	}
@@ -56,8 +77,12 @@ func (c *MySQLConnector) Mask(ctx context.Context, location string, fieldName st
 
 // Delete removes the entire record
 func (c *MySQLConnector) Delete(ctx context.Context, location string, recordID string) error {
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", location)
-	_, err := c.db.ExecContext(ctx, query, recordID)
+	safeTable, err := sanitizeMySQLIdentifier(location)
+	if err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
+	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", safeTable)
+	_, err = c.db.ExecContext(ctx, query, recordID)
 	if err != nil {
 		return fmt.Errorf("failed to delete record: %w", err)
 	}
@@ -73,7 +98,15 @@ func (c *MySQLConnector) Encrypt(ctx context.Context, location string, fieldName
 
 	encryptedValue := fmt.Sprintf("ENC:%s", originalValue) // Placeholder
 
-	query := fmt.Sprintf("UPDATE %s SET %s = ? WHERE id = ?", location, fieldName)
+	safeTable, err := sanitizeMySQLIdentifier(location)
+	if err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
+	safeField, err := sanitizeMySQLIdentifier(fieldName)
+	if err != nil {
+		return fmt.Errorf("invalid field name: %w", err)
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s = ? WHERE id = ?", safeTable, safeField)
 	_, err = c.db.ExecContext(ctx, query, encryptedValue, recordID)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt PII: %w", err)
@@ -83,10 +116,18 @@ func (c *MySQLConnector) Encrypt(ctx context.Context, location string, fieldName
 
 // GetOriginalValue retrieves original value before remediation
 func (c *MySQLConnector) GetOriginalValue(ctx context.Context, location string, fieldName string, recordID string) (string, error) {
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE id = ?", fieldName, location)
+	safeField, err := sanitizeMySQLIdentifier(fieldName)
+	if err != nil {
+		return "", fmt.Errorf("invalid field name: %w", err)
+	}
+	safeTable, err := sanitizeMySQLIdentifier(location)
+	if err != nil {
+		return "", fmt.Errorf("invalid table name: %w", err)
+	}
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE id = ?", safeField, safeTable)
 
 	var value string
-	err := c.db.QueryRowContext(ctx, query, recordID).Scan(&value)
+	err = c.db.QueryRowContext(ctx, query, recordID).Scan(&value)
 	if err != nil {
 		return "", fmt.Errorf("failed to get original value: %w", err)
 	}
@@ -96,8 +137,16 @@ func (c *MySQLConnector) GetOriginalValue(ctx context.Context, location string, 
 
 // RestoreValue restores original value (rollback)
 func (c *MySQLConnector) RestoreValue(ctx context.Context, location string, fieldName string, recordID string, originalValue string) error {
-	query := fmt.Sprintf("UPDATE %s SET %s = ? WHERE id = ?", location, fieldName)
-	_, err := c.db.ExecContext(ctx, query, originalValue, recordID)
+	safeTable, err := sanitizeMySQLIdentifier(location)
+	if err != nil {
+		return fmt.Errorf("invalid table name: %w", err)
+	}
+	safeField, err := sanitizeMySQLIdentifier(fieldName)
+	if err != nil {
+		return fmt.Errorf("invalid field name: %w", err)
+	}
+	query := fmt.Sprintf("UPDATE %s SET %s = ? WHERE id = ?", safeTable, safeField)
+	_, err = c.db.ExecContext(ctx, query, originalValue, recordID)
 	if err != nil {
 		return fmt.Errorf("failed to restore value: %w", err)
 	}

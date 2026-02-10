@@ -1,17 +1,54 @@
 # ♊ gemini.md - ARC-Hawk Project Constitution
 
-**Status:** ✅ Phase 1: Blueprint (Complete - CORRECTED)
-**Last Updated:** 2026-01-22
-**Version:** 2.1.0
+**Status:** ✅ Phase 1: Blueprint (Complete) · Phase 2: Agentic Integration (In Progress)
+**Last Updated:** 2026-02-10
+**Version:** 3.0.0
 
 ---
 
 ## 📍 Project State
 
-**Phase:** Phase 1 (Blueprint) - COMPLETE (CORRECTED)
+**Phase:** Phase 2 (Agentic Integration) - IN PROGRESS
 **Discovery:** All 5 questions answered through CODEBASE ANALYSIS
 **Critical Correction:** Read `connection.yml.sample` - NOT `connection.yml`
-**Next Step:** Phase 2 - Link (Verify connectivity)
+**Next Step:** Complete GSD initialization → Phase 3 - Link (Verify connectivity)
+
+---
+
+## 🤖 Agentic Operation System
+
+**Core Workflow:** Meta-Prompting & Autonomous Loop — plan with GSD, execute with Ralph, orchestrate with Hive.
+
+### Tool-to-Phase Mapping
+
+| B.L.A.S.T. Phase | Primary Tool | Workflows / Commands | Skills to Load |
+|---|---|---|---|
+| **Blueprint** | GSD | `new-project`, `map-codebase`, `research-phase` | `@brainstorming`, `@architecture` |
+| **Link** | Ralph | `prd.json` with connectivity stories | `@docker-expert`, `@postgres-best-practices`, `@systematic-debugging` |
+| **Architect** | GSD + Ralph | `plan-phase` → `execute-plan` | `@golang-pro`, `@python-pro`, `@api-design-principles`, `@database-architect` |
+| **Stylize** | Ralph | `prd.json` with UI stories | `@nextjs-best-practices`, `@react-patterns`, `@react-state-management` |
+| **Trigger** | Hive | Multi-agent deploy + verify | `@docker-expert`, `@observability-monitoring-*`, `@security-auditor` |
+
+### Skill Trigger Rules
+
+| Task Type | Auto-Load Skills |
+|---|---|
+| Any creative/design work | `@brainstorming` (MANDATORY) |
+| Go backend changes | `@golang-pro`, `@go-concurrency-patterns` |
+| Python scanner changes | `@python-pro`, `@python-patterns` |
+| Frontend changes | `@nextjs-best-practices`, `@react-best-practices` |
+| Database schema changes | `@database-migration`, `@postgres-best-practices` |
+| Security-related work | `@security-auditor`, `@api-security-best-practices` |
+| Bug fixing | `@systematic-debugging`, `@debugging-strategies` |
+| Writing tests | `@testing-patterns`, `@verification-before-completion` |
+| Cross-component work | `@dispatching-parallel-agents`, `@subagent-driven-development` |
+| Docker/infra changes | `@docker-expert`, `@observability-monitoring-monitor-setup` |
+
+### Execution Modes
+
+1. **GSD Planning** → `npx get-shit-done-cc` → `.planning/PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`
+2. **Ralph Loop** → `./ralph.sh` → reads `prd.json`, executes stories one-by-one, updates `progress.txt`
+3. **Hive Orchestration** → `./hive` → parallel multi-agent tasks with TUI monitoring
 
 ---
 
@@ -137,17 +174,22 @@ type Classification struct {
   - Format validation (Passport, Voter ID, etc.)
   - Regex patterns (Email, Phone, etc.)
 
-**Backend Modules (Go):** `apps/backend/modules/`
+**Backend Modules (Go):** `apps/backend/modules/` — 12 modules, 130+ files
 - **Purpose:** Business logic orchestration
 - **Constraint:** NO validation logic - passive consumer only
 - **Modules:**
-  - `scanning/` - Scan ingestion and classification
-  - `assets/` - Asset management
-  - `lineage/` - Graph lineage services
-  - `compliance/` - Compliance reporting
-  - `masking/` - Data masking (future)
-  - `analytics/` - Risk analytics
-  - `connections/` - External integrations
+  - `scanning/` (19 files) — Scan ingestion, classification, dashboard metrics, SDK ingest
+  - `connections/` (8 files) — Connection CRUD, sync, test, scan orchestration
+  - `assets/` (7 files) — Asset management, AssetManager interface
+  - `lineage/` (6 files) — Neo4j graph lineage services
+  - `compliance/` (8 files) — DPDPA compliance reporting, policy management
+  - `remediation/` (11 files) — Remediation execution + 6 connectors (S3, FS, MySQL, etc.)
+  - `auth/` (7 files) — JWT authentication, middleware
+  - `analytics/` (3 files) — Risk analytics
+  - `masking/` (3 files) — Data masking
+  - `fplearning/` (6 files) — False positive learning
+  - `websocket/` (2 files) — Real-time scan status updates
+  - `shared/` (50 files) — 12 domain entities, 17 persistence repos, encryption, audit
 
 ---
 
@@ -519,45 +561,42 @@ slack:
 
 ## 🚦 Phase Checklist
 
-### Phase 1: Blueprint (Complete - CORRECTED)
+### Phase 1: Blueprint ✅ Complete
 - [x] North Star defined
 - [x] Integrations identified (with CORRECT connection schemas)
 - [x] Source of Truth established
 - [x] Delivery Payload specified
-- [x] Behavioral Rules documented (including severity rules engine)
-- [x] Data Schemas defined
-- [x] Architecture diagram created
-- [x] Performance specs documented
-- [x] Alerting & notification integration documented
-- [x] Severity rules engine documented
+- [x] Behavioral Rules documented (severity rules engine)
+- [x] Data Schemas defined · Architecture diagram · Performance specs
 
-### Phase 2: Link (Pending)
-- [ ] Verify PostgreSQL connectivity
-- [ ] Verify Neo4j connectivity
+### Phase 2: Agentic Integration 🔄 In Progress
+- [x] Install MCP Tools (GSD, Ralph, Hive, Skills, Superpowers)
+- [x] Configure MCP server (`mcp_config_snippet.json`)
+- [x] Deep codebase analysis (12 backend modules, 14 scanner connectors, 12 frontend routes)
+- [x] Map agent tools → B.L.A.S.T. phases
+- [ ] Initialize GSD project (`npx get-shit-done-cc`)
+- [ ] Configure Ralph (`prd.json` for Phase 3)
+- [ ] Update system prompt with skill-trigger rules
+
+### Phase 3: Link (Pending) — Tools: `@docker-expert`, `@systematic-debugging`
+- [ ] Verify PostgreSQL connectivity · Run migrations
+- [ ] Verify Neo4j connectivity · Load Cypher schema
 - [ ] Test Temporal workflow engine
 - [ ] Validate Presidio ML integration
-- [ ] Test scanner-to-backend ingestion
-- [ ] Verify frontend API connection
-- [ ] Build handshake scripts
+- [ ] Test scanner→backend ingestion pipeline
+- [ ] Verify frontend↔API connection
 
-### Phase 3: Architect (Pending)
-- [ ] Define Layer 1 SOPs
-- [ ] Build Layer 3 tools
-- [ ] Implement data flow logic
-- [ ] Add error handling
-- [ ] Write unit tests
+### Phase 4: Architect (Pending) — Tools: `@golang-pro`, `@python-pro`, `@api-design-principles`
+- [ ] Define Layer 1 SOPs · Build Layer 3 tools
+- [ ] Implement data flow logic · Error handling
+- [ ] Write unit tests (`@testing-patterns`)
 
-### Phase 4: Stylize (Pending)
-- [ ] Format API responses
-- [ ] Style dashboard components
-- [ ] Optimize visualizations
-- [ ] User feedback loop
+### Phase 5: Stylize (Pending) — Tools: `@nextjs-best-practices`, `@react-patterns`
+- [ ] Format API responses · Style dashboard
+- [ ] Optimize visualizations · User feedback
 
-### Phase 5: Trigger (Pending)
-- [ ] Deploy to cloud
-- [ ] Set up cron jobs
-- [ ] Configure webhooks
-- [ ] Document maintenance procedures
+### Phase 6: Trigger (Pending) — Tools: `@docker-expert`, `@security-auditor`
+- [ ] Deploy to cloud · Cron jobs · Webhooks · Docs
 
 ---
 

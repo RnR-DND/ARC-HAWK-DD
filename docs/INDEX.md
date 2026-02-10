@@ -8,52 +8,89 @@ This index provides a comprehensive overview of all available documentation and 
 
 ## 📖 Documentation Overview
 
-The ARC-Hawk platform has **150+ pages** of comprehensive technical documentation organized into the following categories:
+The ARC-Hawk platform has **200+ pages** of comprehensive technical documentation organized into the following categories:
 
+- **Getting Started**: Quick start guides and overviews
 - **Core Documentation**: Architecture, implementation, workflows, specifications
+- **API Reference**: Complete API documentation
 - **User Guides**: Setup, usage, troubleshooting
-- **Developer Resources**: API reference, development guides
+- **Developer Resources**: Development guides, contribution guidelines
 - **Operations**: Deployment, monitoring, maintenance
+- **Security**: Security practices and compliance
 
 ---
 
-## 🎯 Quick Navigation
+## 🚀 Getting Started (Start Here!)
 
-### I'm a...
+### 5-Minute Quick Start
+1. Read [README.md](../readme.md) - Platform overview
+2. Follow [Installation](#installation-guides) - Set up the system
+3. Run your [First Scan](#first-scan-guide) - Start scanning
 
-#### **New User / Getting Started**
-1. Start with [README.md](../README.md) - Platform overview and quick start
-2. Follow [Workflow - System Setup](WORKFLOW.md#system-setup-workflow) - Detailed installation
-3. Read [User Manual](USER_MANUAL.md) - Dashboard usage guide
+### Learning Paths
 
-#### **Developer / Contributor**
-1. Read [Architecture](ARCHITECTURE.md) - System design and components
-2. Review [Tech Stack](TECH_STACK.md) - Technologies and rationale
-3. Study [Mathematical Implementation](MATHEMATICAL_IMPLEMENTATION.md) - Algorithms and logic
-4. Check [Technical Specifications](TECHNICAL_SPECIFICATIONS.md) - Schemas and APIs
+#### **New User (30 minutes)**
+1. [README.md](../readme.md) - Overview (5 min)
+2. [Workflow - System Setup](architecture/WORKFLOW.md#system-setup-workflow) - Installation (15 min)
+3. [User Manual](USER_MANUAL.md) - Dashboard usage (10 min)
 
-#### **DevOps / System Administrator**
-1. Review [Technical Specifications](TECHNICAL_SPECIFICATIONS.md#system-requirements) - Requirements
-2. Follow [Workflow - System Setup](WORKFLOW.md#system-setup-workflow) - Installation
-3. Read [Failure Modes](FAILURE_MODES.md) - Troubleshooting
-4. Check [Migration Guide](MIGRATION_GUIDE.md) - Upgrade procedures
+#### **Developer Onboarding (4 hours)**
+1. [README.md](../readme.md) - Overview (10 min)
+2. [AGENTS.md](../AGENTS.md) - Development guide (15 min)
+3. [Architecture](architecture/ARCHITECTURE.md) - System design (60 min)
+4. [Tech Stack](development/TECH_STACK.md) - Technologies (30 min)
+5. [Mathematical Implementation](deployment/MATHEMATICAL_IMPLEMENTATION.md) - Algorithms (60 min)
+6. [Technical Specifications](development/TECHNICAL_SPECIFICATIONS.md) - Schemas and APIs (60 min)
+7. [API Reference](API.md) - API usage (30 min)
 
-#### **Product Manager / Stakeholder**
-1. Read [PROJECT_REPORT.md](../PROJECT_REPORT.md) - Executive summary
-2. Review [Limitations & Improvements](LIMITATIONS_AND_IMPROVEMENTS.md) - Roadmap
-3. Check [Architecture](ARCHITECTURE.md#executive-summary) - High-level design
+#### **DevOps/Operations (2 hours)**
+1. [Technical Specifications - Requirements](development/TECHNICAL_SPECIFICATIONS.md#system-requirements) (15 min)
+2. [Deployment Guide](deployment/guide.md) - Installation (45 min)
+3. [Failure Modes](FAILURE_MODES.md) - Troubleshooting (30 min)
+4. [Security Policy](../SECURITY.md) - Security practices (15 min)
+5. [Migration Guide](MIGRATION_GUIDE.md) - Upgrades (15 min)
 
-#### **Security / Compliance Officer**
-1. Review [Architecture - Security](ARCHITECTURE.md#security-architecture) - Security design
-2. Read [Mathematical Implementation](MATHEMATICAL_IMPLEMENTATION.md) - Validation algorithms
-3. Check [Technical Specifications](TECHNICAL_SPECIFICATIONS.md#api-specifications) - API security
+#### **Security/Compliance Officer (2 hours)**
+1. [Security Policy](../SECURITY.md) - Security overview (30 min)
+2. [Architecture - Security](architecture/ARCHITECTURE.md#security-architecture) - Security design (30 min)
+3. [Mathematical Implementation](deployment/MATHEMATICAL_IMPLEMENTATION.md) - Validation algorithms (45 min)
+4. [Compliance Module](../apps/backend/modules/compliance/) - DPDPA compliance (15 min)
 
 ---
 
-## 📚 Core Documentation (150+ Pages)
+## 📚 Root-Level Documentation
 
-### 1. [Architecture](ARCHITECTURE.md) (~25 pages)
-**What it covers**:
+### Essential Reading
+
+| Document | Purpose | Audience |
+|----------|---------|----------|
+| [README.md](../readme.md) | Platform overview, quick start, features | Everyone |
+| [AGENTS.md](../AGENTS.md) | AI agent development guide | Developers |
+| [TODO.md](../TODO.md) | Production readiness tracking, known issues | Everyone |
+| [CHANGELOG.md](../CHANGELOG.md) | Version history, migration guides | Everyone |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Contribution guidelines | Contributors |
+| [SECURITY.md](../SECURITY.md) | Security policy, best practices | Everyone |
+| [PROJECT_REPORT.md](../PROJECT_REPORT.md) | Executive summary | Stakeholders |
+
+---
+
+## 📘 Core Documentation (docs/)
+
+### 1. [User Manual](USER_MANUAL.md) (~25 pages)
+**What it covers:**
+- Dashboard navigation and features
+- Finding exploration and management
+- Scan configuration and execution
+- Remediation workflows
+- Compliance tracking
+- Best practices
+
+**When to read**: Getting started with the platform, daily usage
+
+---
+
+### 2. [Architecture](architecture/ARCHITECTURE.md) (~25 pages)
+**What it covers:**
 - System architecture overview
 - Intelligence-at-Edge principles
 - Component breakdown (Scanner, Backend, Databases, Frontend)
@@ -67,23 +104,8 @@ The ARC-Hawk platform has **150+ pages** of comprehensive technical documentatio
 
 ---
 
-### 2. [Mathematical Implementation](MATHEMATICAL_IMPLEMENTATION.md) (~20 pages)
-**What it covers**:
-- Verhoeff algorithm (Aadhaar validation) with complete tables
-- Luhn algorithm (Credit card validation)
-- PAN checksum (Weighted Modulo 26)
-- All 11 PII type validators
-- Risk scoring algorithms
-- Deduplication algorithms
-- Context extraction
-- Performance optimizations
-
-**When to read**: Understanding validation logic, implementing new validators, debugging false positives
-
----
-
-### 3. [Workflow](WORKFLOW.md) (~30 pages)
-**What it covers**:
+### 3. [Workflow](architecture/WORKFLOW.md) (~30 pages)
+**What it covers:**
 - System setup workflow (step-by-step installation)
 - Scan execution workflow
 - Data ingestion workflow
@@ -97,8 +119,8 @@ The ARC-Hawk platform has **150+ pages** of comprehensive technical documentatio
 
 ---
 
-### 4. [Technical Specifications](TECHNICAL_SPECIFICATIONS.md) (~35 pages)
-**What it covers**:
+### 4. [Technical Specifications](development/TECHNICAL_SPECIFICATIONS.md) (~35 pages)
+**What it covers:**
 - Minimum and recommended system requirements
 - Maximum capacity limits (tested)
 - File size limits and processing times
@@ -113,8 +135,8 @@ The ARC-Hawk platform has **150+ pages** of comprehensive technical documentatio
 
 ---
 
-### 5. [Tech Stack](TECH_STACK.md) (~18 pages)
-**What it covers**:
+### 5. [Tech Stack](development/TECH_STACK.md) (~18 pages)
+**What it covers:**
 - Backend technologies (Go, Gin, database drivers)
 - Frontend technologies (Next.js, React, TypeScript)
 - Scanner technologies (Python, spaCy, validators)
@@ -128,8 +150,23 @@ The ARC-Hawk platform has **150+ pages** of comprehensive technical documentatio
 
 ---
 
-### 6. [Limitations & Future Improvements](LIMITATIONS_AND_IMPROVEMENTS.md) (~22 pages)
-**What it covers**:
+### 6. [Mathematical Implementation](deployment/MATHEMATICAL_IMPLEMENTATION.md) (~20 pages)
+**What it covers:**
+- Verhoeff algorithm (Aadhaar validation) with complete tables
+- Luhn algorithm (Credit card validation)
+- PAN checksum (Weighted Modulo 26)
+- All 11 PII type validators
+- Risk scoring algorithms
+- Deduplication algorithms
+- Context extraction
+- Performance optimizations
+
+**When to read**: Understanding validation logic, implementing new validators, debugging false positives
+
+---
+
+### 7. [Limitations & Future Improvements](deployment/LIMITATIONS_AND_IMPROVEMENTS.md) (~22 pages)
+**What it covers:**
 - Current limitations (10 major limitations)
 - Performance bottlenecks (4 critical bottlenecks)
 - Known issues (with status and fixes)
@@ -141,80 +178,187 @@ The ARC-Hawk platform has **150+ pages** of comprehensive technical documentatio
 
 ---
 
-## 📘 Additional Resources
+### 8. [API Reference](API.md) (~50 pages)
+**What it covers:**
+- Complete API endpoint reference
+- Request/response formats
+- Authentication (when implemented)
+- Error handling
+- Rate limiting
+- WebSocket API
+- SDK examples (JavaScript, Python, Go)
+- Pagination and filtering
 
-### [User Manual](USER_MANUAL.md)
-- Dashboard navigation
-- Feature usage
-- Interpreting results
-- Best practices
+**When to read**: API integration, building custom clients, automation
 
-### [Migration Guide](MIGRATION_GUIDE.md)
-- Upgrade procedures (v2.0 → v2.1)
-- Breaking changes
-- Data migration steps
-- Rollback procedures
+---
 
-### [Failure Modes](FAILURE_MODES.md)
-- Common issues and resolutions
-- Error messages and meanings
-- Recovery procedures
-- Emergency contacts
+## 🔧 Application Documentation
 
-### [Seamless Scanning](SEAMLESS_SCANNING.md)
-- Advanced scanning configurations
+### Backend (apps/backend/)
+
+| Document | Purpose |
+|----------|---------|
+| [Backend README](../apps/backend/README.md) | Go backend overview, API endpoints, module structure |
+| [Backend API](../apps/backend/README.md#api-endpoints) | Detailed API documentation |
+
+**Key Components:**
+- 8 Business Modules (assets, scanning, lineage, compliance, remediation, masking, analytics, connections)
+- Temporal workflow integration
+- Neo4j graph operations
+- PostgreSQL data persistence
+
+### Frontend (apps/frontend/)
+
+| Document | Purpose |
+|----------|---------|
+| [Frontend README](../apps/frontend/README.md) | Next.js frontend overview, component structure |
+| [Development Guide](../apps/frontend/README.md#development) | Frontend development guide |
+
+**Key Features:**
+- ReactFlow lineage visualization
+- Real-time WebSocket updates
+- DPDPA compliance dashboard
+- Remediation actions
+
+### Scanner (apps/scanner/)
+
+| Document | Purpose |
+|----------|---------|
+| [Scanner README](../apps/scanner/README.md) | Python scanner overview, CLI usage |
+| [Configuration](../apps/scanner/README.md#configuration) | Connection and scanner configuration |
+| [SDK Architecture](../apps/scanner/README.md#sdk-architecture) | Intelligence-at-Edge SDK |
+
+**Key Features:**
+- 11+ PII type validators
+- 10+ data source connectors
+- Mathematical validation algorithms
+- Context-aware detection
+
+---
+
+## 🛠️ Development Guides
+
+### Getting Started
+
+- [Development Setup](development/setup.md) - Complete development environment setup
+- [AGENTS.md](../AGENTS.md) - AI agent development guide with build commands
+
+### Contributing
+
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
+- [Code of Conduct](../CONTRIBUTING.md#code-of-conduct) - Community standards
+- [Pull Request Process](../CONTRIBUTING.md#pull-request-process) - PR guidelines
+
+### Testing
+
+- [Testing Strategy](../AGENTS.md#testing-strategy) - Overview
+- [Backend Testing](../apps/backend/README.md#testing) - Go testing
+- [Frontend Testing](../apps/frontend/README.md#testing) - React testing
+- [Scanner Testing](../apps/scanner/README.md#testing) - Python testing
+
+---
+
+## 🚀 Operations Guides
+
+### Deployment
+
+- [Deployment Guide](deployment/guide.md) - Complete deployment procedures
+- [Phase 1 Deployment](phase1_deployment.md) - Phase 1 specific deployment
+- [Migration Guide](MIGRATION_GUIDE.md) - Upgrade procedures
+
+### Monitoring & Maintenance
+
+- [Failure Modes](FAILURE_MODES.md) - Troubleshooting guide
+- [TODO.md](../TODO.md) - Known issues and roadmap
+- [CHANGELOG.md](../CHANGELOG.md) - Version history
+
+### Security
+
+- [Security Policy](../SECURITY.md) - Security practices and vulnerability reporting
+- [Architecture - Security](architecture/ARCHITECTURE.md#security-architecture) - Security design
+- [Backend Security](../apps/backend/README.md#security) - API security
+
+---
+
+## 📊 Advanced Topics
+
+### Seamless Scanning
+
+- [Seamless Scanning Guide](SEAMLESS_SCANNING.md) - Advanced scanning configurations
 - Multi-source scanning
 - Performance tuning
 - Custom patterns
+
+### Compliance
+
+- DPDPA 2023 compliance mapping
+- Consent tracking
+- Retention policies
+- Compliance reporting
+
+### Lineage
+
+- 3-level semantic hierarchy
+- Graph visualization
+- Impact analysis
+- Lineage synchronization
 
 ---
 
 ## 🔍 Documentation by Topic
 
 ### Architecture & Design
-- [Architecture](ARCHITECTURE.md)
-- [Tech Stack](TECH_STACK.md)
+- [Architecture](architecture/ARCHITECTURE.md)
+- [Workflow](architecture/WORKFLOW.md)
+- [Tech Stack](development/TECH_STACK.md)
 - [PROJECT_REPORT.md](../PROJECT_REPORT.md)
 
 ### Implementation & Algorithms
-- [Mathematical Implementation](MATHEMATICAL_IMPLEMENTATION.md)
-- [Tech Stack](TECH_STACK.md)
+- [Mathematical Implementation](deployment/MATHEMATICAL_IMPLEMENTATION.md)
+- [Technical Specifications](development/TECHNICAL_SPECIFICATIONS.md)
+- [SDK Architecture](../apps/scanner/README.md#sdk-architecture)
 
 ### Setup & Operations
-- [Workflow - System Setup](WORKFLOW.md#system-setup-workflow)
-- [Technical Specifications - Requirements](TECHNICAL_SPECIFICATIONS.md#system-requirements)
+- [Development Setup](development/setup.md)
+- [Deployment Guide](deployment/guide.md)
+- [Technical Specifications - Requirements](development/TECHNICAL_SPECIFICATIONS.md#system-requirements)
 - [Migration Guide](MIGRATION_GUIDE.md)
 
 ### Usage & Features
 - [User Manual](USER_MANUAL.md)
-- [Workflow - Scan Execution](WORKFLOW.md#scan-execution-workflow)
+- [Workflow - Scan Execution](architecture/WORKFLOW.md#scan-execution-workflow)
 - [Seamless Scanning](SEAMLESS_SCANNING.md)
 
 ### API & Integration
-- [Technical Specifications - API](TECHNICAL_SPECIFICATIONS.md#api-specifications)
-- [Workflow - Data Ingestion](WORKFLOW.md#data-ingestion-workflow)
+- [API Reference](API.md)
+- [Technical Specifications - API](development/TECHNICAL_SPECIFICATIONS.md#api-specifications)
+- [Workflow - Data Ingestion](architecture/WORKFLOW.md#data-ingestion-workflow)
+- [Backend API](../apps/backend/README.md#api-endpoints)
 
 ### Database & Schema
-- [Technical Specifications - Schemas](TECHNICAL_SPECIFICATIONS.md#database-schemas)
-- [Architecture - Database](ARCHITECTURE.md#relational-database-postgresql)
+- [Technical Specifications - Schemas](development/TECHNICAL_SPECIFICATIONS.md#database-schemas)
+- [Architecture - Database](architecture/ARCHITECTURE.md#relational-database-postgresql)
 
 ### Troubleshooting
 - [Failure Modes](FAILURE_MODES.md)
-- [Workflow - Troubleshooting](WORKFLOW.md#troubleshooting-workflow)
+- [TODO.md](../TODO.md)
+- [Workflow - Troubleshooting](architecture/WORKFLOW.md#troubleshooting-workflow)
 
 ### Performance & Scaling
-- [Technical Specifications - Benchmarks](TECHNICAL_SPECIFICATIONS.md#performance-benchmarks)
-- [Architecture - Scalability](ARCHITECTURE.md#scalability-considerations)
-- [Technical Specifications - Scaling](TECHNICAL_SPECIFICATIONS.md#scaling-guidelines)
+- [Technical Specifications - Benchmarks](development/TECHNICAL_SPECIFICATIONS.md#performance-benchmarks)
+- [Architecture - Scalability](architecture/ARCHITECTURE.md#scalability-considerations)
+- [Limitations & Improvements](deployment/LIMITATIONS_AND_IMPROVEMENTS.md)
 
 ### Security & Compliance
-- [Architecture - Security](ARCHITECTURE.md#security-architecture)
-- [Mathematical Implementation](MATHEMATICAL_IMPLEMENTATION.md)
-- [Workflow - Compliance Reporting](WORKFLOW.md#compliance-reporting-workflow)
+- [Security Policy](../SECURITY.md)
+- [Architecture - Security](architecture/ARCHITECTURE.md#security-architecture)
+- [Mathematical Implementation](deployment/MATHEMATICAL_IMPLEMENTATION.md)
 
 ### Future Planning
-- [Limitations & Improvements](LIMITATIONS_AND_IMPROVEMENTS.md)
-- [PROJECT_REPORT.md - Roadmap](../PROJECT_REPORT.md#future-roadmap-2026-2027)
+- [Limitations & Improvements](deployment/LIMITATIONS_AND_IMPROVEMENTS.md)
+- [TODO.md](../TODO.md)
+- [CHANGELOG.md](../CHANGELOG.md)
 
 ---
 
@@ -228,104 +372,115 @@ The ARC-Hawk platform has **150+ pages** of comprehensive technical documentatio
 | Technical Specifications | 35 | 10 | 20 | 15 |
 | Tech Stack | 18 | 8 | 3 | 5 |
 | Limitations & Improvements | 22 | 10 | 0 | 3 |
-| **Total Core Docs** | **150** | **63** | **68** | **29** |
+| API Reference | 50 | 12 | 40 | 20 |
+| User Manual | 25 | 8 | 10 | 5 |
+| **Total Core Docs** | **225** | **83** | **118** | **54** |
 
 ---
 
-## 🎓 Learning Paths
+## 🎓 Additional Resources
 
-### Path 1: Quick Start (30 minutes)
-1. [README.md](../README.md) - Overview (5 min)
-2. [Workflow - System Setup](WORKFLOW.md#system-setup-workflow) - Installation (15 min)
-3. [Workflow - Scan Execution](WORKFLOW.md#scan-execution-workflow) - First scan (10 min)
+### Application READMEs
+- [Backend README](../apps/backend/README.md) - Go backend
+- [Frontend README](../apps/frontend/README.md) - Next.js frontend
+- [Scanner README](../apps/scanner/README.md) - Python scanner
 
-### Path 2: Developer Onboarding (4 hours)
-1. [README.md](../README.md) - Overview (10 min)
-2. [Architecture](ARCHITECTURE.md) - System design (60 min)
-3. [Tech Stack](TECH_STACK.md) - Technologies (30 min)
-4. [Mathematical Implementation](MATHEMATICAL_IMPLEMENTATION.md) - Algorithms (60 min)
-5. [Technical Specifications](TECHNICAL_SPECIFICATIONS.md) - Schemas and APIs (60 min)
-6. [Workflow](WORKFLOW.md) - Operations (30 min)
+### Architecture SOPs
+- [Scanning SOP](../architecture/scanning-sop.md)
+- [Lineage SOP](../architecture/lineage-sop.md)
+- [Compliance SOP](../architecture/compliance-sop.md)
+- [Ingestion SOP](../architecture/ingestion-sop.md)
 
-### Path 3: Operations Setup (2 hours)
-1. [Technical Specifications - Requirements](TECHNICAL_SPECIFICATIONS.md#system-requirements) (15 min)
-2. [Workflow - System Setup](WORKFLOW.md#system-setup-workflow) (60 min)
-3. [Failure Modes](FAILURE_MODES.md) - Troubleshooting (30 min)
-4. [Migration Guide](MIGRATION_GUIDE.md) - Upgrades (15 min)
-
-### Path 4: Architecture Review (3 hours)
-1. [PROJECT_REPORT.md](../PROJECT_REPORT.md) - Executive summary (15 min)
-2. [Architecture](ARCHITECTURE.md) - Full architecture (90 min)
-3. [Mathematical Implementation](MATHEMATICAL_IMPLEMENTATION.md) - Algorithms (45 min)
-4. [Limitations & Improvements](LIMITATIONS_AND_IMPROVEMENTS.md) - Future planning (30 min)
-
----
-
-## 🔗 External Resources
-
-### Related Documentation
-- **Scanner README**: [apps/scanner/README.md](../apps/scanner/README.md)
-- **Backend README**: [apps/backend/README.md](../apps/backend/README.md)
-- **Frontend README**: [apps/frontend/README.md](../apps/frontend/README.md)
-
-### Development Guides
-- **Development**: [docs/development/](development/)
-- **Deployment**: [docs/deployment/](deployment/)
-- **Architecture Diagrams**: [docs/architecture/](architecture/)
+### Test Data Documentation
+- [Ground Truth README](../testdata/ground_truth/README.md)
+- [Aadhaar Numbers](../testdata/ground_truth/aadhaar_numbers.md)
+- [PAN Numbers](../testdata/ground_truth/pan_numbers.md)
+- [SSN Numbers](../testdata/ground_truth/ssn_numbers.md)
+- [Credit Cards](../testdata/ground_truth/credit_cards.md)
+- [Emails](../testdata/ground_truth/emails.md)
+- [Negative Samples](../testdata/ground_truth/negative_samples.md)
 
 ---
 
 ## 📝 Documentation Maintenance
 
 ### Last Updated
-- **Date**: January 19, 2026
+- **Date**: February 10, 2026
 - **Version**: 2.1.0
 - **Status**: Current and verified
 
 ### Update Frequency
 - **Core Documentation**: Updated with each major release
-- **User Guides**: Updated as needed for feature changes
 - **API Documentation**: Updated with each API change
+- **User Guides**: Updated as needed for feature changes
 - **Troubleshooting**: Updated as issues are discovered and resolved
 
 ### Contributing to Documentation
 1. Follow markdown best practices
 2. Include code examples where applicable
-3. Add diagrams for complex concepts
+3. Add diagrams for complex concepts (using mermaid)
 4. Keep language clear and concise
 5. Update this index when adding new documents
+6. Follow the [Documentation Style Guide](#documentation-style-guide)
 
 ---
 
 ## 🆘 Getting Help
 
 ### Documentation Issues
-If you find errors, outdated information, or missing content in the documentation:
+If you find errors, outdated information, or missing content:
 1. Open an issue on GitHub
 2. Tag with `documentation` label
 3. Provide specific page and section references
 
 ### Questions Not Covered
-If your question isn't answered in the documentation:
 1. Check [Failure Modes](FAILURE_MODES.md) for troubleshooting
-2. Search GitHub Issues and Discussions
-3. Open a new discussion on GitHub
+2. Review [TODO.md](../TODO.md) for known issues
+3. Search GitHub Issues and Discussions
+4. Open a new discussion on GitHub
+
+### Support Channels
+- **Documentation**: [docs/INDEX.md](./INDEX.md)
+- **GitHub Issues**: [Report bugs/issues](https://github.com/your-org/arc-hawk/issues)
+- **GitHub Discussions**: [Ask questions](https://github.com/your-org/arc-hawk/discussions)
+- **Email**: support@arc-hawk.io
 
 ---
 
-## ✅ Documentation Checklist
+## ✅ Pre-Deployment Checklist
 
 Before deploying or making changes, ensure you've reviewed:
 
-- [ ] [README.md](../README.md) - Platform overview
-- [ ] [Architecture](ARCHITECTURE.md) - System design
-- [ ] [Workflow - System Setup](WORKFLOW.md#system-setup-workflow) - Installation
-- [ ] [Technical Specifications](TECHNICAL_SPECIFICATIONS.md#system-requirements) - Requirements
+- [ ] [README.md](../readme.md) - Platform overview
+- [ ] [Architecture](architecture/ARCHITECTURE.md) - System design
+- [ ] [Deployment Guide](deployment/guide.md) - Installation
+- [ ] [Technical Specifications](development/TECHNICAL_SPECIFICATIONS.md#system-requirements) - Requirements
+- [ ] [Security Policy](../SECURITY.md) - Security practices
 - [ ] [Failure Modes](FAILURE_MODES.md) - Troubleshooting
+- [ ] [TODO.md](../TODO.md) - Known issues
+
+---
+
+## 🔗 External Resources
+
+### Official Documentation
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Go Documentation](https://golang.org/doc)
+- [Python Documentation](https://docs.python.org/3/)
+- [Neo4j Documentation](https://neo4j.com/docs/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Temporal Documentation](https://docs.temporal.io/)
+
+### Tools & Libraries
+- [Gin Web Framework](https://gin-gonic.com/docs/)
+- [ReactFlow](https://reactflow.dev/docs)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+- [spaCy](https://spacy.io/usage)
 
 ---
 
 **Need help finding something?** Use your browser's search (Ctrl+F / Cmd+F) or refer to the topic-based navigation above.
 
-**Last Updated**: January 19, 2026  
-**Documentation Version**: 2.1.0
+**Last Updated**: February 10, 2026  
+**Documentation Version**: 2.1.0  
+**Platform Version**: 2.1.0

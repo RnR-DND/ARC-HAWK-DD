@@ -9,6 +9,8 @@ Goal: Achieve 100% accuracy (no false positives, no false negatives)
 import sys
 import os
 
+import pytest
+
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -25,56 +27,15 @@ from sdk.validators.voter_id import validate_voter_id
 from sdk.validators.driving_license import validate_driving_license
 
 
-class TestResults:
-    """Track test results"""
-    def __init__(self):
-        self.total = 0
-        self.passed = 0
-        self.failed = 0
-        self.failures = []
-    
-    def add_result(self, test_name, expected, actual, value):
-        self.total += 1
-        if expected == actual:
-            self.passed += 1
-            print(f"  ✓ {test_name}: {value}")
-        else:
-            self.failed += 1
-            self.failures.append((test_name, value, expected, actual))
-            print(f"  ✗ {test_name}: {value} (expected {expected}, got {actual})")
-    
-    def print_summary(self):
-        print(f"\n{'='*60}")
-        print(f"TEST SUMMARY")
-        print(f"{'='*60}")
-        print(f"Total Tests: {self.total}")
-        print(f"Passed: {self.passed} ({self.passed/self.total*100:.1f}%)")
-        print(f"Failed: {self.failed} ({self.failed/self.total*100:.1f}%)")
-        
-        if self.failures:
-            print(f"\nFailed Tests:")
-            for test_name, value, expected, actual in self.failures:
-                print(f"  - {test_name}: {value}")
-                print(f"    Expected: {expected}, Got: {actual}")
-        
-        print(f"{'='*60}\n")
-        
-        return self.failed == 0
-
-
-def test_aadhaar():
+class TestAadhaar:
     """Test Aadhaar validation"""
-    print("\n=== Testing IN_AADHAAR ===")
-    results = TestResults()
-    
-    # Valid Aadhaar numbers (with correct Verhoeff checksum)
-    valid_cases = [
+
+    VALID = [
         "234567890124",  # Valid checksum
         "999911112226",  # Valid checksum
     ]
-    
-    # Invalid/Test Aadhaar numbers
-    invalid_cases = [
+
+    INVALID = [
         "111111111111",  # All same (dummy data)
         "123456789012",  # Sequential (dummy data)
         "000000000000",  # All zeros
@@ -82,187 +43,123 @@ def test_aadhaar():
         "1234567890",    # Too short
         "12345678901234",  # Too long
     ]
-    
-    for value in valid_cases:
-        result = validate_aadhaar(value)
-        results.add_result("Valid Aadhaar", True, result, value)
-    
-    for value in invalid_cases:
-        result = validate_aadhaar(value)
-        results.add_result("Invalid Aadhaar", False, result, value)
-    
-    return results
+
+    def test_valid(self):
+        for value in self.VALID:
+            assert validate_aadhaar(value), f"Should accept: {value}"
+
+    def test_invalid(self):
+        for value in self.INVALID:
+            assert not validate_aadhaar(value), f"Should reject: {value}"
 
 
-def test_phone():
+class TestPhone:
     """Test phone validation"""
-    print("\n=== Testing IN_PHONE ===")
-    results = TestResults()
-    
-    # Valid phone numbers
-    valid_cases = [
-        "9123456789",  # Valid, non-sequential
-        "8765432109",  # Valid, partial sequence but not full
-        "7654321098",  # Valid
-        "6543210987",  # Valid
+
+    VALID = [
+        "9123456789",
+        "8765432109",
+        "7654321098",
+        "6543210987",
     ]
-    
-    # Invalid/Test phone numbers
-    invalid_cases = [
+
+    INVALID = [
         "9999999999",  # All same
-        "0123456789",  # Sequential (starts with 0, invalid prefix anyway)
-        "1234567890",  # Sequential (starts with 1, invalid prefix)
-        "9876543210",  # Full descending sequence (test data)
+        "0123456789",  # Starts with 0
+        "1234567890",  # Starts with 1
+        "9876543210",  # Full descending sequence
         "5876543210",  # Invalid prefix (5)
         "987654321",   # Too short
-        "98765432109", # Too long
+        "98765432109",  # Too long
     ]
-    
-    for value in valid_cases:
-        result = validate_indian_phone(value)
-        results.add_result("Valid Phone", True, result, value)
-    
-    for value in invalid_cases:
-        result = validate_indian_phone(value)
-        results.add_result("Invalid Phone", False, result, value)
-    
-    return results
+
+    def test_valid(self):
+        for value in self.VALID:
+            assert validate_indian_phone(value), f"Should accept: {value}"
+
+    def test_invalid(self):
+        for value in self.INVALID:
+            assert not validate_indian_phone(value), f"Should reject: {value}"
 
 
-def test_email():
+class TestEmail:
     """Test email validation"""
-    print("\n=== Testing EMAIL_ADDRESS ===")
-    results = TestResults()
-    
-    # Valid emails
-    valid_cases = [
+
+    VALID = [
         "john@company.com",
         "user@gmail.com",
         "admin@production.com",
         "support@enterprise.org",
     ]
-    
-    # Invalid/Test emails
-    invalid_cases = [
-        "test@test.com",      # Blacklisted domain
-        "user@example.com",   # Blacklisted domain
-        "dummy@dummy.com",    # Blacklisted domain
-        "admin@localhost",    # Blacklisted domain
-        "test@mailinator.com",  # Disposable email
-        "user@testdomain.com",  # Contains 'test'
-        "invalid.email",      # No @
-        "@example.com",       # No local part
-        "user@",              # No domain
+
+    INVALID = [
+        "test@test.com",
+        "user@example.com",
+        "dummy@dummy.com",
+        "admin@localhost",
+        "test@mailinator.com",
+        "user@testdomain.com",
+        "invalid.email",
+        "@example.com",
+        "user@",
     ]
-    
-    for value in valid_cases:
-        result = validate_email(value)
-        results.add_result("Valid Email", True, result, value)
-    
-    for value in invalid_cases:
-        result = validate_email(value)
-        results.add_result("Invalid Email", False, result, value)
-    
-    return results
+
+    def test_valid(self):
+        for value in self.VALID:
+            assert validate_email(value), f"Should accept: {value}"
+
+    def test_invalid(self):
+        for value in self.INVALID:
+            assert not validate_email(value), f"Should reject: {value}"
 
 
-def test_credit_card():
+class TestCreditCard:
     """Test credit card validation"""
-    print("\n=== Testing CREDIT_CARD ===")
-    results = TestResults()
-    
-    # Valid credit cards (Luhn checksum valid)
-    valid_cases = [
+
+    VALID = [
         "4532015112830366",  # Visa
         "5425233430109903",  # Mastercard
     ]
-    
-    # Invalid/Test credit cards
-    invalid_cases = [
-        "1111111111111111",  # All same
-        "1234567890123456",  # Sequential
-        "0000000000000000",  # All zeros
+
+    INVALID = [
+        "1111111111111111",
+        "1234567890123456",
+        "0000000000000000",
         "4532015112830367",  # Invalid Luhn
     ]
-    
-    for value in valid_cases:
-        result = validate_credit_card(value)
-        results.add_result("Valid Credit Card", True, result, value)
-    
-    for value in invalid_cases:
-        result = validate_credit_card(value)
-        results.add_result("Invalid Credit Card", False, result, value)
-    
-    return results
+
+    def test_valid(self):
+        for value in self.VALID:
+            assert validate_credit_card(value), f"Should accept: {value}"
+
+    def test_invalid(self):
+        for value in self.INVALID:
+            assert not validate_credit_card(value), f"Should reject: {value}"
 
 
-def test_pan():
+class TestPan:
     """Test PAN validation"""
-    print("\n=== Testing IN_PAN ===")
-    results = TestResults()
-    
-    # Valid PAN numbers
-    valid_cases = [
+
+    VALID = [
         "ABCDE1234F",
         "ZZZZZ9999Z",
     ]
-    
-    # Invalid/Test PAN numbers
-    invalid_cases = [
-        "AAAAA0000A",  # Test pattern
-        "TEST12345",   # Invalid format
+
+    INVALID = [
+        "AAAAA0000A",
+        "TEST12345",
         "ABCD1234F",   # Too short
-        "ABCDE12345F", # Too long
+        "ABCDE12345F",  # Too long
     ]
-    
-    for value in valid_cases:
-        result = validate_pan(value)
-        results.add_result("Valid PAN", True, result, value)
-    
-    for value in invalid_cases:
-        result = validate_pan(value)
-        results.add_result("Invalid PAN", False, result, value)
-    
-    return results
 
+    def test_valid(self):
+        for value in self.VALID:
+            assert validate_pan(value), f"Should accept: {value}"
 
-def run_all_tests():
-    """Run all validation tests"""
-    print("="*60)
-    print("COMPREHENSIVE PII VALIDATION TEST SUITE")
-    print("Goal: Zero False Positives")
-    print("="*60)
-    
-    all_results = []
-    
-    # Run tests for each PII type
-    all_results.append(test_aadhaar())
-    all_results.append(test_phone())
-    all_results.append(test_email())
-    all_results.append(test_credit_card())
-    all_results.append(test_pan())
-    
-    # Calculate overall results
-    total_tests = sum(r.total for r in all_results)
-    total_passed = sum(r.passed for r in all_results)
-    total_failed = sum(r.failed for r in all_results)
-    
-    print(f"\n{'='*60}")
-    print(f"OVERALL RESULTS")
-    print(f"{'='*60}")
-    print(f"Total Tests: {total_tests}")
-    print(f"Passed: {total_passed} ({total_passed/total_tests*100:.1f}%)")
-    print(f"Failed: {total_failed} ({total_failed/total_tests*100:.1f}%)")
-    print(f"{'='*60}\n")
-    
-    if total_failed == 0:
-        print("🎉 SUCCESS: Zero false positives achieved!")
-        return True
-    else:
-        print("❌ FAILED: Some tests did not pass")
-        return False
+    def test_invalid(self):
+        for value in self.INVALID:
+            assert not validate_pan(value), f"Should reject: {value}"
 
 
 if __name__ == "__main__":
-    success = run_all_tests()
-    sys.exit(0 if success else 1)
+    pytest.main([__file__, "-v"])

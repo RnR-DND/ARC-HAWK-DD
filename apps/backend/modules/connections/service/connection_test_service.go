@@ -341,7 +341,7 @@ func (s *TestConnectionService) testRedis(ctx context.Context, config map[string
 	port := getInt(config, "port", 6379)
 	db := getInt(config, "db", 0)
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
 	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
 	if err != nil {

@@ -1,0 +1,34 @@
+{
+    "mcpServers": {
+        "TestSprite": {
+            "command": "npx",
+            "args": [
+                "@testsprite/testsprite-mcp@latest"
+            ],
+            "env": {
+                "API_KEY": "sk-user-3ynvpLwI90pKldYUjeGLGn5mEgyNXn0p6W1TWC45n3t4hNV5E5RfG2qUA-5nGvqGLVNQU3iGntA-WGtk-UQwSN2PNFs71YvtlT1tb7ijlgLDaFXZAI99oUADXwkDfdJPvg8"
+            }
+        },
+        "supermemory": {
+            "endpoint": "https://api.supermemory.ai/mcp"
+        },
+        "hive-agent-builder": {
+            "command": "uv",
+            "args": [
+                "run",
+                "-m",
+                "framework.mcp.agent_builder_server"
+            ],
+            "cwd": "/Users/prathameshyadav/.agent/hive/core"
+        },
+        "hive-tools": {
+            "command": "uv",
+            "args": [
+                "run",
+                "mcp_server.py",
+                "--stdio"
+            ],
+            "cwd": "/Users/prathameshyadav/.agent/hive/tools"
+        }
+    }
+}
