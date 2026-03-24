@@ -1,28 +1,26 @@
 import redis
-import yaml
 from hawk_scanner.internals import system
 from rich.console import Console
 
-
 console = Console()
+
 
 def connect_redis(args, host, port, password=None):
     try:
         r = redis.Redis(host=host, port=port, password=password)
         if r.ping():
-            system.print_info(args, f"Redis instance at {host}:{port} is accessible")
+            system.print_info(
+                args, f"Redis instance at {host}:{port} is accessible")
             return r
         else:
-            system.print_error(args, f"Redis instance at {host}:{port} is not accessible")
+            system.print_error(
+                args, f"Redis instance at {host}:{port} is not accessible")
     except Exception as e:
-        system.print_error(args, f"Redis instance at {host}:{port} is not accessible with error: {e}")
+        system.print_error(
+            args, f"Redis instance at {host}:{port} is not accessible with error: {e}")
 
-def get_patterns_from_file(file_path):
-    with open(file_path, 'r', encoding='utf-8') as file:
-        patterns = yaml.safe_load(file)
-        return patterns
 
-def check_data_patterns(redis_instance, patterns, profile_name, host):
+def check_data_patterns(args, redis_instance, patterns, profile_name, host):
 
     results = []
     keys = redis_instance.keys('*')
@@ -44,6 +42,7 @@ def check_data_patterns(redis_instance, patterns, profile_name, host):
                     })
     return results
 
+
 def execute(args):
     results = []
     connections = system.get_connection(args)
@@ -63,12 +62,16 @@ def execute(args):
                 if host:
                     redis_instance = connect_redis(args, host, port, password)
                     if redis_instance:
-                        results = check_data_patterns(redis_instance, patterns, profile_name, host)
+                        results = check_data_patterns(
+                            args, redis_instance, patterns, profile_name, host)
                         redis_instance.close()
                 else:
-                    system.print_error(args, f"Incomplete Redis configuration for key: {profile_name}")
+                    system.print_error(
+                        args, f"Incomplete Redis configuration for key: {profile_name}")
         else:
-            system.print_error(args, "No Redis connection details found in connection.yml")
+            system.print_error(
+                args, "No Redis connection details found in connection.yml")
     else:
-        system.print_error(args, "No 'sources' section found in connection.yml")
+        system.print_error(
+            args, "No 'sources' section found in connection.yml")
     return results

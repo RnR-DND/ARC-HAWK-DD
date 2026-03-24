@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Calendar, Filter, TrendingUp, Shield, AlertTriangle } from 'lucide-react';
-import { theme } from '@/design-system/theme';
+import { FileText, Download, TrendingUp, Shield, AlertTriangle } from 'lucide-react';
 import Topbar from '@/components/Topbar';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 import { exportToCSV } from '@/utils/export';
 import { findingsApi } from '@/services/findings.api';
@@ -96,71 +98,74 @@ export default function ReportsPage() {
     };
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
+        <div className="min-h-screen bg-slate-50">
             <Topbar />
-            <div className="container" style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
+            <div className="container mx-auto px-4 py-8 max-w-6xl">
                 {/* Header */}
-                <div style={{ marginBottom: '32px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h1 style={{ fontSize: '32px', fontWeight: 800, color: theme.colors.text.primary, marginBottom: '8px', letterSpacing: '-0.02em' }}>
-                                Compliance Reports
-                            </h1>
-                            <p style={{ color: theme.colors.text.secondary, fontSize: '16px' }}>
-                                Generate and export detailed compliance and risk assessment reports
-                            </p>
-                        </div>
-                        <div style={{ fontSize: '14px', color: theme.colors.text.muted }}>
-                            Last updated: {metrics?.generatedAt ? new Date(metrics.generatedAt).toLocaleString() : 'Loading...'}
-                        </div>
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">
+                            Compliance Reports
+                        </h1>
+                        <p className="text-slate-500 text-base">
+                            Generate and export detailed compliance and risk assessment reports
+                        </p>
+                    </div>
+                    <div className="text-sm text-slate-500">
+                        Last updated: {metrics?.generatedAt ? new Date(metrics.generatedAt).toLocaleString() : 'Loading...'}
                     </div>
                 </div>
 
                 {/* Metrics Overview */}
                 {metrics && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         <MetricCard
                             title="Compliance Score"
                             value={`${Math.round(metrics.complianceScore)}%`}
                             subtitle="Overall posture"
-                            color={metrics.complianceScore > 80 ? theme.colors.status.success : theme.colors.status.warning}
+                            colorClass={metrics.complianceScore > 80 ? "text-emerald-600" : "text-amber-500"}
+                            barColorClass={metrics.complianceScore > 80 ? "bg-emerald-500" : "bg-amber-500"}
                             icon="🛡️"
                         />
                         <MetricCard
                             title="Total Findings"
                             value={metrics.totalFindings.toLocaleString()}
                             subtitle="PII detections"
-                            color={theme.colors.status.info}
+                            colorClass="text-blue-500"
+                            barColorClass="bg-blue-500"
                             icon="🔍"
                         />
                         <MetricCard
                             title="Critical Issues"
                             value={metrics.criticalFindings.toLocaleString()}
                             subtitle="High-risk findings"
-                            color={theme.colors.risk.critical}
+                            colorClass="text-red-500"
+                            barColorClass="bg-red-500"
                             icon="⚠️"
                         />
                         <MetricCard
                             title="Assets Scanned"
                             value={metrics.assetsScanned.toLocaleString()}
                             subtitle="Data sources"
-                            color={theme.colors.primary.DEFAULT}
+                            colorClass="text-blue-600"
+                            barColorClass="bg-blue-600"
                             icon="📦"
                         />
                     </div>
                 )}
 
                 {/* Report Types */}
-                <div style={{ marginBottom: '32px' }}>
-                    <h2 style={{ fontSize: '20px', fontWeight: 700, color: theme.colors.text.primary, marginBottom: '20px' }}>
+                <div className="mb-8">
+                    <h2 className="text-xl font-bold text-slate-900 mb-6">
                         Generate Reports
                     </h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <ReportCard
                             title="Compliance Executive Summary"
                             description="High-level overview of risk trends, remediation actions, and compliance posture for executive stakeholders."
-                            icon={<FileText style={{ width: '20px', height: '20px' }} />}
-                            color={theme.colors.primary.DEFAULT}
+                            icon={<FileText className="w-5 h-5" />}
+                            colorClass="text-blue-600 bg-blue-50"
+                            buttonClass="bg-blue-600 hover:bg-blue-700"
                             onDownload={() => handleDownloadCSV('compliance')}
                             loading={generating}
                             features={['Executive metrics', 'Risk trends', 'Compliance score', 'PDF format']}
@@ -168,8 +173,9 @@ export default function ReportsPage() {
                         <ReportCard
                             title="Technical Findings Report"
                             description="Detailed breakdown of all PII detections with technical details for remediation teams."
-                            icon={<AlertTriangle style={{ width: '20px', height: '20px' }} />}
-                            color={theme.colors.risk.high}
+                            icon={<AlertTriangle className="w-5 h-5" />}
+                            colorClass="text-orange-600 bg-orange-50"
+                            buttonClass="bg-orange-600 hover:bg-orange-700"
                             onDownload={() => handleDownloadCSV('findings')}
                             loading={generating}
                             features={['All findings', 'Technical details', 'Severity levels', 'CSV/Excel format']}
@@ -177,8 +183,9 @@ export default function ReportsPage() {
                         <ReportCard
                             title="Asset Inventory Report"
                             description="Complete catalog of scanned assets with risk scores and compliance status."
-                            icon={<Shield style={{ width: '20px', height: '20px' }} />}
-                            color={theme.colors.primary.DEFAULT}
+                            icon={<Shield className="w-5 h-5" />}
+                            colorClass="text-blue-600 bg-blue-50"
+                            buttonClass="bg-blue-600 hover:bg-blue-700"
                             onDownload={() => handleDownloadCSV('assets')}
                             loading={generating}
                             features={['Asset catalog', 'Risk assessment', 'Compliance status', 'Multiple formats']}
@@ -186,8 +193,9 @@ export default function ReportsPage() {
                         <ReportCard
                             title="Trend Analysis Report"
                             description="Historical analysis of PII exposure trends and remediation effectiveness over time."
-                            icon={<TrendingUp style={{ width: '20px', height: '20px' }} />}
-                            color={theme.colors.status.info}
+                            icon={<TrendingUp className="w-5 h-5" />}
+                            colorClass="text-indigo-600 bg-indigo-50"
+                            buttonClass="bg-indigo-600 hover:bg-indigo-700"
                             onDownload={() => handleDownloadCSV('trend')}
                             loading={false}
                             features={['Historical data', 'Trend analysis', 'Effectiveness metrics', 'Visual charts']}
@@ -197,290 +205,165 @@ export default function ReportsPage() {
 
                 {/* Report Archive */}
                 <div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 700, color: theme.colors.text.primary, marginBottom: '20px' }}>
+                    <h2 className="text-xl font-bold text-slate-900 mb-6">
                         Report Archive
                     </h2>
-                    <div style={{
-                        backgroundColor: theme.colors.background.card,
-                        border: `1px solid ${theme.colors.border.default}`,
-                        borderRadius: '12px',
-                        overflow: 'hidden'
-                    }}>
-                        <div style={{ padding: '24px', borderBottom: `1px solid ${theme.colors.border.default}` }}>
-                            <h3 style={{ fontSize: '16px', fontWeight: 600, color: theme.colors.text.primary, margin: 0 }}>
-                                Recent Reports
-                            </h3>
-                            <p style={{ fontSize: '13px', color: theme.colors.text.secondary, marginTop: '4px' }}>
-                                Previously generated reports and scheduled exports
-                            </p>
-                        </div>
-
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr style={{ backgroundColor: theme.colors.background.tertiary }}>
-                                        <th style={tableHeaderStyle}>Report Name</th>
-                                        <th style={tableHeaderStyle}>Generated</th>
-                                        <th style={tableHeaderStyle}>Type</th>
-                                        <th style={tableHeaderStyle}>Format</th>
-                                        <th style={tableHeaderStyle}>Size</th>
-                                        <th style={tableHeaderStyle}>Status</th>
-                                        <th style={tableHeaderStyle}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[
-                                        { name: 'Compliance_Summary_Jan_2026', date: '2026-01-15', type: 'Executive', format: 'PDF', size: '2.4 MB', status: 'Ready' },
-                                        { name: 'Findings_Detailed_Report', date: '2026-01-14', type: 'Technical', format: 'CSV', size: '1.8 MB', status: 'Ready' },
-                                        { name: 'Asset_Risk_Assessment', date: '2026-01-13', type: 'Inventory', format: 'Excel', size: '3.1 MB', status: 'Ready' },
-                                        { name: 'Monthly_Trend_Analysis', date: '2026-01-10', type: 'Analytics', format: 'PDF', size: '4.2 MB', status: 'Processing' },
-                                    ].map((report, i) => (
-                                        <tr key={i} style={{
-                                            borderBottom: `1px solid ${theme.colors.border.subtle}`,
-                                            transition: 'background 0.2s'
-                                        }}>
-                                            <td style={tableCellStyle}>
-                                                <div style={{ fontWeight: 600, color: theme.colors.text.primary }}>
-                                                    {report.name.replace(/_/g, ' ')}
-                                                </div>
-                                            </td>
-                                            <td style={tableCellStyle}>
-                                                <div style={{ fontSize: '13px', color: theme.colors.text.secondary }}>
-                                                    {new Date(report.date).toLocaleDateString()}
-                                                </div>
-                                            </td>
-                                            <td style={tableCellStyle}>
-                                                <span style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: '4px',
-                                                    backgroundColor: theme.colors.background.tertiary,
-                                                    fontSize: '11px',
-                                                    fontWeight: 600,
-                                                    color: theme.colors.text.secondary
-                                                }}>
-                                                    {report.type}
-                                                </span>
-                                            </td>
-                                            <td style={tableCellStyle}>
-                                                <span style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: '4px',
-                                                    backgroundColor: getFormatColor(report.format),
-                                                    fontSize: '11px',
-                                                    fontWeight: 600,
-                                                    color: '#fff'
-                                                }}>
-                                                    {report.format}
-                                                </span>
-                                            </td>
-                                            <td style={tableCellStyle}>
-                                                <span style={{ fontSize: '13px', color: theme.colors.text.secondary, fontFamily: 'monospace' }}>
-                                                    {report.size}
-                                                </span>
-                                            </td>
-                                            <td style={tableCellStyle}>
-                                                <span style={{
-                                                    padding: '4px 8px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '11px',
-                                                    fontWeight: 700,
-                                                    backgroundColor: report.status === 'Ready' ? `${theme.colors.status.success}20` : `${theme.colors.status.warning}20`,
-                                                    color: report.status === 'Ready' ? theme.colors.status.success : theme.colors.status.warning
-                                                }}>
-                                                    {report.status}
-                                                </span>
-                                            </td>
-                                            <td style={tableCellStyle}>
-                                                {report.status === 'Ready' ? (
-                                                    <button style={{
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
-                                                        border: `1px solid ${theme.colors.primary.DEFAULT}`,
-                                                        backgroundColor: 'transparent',
-                                                        color: theme.colors.primary.DEFAULT,
-                                                        fontSize: '12px',
-                                                        fontWeight: 600,
-                                                        cursor: 'pointer'
-                                                    }}>
-                                                        Download
-                                                    </button>
-                                                ) : (
-                                                    <span style={{ fontSize: '12px', color: theme.colors.text.muted }}>
-                                                        Processing...
-                                                    </span>
-                                                )}
-                                            </td>
+                    <Card>
+                        <CardHeader className="border-b border-border pb-4">
+                            <CardTitle className="text-base">Recent Reports</CardTitle>
+                            <CardDescription>Previously generated reports and scheduled exports</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-slate-50">
+                                        <tr>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Report Name</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Generated</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Type</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Format</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Size</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Status</th>
+                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {[
+                                            { name: 'Compliance_Summary_Jan_2026', date: '2026-01-15', type: 'Executive', format: 'PDF', size: '2.4 MB', status: 'Ready' },
+                                            { name: 'Findings_Detailed_Report', date: '2026-01-14', type: 'Technical', format: 'CSV', size: '1.8 MB', status: 'Ready' },
+                                            { name: 'Asset_Risk_Assessment', date: '2026-01-13', type: 'Inventory', format: 'Excel', size: '3.1 MB', status: 'Ready' },
+                                            { name: 'Monthly_Trend_Analysis', date: '2026-01-10', type: 'Analytics', format: 'PDF', size: '4.2 MB', status: 'Processing' },
+                                        ].map((report, i) => (
+                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="font-semibold text-slate-900">
+                                                        {report.name.replace(/_/g, ' ')}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                                    {new Date(report.date).toLocaleDateString()}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <Badge variant="secondary" className="font-semibold">
+                                                        {report.type}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <Badge className={`${getFormatBadgeColor(report.format)} text-white border-0`}>
+                                                        {report.format}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">
+                                                    {report.size}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <Badge variant="outline" className={`${report.status === 'Ready' ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
+                                                        {report.status}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {report.status === 'Ready' ? (
+                                                        <Button variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                                                            Download
+                                                        </Button>
+                                                    ) : (
+                                                        <span className="text-sm text-slate-400 italic">
+                                                            Processing...
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function MetricCard({ title, value, subtitle, colorClass, barColorClass, icon }: any) {
+    return (
+        <Card className="relative overflow-hidden">
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${barColorClass}`} />
+            <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-3">
+                    <span className="text-xl">{icon}</span>
+                    <div className="text-sm font-semibold text-slate-500">
+                        {title}
                     </div>
                 </div>
-            </div>
-        </div>
+                <div className={`text-3xl font-bold mb-1 ${colorClass}`}>
+                    {value}
+                </div>
+                <div className="text-sm text-slate-500">
+                    {subtitle}
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
-function MetricCard({ title, value, subtitle, color, icon }: any) {
+function ReportCard({ title, description, icon, colorClass, buttonClass, onDownload, loading, features }: any) {
     return (
-        <div style={{
-            backgroundColor: theme.colors.background.card,
-            borderRadius: '12px',
-            border: `1px solid ${theme.colors.border.default}`,
-            padding: '24px',
-            position: 'relative',
-            overflow: 'hidden'
-        }}>
-            <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '4px',
-                bottom: 0,
-                backgroundColor: color
-            }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <span style={{ fontSize: '20px' }}>{icon}</span>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: theme.colors.text.secondary }}>
-                    {title}
+        <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+            <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClass}`}>
+                        {icon}
+                    </div>
+                    <h3 className="font-bold text-slate-900 leading-tight">
+                        {title}
+                    </h3>
                 </div>
-            </div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color, marginBottom: '4px' }}>
-                {value}
-            </div>
-            <div style={{ fontSize: '13px', color: theme.colors.text.muted }}>
-                {subtitle}
-            </div>
-        </div>
+
+                <p className="text-sm text-slate-500 mb-5 leading-relaxed min-h-[60px]">
+                    {description}
+                </p>
+
+                <div className="mb-5">
+                    <div className="text-xs text-slate-400 font-medium mb-2 uppercase tracking-wide">
+                        Includes
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {features.map((feature: string, i: number) => (
+                            <span key={i} className="px-2 py-1 rounded bg-slate-100 text-xs text-slate-600 font-medium">
+                                {feature}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                <Button
+                    onClick={onDownload}
+                    disabled={loading}
+                    className={`w-full ${buttonClass} text-white`}
+                >
+                    {loading ? (
+                        <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                            Generating...
+                        </>
+                    ) : (
+                        <>
+                            <Download className="w-4 h-4 mr-2" />
+                            Generate Report
+                        </>
+                    )}
+                </Button>
+            </CardContent>
+        </Card>
     );
 }
 
-function ReportCard({ title, description, icon, color, onDownload, loading, features }: any) {
-    return (
-        <div style={{
-            backgroundColor: theme.colors.background.card,
-            borderRadius: '12px',
-            border: `1px solid ${theme.colors.border.default}`,
-            padding: '24px',
-            transition: 'all 0.2s',
-            cursor: 'pointer'
-        }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = `0 8px 25px rgba(0,0,0,0.3)`;
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-            }}
-        >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    backgroundColor: `${color}20`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color
-                }}>
-                    {icon}
-                </div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: theme.colors.text.primary, margin: 0 }}>
-                    {title}
-                </h3>
-            </div>
-
-            <p style={{ fontSize: '14px', color: theme.colors.text.secondary, marginBottom: '20px', lineHeight: '1.5' }}>
-                {description}
-            </p>
-
-            <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '12px', color: theme.colors.text.muted, marginBottom: '8px' }}>
-                    Includes:
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {features.map((feature: string, i: number) => (
-                        <span key={i} style={{
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            backgroundColor: theme.colors.background.tertiary,
-                            fontSize: '11px',
-                            color: theme.colors.text.secondary
-                        }}>
-                            {feature}
-                        </span>
-                    ))}
-                </div>
-            </div>
-
-            <button
-                onClick={onDownload}
-                disabled={loading}
-                style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: loading ? theme.colors.background.tertiary : color,
-                    color: loading ? theme.colors.text.muted : '#fff',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'all 0.2s'
-                }}
-            >
-                {loading ? (
-                    <>
-                        <div style={{
-                            width: '16px',
-                            height: '16px',
-                            border: '2px solid currentColor',
-                            borderTopColor: 'transparent',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite'
-                        }} />
-                        Generating...
-                    </>
-                ) : (
-                    <>
-                        <Download style={{ width: '16px', height: '16px' }} />
-                        Generate Report
-                    </>
-                )}
-            </button>
-        </div>
-    );
-}
-
-const tableHeaderStyle: React.CSSProperties = {
-    padding: '16px 20px',
-    textAlign: 'left',
-    fontSize: '12px',
-    fontWeight: 700,
-    color: theme.colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    borderBottom: `1px solid ${theme.colors.border.default}`
-};
-
-const tableCellStyle: React.CSSProperties = {
-    padding: '16px 20px',
-    fontSize: '14px',
-    color: theme.colors.text.primary
-};
-
-function getFormatColor(format: string) {
+function getFormatBadgeColor(format: string) {
     switch (format.toLowerCase()) {
-        case 'pdf': return '#DC2626'; // red
-        case 'csv': return '#059669'; // green
-        case 'excel': return '#2563EB'; // blue
-        default: return theme.colors.text.secondary;
+        case 'pdf': return 'bg-red-500 hover:bg-red-600';
+        case 'csv': return 'bg-emerald-500 hover:bg-emerald-600';
+        case 'excel': return 'bg-blue-500 hover:bg-blue-600';
+        default: return 'bg-slate-500';
     }
 }

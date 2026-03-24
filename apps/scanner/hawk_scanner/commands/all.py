@@ -40,29 +40,34 @@ SUPPORTED_COMMANDS = [
     'couchdb',      # CouchDB databases
 ]
 
+
 def execute_single_command(command: str, args) -> List[Dict[str, Any]]:
     """Execute a single scanner command and return results."""
     try:
         system.print_info(args, f"Starting {command} scan...")
 
         # Import the command module dynamically
-        module = __import__(f"hawk_scanner.commands.{command}", fromlist=[command])
+        module = __import__(
+            f"hawk_scanner.commands.{command}", fromlist=[command])
 
         # Execute the command
         results = module.execute(args)
 
-        system.print_success(args, f"{command} scan completed: {len(results)} findings")
+        system.print_success(
+            args, f"{command} scan completed: {len(results)} findings")
         return results
 
     except Exception as e:
         system.print_error(args, f"Failed to execute {command}: {str(e)}")
         return []
 
+
 def execute_parallel(args) -> List[Dict[str, Any]]:
     """Execute all commands in parallel using ThreadPoolExecutor."""
     all_results = []
 
-    system.print_info(args, f"Starting parallel scan of all {len(SUPPORTED_COMMANDS)} data sources...")
+    system.print_info(
+        args, f"Starting parallel scan of all {len(SUPPORTED_COMMANDS)} data sources...")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(SUPPORTED_COMMANDS)) as executor:
         # Submit all tasks
@@ -78,21 +83,25 @@ def execute_parallel(args) -> List[Dict[str, Any]]:
                 results = future.result()
                 all_results.extend(results)
             except Exception as exc:
-                system.print_error(args, f"{command} generated an exception: {exc}")
+                system.print_error(
+                    args, f"{command} generated an exception: {exc}")
 
     return all_results
+
 
 def execute_sequential(args) -> List[Dict[str, Any]]:
     """Execute all commands sequentially."""
     all_results = []
 
-    system.print_info(args, f"Starting sequential scan of all {len(SUPPORTED_COMMANDS)} data sources...")
+    system.print_info(
+        args, f"Starting sequential scan of all {len(SUPPORTED_COMMANDS)} data sources...")
 
     for command in SUPPORTED_COMMANDS:
         results = execute_single_command(command, args)
         all_results.extend(results)
 
     return all_results
+
 
 def display_summary_table(results: List[Dict[str, Any]]):
     """Display a summary table of scan results by data source."""
@@ -132,6 +141,7 @@ def display_summary_table(results: List[Dict[str, Any]]):
     console.print("\n")
     console.print(table)
 
+
 def execute(args):
     """
     Execute scan across all configured data sources.
@@ -148,13 +158,15 @@ def execute(args):
     options = connections.get('options', {})
     execution_mode = options.get('execution_mode', 'sequential')
 
-    system.print_info(args, f"ARC-Hawk Multi-Source Scanner")
+    system.print_info(args, "ARC-Hawk Multi-Source Scanner")
     system.print_info(args, f"Execution Mode: {execution_mode}")
-    system.print_info(args, f"Supported Sources: {', '.join(SUPPORTED_COMMANDS)}")
+    system.print_info(
+        args, f"Supported Sources: {', '.join(SUPPORTED_COMMANDS)}")
 
     # Validate execution mode
     if execution_mode not in ['sequential', 'parallel']:
-        system.print_error(args, f"Invalid execution_mode: {execution_mode}. Must be 'sequential' or 'parallel'")
+        system.print_error(
+            args, f"Invalid execution_mode: {execution_mode}. Must be 'sequential' or 'parallel'")
         sys.exit(1)
 
     # Execute scans based on mode
@@ -166,7 +178,8 @@ def execute(args):
     # Display summary
     if results:
         display_summary_table(results)
-        system.print_success(args, f"All scans completed: {len(results)} total findings across {len(SUPPORTED_COMMANDS)} data sources")
+        system.print_success(
+            args, f"All scans completed: {len(results)} total findings across {len(SUPPORTED_COMMANDS)} data sources")
     else:
         system.print_info(args, "No findings detected across all data sources")
 

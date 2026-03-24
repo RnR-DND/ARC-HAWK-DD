@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+npm-debug.log
+README.md
+__tests__
+playwright-report
+test-results
+e2e
+*.tsbuildinfo

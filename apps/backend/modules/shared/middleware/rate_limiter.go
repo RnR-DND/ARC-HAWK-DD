@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,7 +66,20 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 			return
 		}
 
-		clientIP := c.ClientIP()
+		// Robust IP extraction for proxy compatibility
+		clientIP := c.GetHeader("X-Forwarded-For")
+		if clientIP == "" {
+			clientIP = c.GetHeader("X-Real-IP")
+		}
+		if clientIP == "" {
+			clientIP = c.ClientIP()
+		}
+
+		// If there are multiple IPs in X-Forwarded-For, take the first one
+		if commaIdx := strings.Index(clientIP, ","); commaIdx != -1 {
+			clientIP = strings.TrimSpace(clientIP[:commaIdx])
+		}
+
 		if !rl.allow(clientIP) {
 			c.Header("Retry-After", "60")
 			c.Header("X-RateLimit-Limit", string(rune(rl.requestsRate)))

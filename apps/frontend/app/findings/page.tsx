@@ -5,10 +5,10 @@ import Topbar from '@/components/Topbar';
 import FindingsTable from '@/components/FindingsTable';
 import LoadingState from '@/components/LoadingState';
 import { findingsApi } from '@/services/findings.api';
-import { theme } from '@/design-system/theme';
-import type { FindingWithDetails, FindingsResponse } from '@/types';
 import { RemediationConfirmationModal } from '@/components/remediation/RemediationConfirmationModal';
 import { remediationApi } from '@/services/remediation.api';
+
+import type { FindingWithDetails, FindingsResponse } from '@/types';
 
 export default function FindingsPage() {
     const [findingsData, setFindingsData] = useState<FindingsResponse | null>(null);
@@ -148,7 +148,7 @@ export default function FindingsPage() {
             {/* Header with Title and Global Actions */}
             <div className="flex items-center justify-between px-8 py-6 border-b border-border bg-card">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Findings Explorer</h1>
+                    <h1 className="text-2xl font-bold text-foreground">Findings Explorer</h1>
                     <p className="text-muted-foreground mt-1">Detailed breakdown of PII detections and display security risks.</p>
                 </div>
                 {findingsData && findingsData.findings.length > 0 && (
@@ -157,7 +157,7 @@ export default function FindingsPage() {
                             const { exportToCSV } = require('@/utils/export');
                             exportToCSV(findingsData.findings, 'findings');
                         }}
-                        className="px-4 py-2 bg-muted border border-border text-slate-300 rounded-lg hover:bg-accent hover:text-white transition-colors text-sm font-medium flex items-center gap-2"
+                        className="px-4 py-2 bg-white border border-border text-slate-700 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors text-sm font-medium flex items-center gap-2"
                     >
                         📊 Export CSV
                     </button>
@@ -171,7 +171,7 @@ export default function FindingsPage() {
                 </div>
 
                 {/* Scan Filter (Mock) */}
-                <select className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <select className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
                     <option>All Scans</option>
                     <option>SCAN_021 (Latest)</option>
                     <option>SCAN_020</option>
@@ -179,7 +179,7 @@ export default function FindingsPage() {
 
                 {/* PII Type Filter */}
                 <select
-                    className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     value={piiTypeFilter}
                     onChange={(e) => setPiiTypeFilter(e.target.value)}
                 >
@@ -191,7 +191,7 @@ export default function FindingsPage() {
 
                 {/* Asset Filter */}
                 <select
-                    className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     value={assetFilter}
                     onChange={(e) => setAssetFilter(e.target.value)}
                 >
@@ -202,7 +202,7 @@ export default function FindingsPage() {
 
                 {/* Risk Filter */}
                 <select
-                    className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     value={severityFilter}
                     onChange={(e) => setSeverityFilter(e.target.value)}
                 >
@@ -214,7 +214,7 @@ export default function FindingsPage() {
 
                 {/* Status Filter */}
                 <select
-                    className="bg-muted border border-border text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                 >
@@ -230,7 +230,7 @@ export default function FindingsPage() {
                     placeholder="Search path/field..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="ml-auto bg-muted border border-border text-slate-200 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 w-64"
+                    className="ml-auto bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 w-64"
                 />
             </div>
 

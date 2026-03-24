@@ -207,3 +207,14 @@ test-results/
 apps/frontend/playwright-report/
 apps/frontend/test-results/
 apps/frontend/e2e/
+
+# Agentic Tools (cloned repos — not tracked by ARC-Hawk)
+.agent/skills/
+.agent/hive/
+.agent/ralph/
+.planning/
+
+# GSD tool config (installed per-developer)
+.claude/
+.gemini/
+.codex/

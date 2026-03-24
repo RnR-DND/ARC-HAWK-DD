@@ -1,0 +1,10 @@
+{
+  "permission": {
+    "read": {
+      "D:/ARC-Hawk/.opencode/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "D:/ARC-Hawk/.opencode/get-shit-done/*": "allow"
+    }
+  }
+}

@@ -3,6 +3,7 @@ from rich.console import Console
 
 console = Console()
 
+
 def check_data_patterns(args, value, patterns, profile_name):
     value_str = str(value)
     matches = system.match_strings(args, value_str)
@@ -18,9 +19,10 @@ def check_data_patterns(args, value, patterns, profile_name):
             })
     return results
 
+
 def execute(args):
     results = []
-    system.print_info(args, f"Running Checks for Simple text")
+    system.print_info(args, "Running Checks for Simple text")
     connections = system.get_connection(args)
     patterns = system.get_fingerprint_file(args)
     if 'sources' in connections:
@@ -32,10 +34,13 @@ def execute(args):
                 text = config.get('text', None)
                 results += check_data_patterns(args, text, patterns, key)
         else:
-            system.print_error(args, "No text connection details found in connection.yml")
+            system.print_error(
+                args, "No text connection details found in connection.yml")
     else:
-        system.print_error(args, "No 'sources' section found in connection.yml")
+        system.print_error(
+            args, "No 'sources' section found in connection.yml")
     return results
+
 
 # Example usage
 if __name__ == "__main__":

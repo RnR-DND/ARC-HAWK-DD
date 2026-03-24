@@ -21,11 +21,11 @@ interface FindingsTableProps {
 }
 
 const riskConfig = {
-    Critical: { color: 'text-red-400 bg-red-500/10 border-red-500/30', icon: AlertTriangle },
-    High: { color: 'text-orange-400 bg-orange-500/10 border-orange-500/30', icon: AlertTriangle },
-    Medium: { color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30', icon: AlertTriangle },
-    Low: { color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', icon: AlertTriangle },
-    Info: { color: 'text-blue-400 bg-blue-500/10 border-blue-500/30', icon: Eye },
+    Critical: { color: 'text-red-700 bg-red-50 border-red-200', icon: AlertTriangle },
+    High: { color: 'text-orange-700 bg-orange-50 border-orange-200', icon: AlertTriangle },
+    Medium: { color: 'text-yellow-700 bg-yellow-50 border-yellow-200', icon: AlertTriangle },
+    Low: { color: 'text-emerald-700 bg-emerald-50 border-emerald-200', icon: AlertTriangle },
+    Info: { color: 'text-blue-700 bg-blue-50 border-blue-200', icon: Eye },
 };
 
 const sourceIcons = {
@@ -122,12 +122,12 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
 
     if (loading) {
         return (
-            <div className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
                 <div className="animate-pulse space-y-4">
-                    <div className="h-6 w-48 bg-accent rounded" />
+                    <div className="h-6 w-48 bg-slate-100 rounded" />
                     <div className="space-y-3">
                         {[1, 2, 3, 4, 5].map(i => (
-                            <div key={i} className="h-16 bg-accent rounded-lg" />
+                            <div key={i} className="h-16 bg-slate-50 rounded-lg" />
                         ))}
                     </div>
                 </div>
@@ -139,7 +139,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl overflow-hidden"
+            className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"
         >
             <RemediationConfirmationModal
                 isOpen={showRemediationModal}
@@ -149,23 +149,23 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                 actionType={remediationAction}
             />
 
-            <div className="p-6 border-b border-border/30 space-y-4">
+            <div className="p-6 border-b border-slate-100 space-y-4">
                 {/* Header with stats */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-xl font-semibold text-white">PII Findings</h2>
-                        <p className="text-muted-foreground text-sm mt-1">
+                        <h2 className="text-xl font-bold text-slate-800">PII Findings</h2>
+                        <p className="text-slate-500 text-sm mt-1">
                             {filteredFindings.length} of {findings.length} findings
                             {(searchQuery || riskFilter !== 'all' || sourceFilter !== 'all') && (
-                                <span className="ml-2 text-blue-400">(filtered)</span>
+                                <span className="ml-2 text-blue-600 font-medium">(filtered)</span>
                             )}
                         </p>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                        <div className="px-3 py-1 bg-accent rounded-lg text-slate-300">
+                        <div className="px-3 py-1 bg-red-50 border border-red-100 rounded-lg text-red-700 font-medium">
                             {findings.filter(f => f.risk === 'Critical').length} Critical
                         </div>
-                        <div className="px-3 py-1 bg-accent rounded-lg text-slate-300">
+                        <div className="px-3 py-1 bg-orange-50 border border-orange-100 rounded-lg text-orange-700 font-medium">
                             {findings.filter(f => f.risk === 'High').length} High
                         </div>
                     </div>
@@ -175,13 +175,13 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                 <div className="flex flex-col sm:flex-row gap-4">
                     {/* Search */}
                     <div className="flex-1 relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
                             placeholder="Search findings by asset, PII type, or field..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-accent border border-border/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium"
                         />
                     </div>
 
@@ -190,7 +190,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                         <select
                             value={riskFilter}
                             onChange={(e) => setRiskFilter(e.target.value)}
-                            className="px-3 py-2 bg-accent border border-border/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 hover:bg-slate-100 transition-colors"
                         >
                             <option value="all">All Risks</option>
                             <option value="critical">Critical</option>
@@ -203,7 +203,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                         <select
                             value={sourceFilter}
                             onChange={(e) => setSourceFilter(e.target.value)}
-                            className="px-3 py-2 bg-accent border border-border/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 hover:bg-slate-100 transition-colors"
                         >
                             <option value="all">All Sources</option>
                             <option value="database">Database</option>
@@ -215,7 +215,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                         {(searchQuery || riskFilter !== 'all' || sourceFilter !== 'all') && (
                             <button
                                 onClick={clearFilters}
-                                className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-slate-300 hover:text-white rounded-lg transition-colors flex items-center gap-2"
+                                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-lg transition-colors flex items-center gap-2 border border-slate-200 font-medium"
                             >
                                 <X className="w-4 h-4" />
                                 Clear
@@ -227,7 +227,7 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
 
             <div className="overflow-x-auto">
                 <table className="w-full">
-                    <thead className="bg-accent/30">
+                    <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
                             {[
                                 { key: 'assetName', label: 'Asset' },
@@ -238,25 +238,25 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                             ].map(({ key, label }) => (
                                 <th
                                     key={key}
-                                    className="px-6 py-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-white transition-colors"
+                                    className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-blue-600 transition-colors select-none"
                                     onClick={() => handleSort(key)}
                                 >
                                     <div className="flex items-center gap-2">
                                         {label}
                                         {sortField === key && (
                                             sortDirection === 'asc' ?
-                                                <ChevronUp className="w-4 h-4" /> :
-                                                <ChevronDown className="w-4 h-4" />
+                                                <ChevronUp className="w-4 h-4 text-blue-500" /> :
+                                                <ChevronDown className="w-4 h-4 text-blue-500" />
                                         )}
                                     </div>
                                 </th>
                             ))}
-                            <th className="px-6 py-4 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                 Actions
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-600/30">
+                    <tbody className="divide-y divide-slate-100">
                         {sortedFindings.map((finding) => {
                             const RiskIcon = riskConfig[finding.risk].icon;
                             const SourceIcon = sourceIcons[finding.sourceType];
@@ -267,39 +267,47 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                     <motion.tr
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
-                                        className="hover:bg-accent/20 transition-colors cursor-pointer"
+                                        className={`transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`}
                                         onClick={() => toggleRowExpansion(finding.id)}
                                     >
                                         <td className="px-6 py-4">
                                             <div>
-                                                <div className="text-white font-medium">{finding.assetName}</div>
-                                                <div className="text-muted-foreground text-sm truncate max-w-xs">
+                                                <div className="text-slate-900 font-semibold">{finding.assetName}</div>
+                                                <div className="text-slate-500 text-sm truncate max-w-xs mt-0.5">
                                                     {finding.assetPath}
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <div className={`px-2 py-1 rounded text-xs font-medium border ${riskConfig[finding.risk].color}`}>
+                                                <div className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                                                     {finding.piiType}
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-white font-medium">
-                                                {Math.round(finding.confidence * 100)}%
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1.5 w-12 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full ${finding.confidence > 0.9 ? 'bg-emerald-500' : finding.confidence > 0.7 ? 'bg-blue-500' : 'bg-orange-500'}`}
+                                                        style={{ width: `${finding.confidence * 100}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-slate-700 font-medium text-sm">
+                                                    {Math.round(finding.confidence * 100)}%
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${riskConfig[finding.risk].color}`}>
-                                                <RiskIcon className="w-3 h-3" />
+                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${riskConfig[finding.risk].color}`}>
+                                                <RiskIcon className="w-3.5 h-3.5" />
                                                 {finding.risk}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <SourceIcon className="w-4 h-4 text-muted-foreground" />
-                                                <span className="text-slate-300">{finding.sourceType}</span>
+                                            <div className="flex items-center gap-2 text-slate-600">
+                                                <SourceIcon className="w-4 h-4 text-slate-400" />
+                                                <span className="text-sm font-medium">{finding.sourceType}</span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
@@ -307,14 +315,12 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        // Handle view details
                                                         console.log('View details for:', finding.id);
                                                     }}
-                                                    className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 rounded-lg text-sm font-medium transition-all duration-200 border border-blue-500/30 hover:border-blue-500/50"
-                                                    title="View detailed information about this finding"
+                                                    className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+                                                    title="View Details"
                                                 >
-                                                    <Eye className="w-3 h-3 inline mr-1" />
-                                                    View
+                                                    <Eye className="w-4 h-4" />
                                                 </button>
 
                                                 <button
@@ -322,11 +328,11 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                                         e.stopPropagation();
                                                         handleRemediateClick(finding.id, 'MASK');
                                                     }}
-                                                    className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 hover:text-purple-300 rounded-lg text-sm font-medium transition-all duration-200 border border-purple-500/30 hover:border-purple-500/50 flex items-center gap-1"
-                                                    title="Mask PII in source"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 hover:text-purple-700 rounded-lg text-xs font-medium transition-all shadow-sm"
+                                                    title="Remediate"
                                                 >
-                                                    <Shield className="w-3 h-3" />
-                                                    Mask
+                                                    <Shield className="w-3.5 h-3.5" />
+                                                    Remediate
                                                 </button>
                                             </div>
                                         </td>
@@ -338,22 +344,29 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                             animate={{ opacity: 1, height: 'auto' }}
                                             exit={{ opacity: 0, height: 0 }}
                                         >
-                                            <td colSpan={6} className="px-6 py-4 bg-accent/20">
-                                                <div className="space-y-3">
-                                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <td colSpan={6} className="px-6 py-4 bg-slate-50/50 border-b border-slate-100">
+                                                <div className="pl-4 border-l-2 border-blue-500 space-y-3">
+                                                    <div className="grid grid-cols-2 gap-8 text-sm">
                                                         <div>
-                                                            <span className="text-muted-foreground">Field:</span>
-                                                            <span className="text-white ml-2">{finding.field}</span>
+                                                            <span className="text-slate-500 font-medium text-xs uppercase tracking-wide">Matched Field</span>
+                                                            <div className="text-slate-900 font-mono text-sm mt-1 bg-white border border-slate-200 rounded px-2 py-1 inline-block">
+                                                                {finding.field}
+                                                            </div>
                                                         </div>
                                                         <div>
-                                                            <span className="text-muted-foreground">Asset Path:</span>
-                                                            <span className="text-white ml-2 font-mono text-xs">{finding.assetPath}</span>
+                                                            <span className="text-slate-500 font-medium text-xs uppercase tracking-wide">Full Path</span>
+                                                            <div className="text-slate-700 font-mono text-xs mt-1 break-all">
+                                                                {finding.assetPath}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="pt-2 border-t border-border/30">
-                                                        <div className="text-muted-foreground text-xs mb-1">Sample Data:</div>
-                                                        <div className="bg-card/50 rounded p-2 font-mono text-xs text-slate-300">
-                                                            Sample PII data would appear here...
+
+                                                    <div className="pt-3">
+                                                        <div className="text-slate-500 font-medium text-xs uppercase tracking-wide mb-1">Context Preview</div>
+                                                        <div className="bg-slate-900 rounded-lg p-3 font-mono text-xs text-slate-300 shadow-inner">
+                                                            <span className="text-slate-500">{'// Only authorized personnel can view raw data'}</span>
+                                                            <br />
+                                                            <span className="text-blue-400">SELECT</span> <span className="text-purple-400">*</span> <span className="text-blue-400">FROM</span> <span className="text-yellow-300">users</span> <span className="text-blue-400">WHERE</span> <span className="text-green-400">id</span> = ...
                                                         </div>
                                                     </div>
                                                 </div>
@@ -368,10 +381,12 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
             </div>
 
             {findings.length === 0 && (
-                <div className="p-12 text-center">
-                    <Database className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-muted-foreground mb-2">No Findings Yet</h3>
-                    <p className="text-slate-500">Run a scan to discover PII in your data sources.</p>
+                <div className="p-12 text-center bg-slate-50/50">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200">
+                        <Database className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-1">No Findings Yet</h3>
+                    <p className="text-slate-500 max-w-sm mx-auto">Run a scan on your connected data sources to discover PII and view findings here.</p>
                 </div>
             )}
         </motion.div>

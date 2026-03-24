@@ -75,6 +75,8 @@ export default function AnalyticsPage() {
 
     if (loading) return <div style={{ padding: '32px', color: theme.colors.text.primary }}>Loading analytics...</div>;
 
+    console.log('HEATMAP RENDER STATE:', heatmap);
+
     return (
         <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
             <Topbar />

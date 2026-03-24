@@ -71,7 +71,7 @@ export default function FindingsTable({
                     <tbody className="divide-y divide-border">
                         {findings.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="text-center py-12 text-slate-500">
+                                <td colSpan={8} className="text-center py-12 text-muted-foreground">
                                     No findings match the current filters
                                 </td>
                             </tr>
@@ -93,16 +93,16 @@ export default function FindingsTable({
                                         onClick={() => handleRowClick(finding)}
                                         className="hover:bg-muted cursor-pointer transition-colors group"
                                     >
-                                        <td className="px-4 py-3 font-medium text-slate-200">
+                                        <td className="px-4 py-3 font-medium text-foreground">
                                             {finding.asset_name}
                                         </td>
                                         <td className="px-4 py-3 text-muted-foreground text-xs font-mono truncate max-w-[150px]" title={path}>
                                             {path}
                                         </td>
-                                        <td className="px-4 py-3 text-blue-300 text-xs font-mono font-medium">
+                                        <td className="px-4 py-3 text-blue-600 text-xs font-mono font-medium">
                                             {field}
                                         </td>
-                                        <td className="px-4 py-3 text-slate-300">
+                                        <td className="px-4 py-3 text-muted-foreground">
                                             {piiType}
                                         </td>
                                         <td className="px-4 py-3">
@@ -116,7 +116,7 @@ export default function FindingsTable({
                                                 {finding.severity}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 font-mono text-xs text-slate-300">
+                                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                                             {(confidence * 100).toFixed(0)}%
                                         </td>
                                         <td className="px-4 py-3">
@@ -128,13 +128,13 @@ export default function FindingsTable({
                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); /* View lineage logic */ }}
-                                                    className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-white bg-muted rounded border border-border hover:border-slate-500 transition-colors"
+                                                    className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted rounded border border-border hover:border-slate-400 transition-colors"
                                                 >
                                                     Lineage
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleRemediate(finding.id, 'MASK'); }}
-                                                    className="px-2 py-1 text-xs font-medium text-blue-400 hover:text-white bg-muted rounded border border-border hover:border-blue-500/50 transition-colors"
+                                                    className="px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
                                                 >
                                                     Mask
                                                 </button>

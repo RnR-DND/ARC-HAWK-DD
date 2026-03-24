@@ -2,9 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { Settings, Shield, Bell, Database, Users, Key, Save, RefreshCw } from 'lucide-react';
-import { theme } from '@/design-system/theme';
 import Topbar from '@/components/Topbar';
 import { settingsApi } from '@/services/settings.api';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { UserSettings } from '@/types';
 
 interface SettingSection {
     id: string;
@@ -15,7 +20,7 @@ interface SettingSection {
 }
 
 interface SettingItem {
-    id: string;
+    id: keyof UserSettings;
     label: string;
     description: string;
     type: 'toggle' | 'select' | 'input' | 'textarea';
@@ -25,7 +30,7 @@ interface SettingItem {
 
 export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
-    const [settings, setSettings] = useState<Record<string, any>>({
+    const [settings, setSettings] = useState<UserSettings>({
         // Security Settings
         enableJWT: true,
         sessionTimeout: '3600',
@@ -73,14 +78,12 @@ export default function SettingsPage() {
         fetchSettings();
     }, []);
 
-    const key = JSON.stringify(settings); // Force re-render of inputs when settings change significantly if needed, but standard React state should handle it.
-
     const settingSections: SettingSection[] = [
         {
             id: 'security',
             title: 'Security Configuration',
             description: 'Authentication, authorization, and access control settings',
-            icon: <Shield style={{ width: '20px', height: '20px' }} />,
+            icon: <Shield className="w-5 h-5" />,
             settings: [
                 {
                     id: 'enableJWT',
@@ -127,7 +130,7 @@ export default function SettingsPage() {
             id: 'scanner',
             title: 'Scanner Configuration',
             description: 'PII detection engine settings and scan parameters',
-            icon: <Database style={{ width: '20px', height: '20px' }} />,
+            icon: <Database className="w-5 h-5" />,
             settings: [
                 {
                     id: 'scanFrequency',
@@ -162,7 +165,7 @@ export default function SettingsPage() {
             id: 'notifications',
             title: 'Notification Settings',
             description: 'Configure alerts and reporting preferences',
-            icon: <Bell style={{ width: '20px', height: '20px' }} />,
+            icon: <Bell className="w-5 h-5" />,
             settings: [
                 {
                     id: 'emailNotifications',
@@ -198,7 +201,7 @@ export default function SettingsPage() {
             id: 'retention',
             title: 'Data Retention',
             description: 'Configure how long to keep logs, scans, and backups',
-            icon: <RefreshCw style={{ width: '20px', height: '20px' }} />,
+            icon: <RefreshCw className="w-5 h-5" />,
             settings: [
                 {
                     id: 'logRetention',
@@ -230,7 +233,7 @@ export default function SettingsPage() {
         }
     ];
 
-    const handleSettingChange = (settingId: string, value: any) => {
+    const handleSettingChange = (settingId: keyof UserSettings, value: any) => {
         setSettings(prev => ({ ...prev, [settingId]: value }));
         setHasUnsavedChanges(true);
     };
@@ -240,7 +243,6 @@ export default function SettingsPage() {
         try {
             await settingsApi.updateSettings(settings);
             setHasUnsavedChanges(false);
-            // Optionally add a toast here
         } catch (error) {
             console.error('Failed to save settings:', error);
         } finally {
@@ -252,19 +254,15 @@ export default function SettingsPage() {
         switch (setting.type) {
             case 'toggle':
                 return (
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <label className="flex items-center cursor-pointer">
                         <input
                             type="checkbox"
                             checked={setting.value}
                             onChange={(e) => handleSettingChange(setting.id, e.target.checked)}
-                            style={{
-                                width: '16px',
-                                height: '16px',
-                                marginRight: '8px',
-                                accentColor: theme.colors.primary.DEFAULT
-                            }}
+                            className="sr-only peer"
                         />
-                        <span style={{ fontSize: '14px', color: theme.colors.text.primary }}>
+                        <div className="relative w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <span className="ms-3 text-sm font-medium text-slate-900">
                             {setting.value ? 'Enabled' : 'Disabled'}
                         </span>
                     </label>
@@ -274,15 +272,7 @@ export default function SettingsPage() {
                     <select
                         value={setting.value}
                         onChange={(e) => handleSettingChange(setting.id, e.target.value)}
-                        style={{
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            border: `1px solid ${theme.colors.border.default}`,
-                            backgroundColor: theme.colors.background.card,
-                            color: theme.colors.text.primary,
-                            fontSize: '14px',
-                            width: '200px'
-                        }}
+                        className="bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 max-w-[200px]"
                     >
                         {setting.options?.map(option => (
                             <option key={option.value} value={option.value}>
@@ -293,19 +283,11 @@ export default function SettingsPage() {
                 );
             case 'input':
                 return (
-                    <input
+                    <Input
                         type="text"
                         value={setting.value}
                         onChange={(e) => handleSettingChange(setting.id, e.target.value)}
-                        style={{
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            border: `1px solid ${theme.colors.border.default}`,
-                            backgroundColor: theme.colors.background.card,
-                            color: theme.colors.text.primary,
-                            fontSize: '14px',
-                            width: '200px'
-                        }}
+                        className="max-w-[200px]"
                     />
                 );
             default:
@@ -314,170 +296,121 @@ export default function SettingsPage() {
     };
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
+        <div className="min-h-screen bg-slate-50">
             <Topbar />
-            <div className="container" style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto' }}>
-
+            <div className="container mx-auto px-4 py-8 max-w-6xl">
                 {/* Header */}
-                <div style={{ marginBottom: '32px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h1 style={{ fontSize: '32px', fontWeight: 800, color: theme.colors.text.primary, marginBottom: '8px', letterSpacing: '-0.02em' }}>
-                                System Settings
-                            </h1>
-                            <p style={{ color: theme.colors.text.secondary, fontSize: '16px' }}>
-                                Configure ARC-Hawk system behavior, security policies, and preferences
-                            </p>
-                        </div>
-                        {hasUnsavedChanges && (
-                            <button
-                                onClick={handleSaveSettings}
-                                disabled={saving}
-                                style={{
-                                    padding: '12px 24px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    backgroundColor: saving ? theme.colors.background.tertiary : theme.colors.primary.DEFAULT,
-                                    color: '#fff',
-                                    fontWeight: 600,
-                                    cursor: saving ? 'not-allowed' : 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                {saving ? (
-                                    <>
-                                        <div style={{
-                                            width: '16px',
-                                            height: '16px',
-                                            border: '2px solid currentColor',
-                                            borderTopColor: 'transparent',
-                                            borderRadius: '50%',
-                                            animation: 'spin 1s linear infinite'
-                                        }} />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save style={{ width: '16px', height: '16px' }} />
-                                        Save Changes
-                                    </>
-                                )}
-                            </button>
-                        )}
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">
+                            System Settings
+                        </h1>
+                        <p className="text-slate-500 text-base">
+                            Configure ARC-Hawk system behavior, security policies, and preferences
+                        </p>
                     </div>
+                    {hasUnsavedChanges && (
+                        <Button
+                            onClick={handleSaveSettings}
+                            disabled={saving}
+                            className={`${saving ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        >
+                            {saving ? (
+                                <>
+                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4 mr-2" />
+                                    Save Changes
+                                </>
+                            )}
+                        </Button>
+                    )}
                 </div>
 
                 {/* Settings Sections */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div className="space-y-6">
                     {settingSections.map(section => (
-                        <div key={section.id} style={{
-                            backgroundColor: theme.colors.background.card,
-                            borderRadius: '12px',
-                            border: `1px solid ${theme.colors.border.default}`,
-                            overflow: 'hidden'
-                        }}>
-                            <div style={{ padding: '24px', borderBottom: `1px solid ${theme.colors.border.default}` }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                                    <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '8px',
-                                        backgroundColor: `${theme.colors.primary.DEFAULT}20`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: theme.colors.primary.DEFAULT
-                                    }}>
+                        <Card key={section.id}>
+                            <CardHeader className="pb-4 border-b border-border">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-50 rounded-lg text-blue-600 border border-blue-100">
                                         {section.icon}
                                     </div>
                                     <div>
-                                        <h2 style={{ fontSize: '18px', fontWeight: 700, color: theme.colors.text.primary, margin: 0 }}>
-                                            {section.title}
-                                        </h2>
-                                        <p style={{ fontSize: '14px', color: theme.colors.text.secondary, margin: '4px 0 0 0' }}>
-                                            {section.description}
-                                        </p>
+                                        <CardTitle>{section.title}</CardTitle>
+                                        <CardDescription>{section.description}</CardDescription>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div style={{ padding: '24px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                    {section.settings.map(setting => (
-                                        <div key={setting.id} style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'flex-start',
-                                            paddingBottom: '16px',
-                                            borderBottom: `1px solid ${theme.colors.border.subtle}`
-                                        }}>
-                                            <div style={{ flex: 1, marginRight: '24px' }}>
-                                                <div style={{ fontSize: '14px', fontWeight: 600, color: theme.colors.text.primary, marginBottom: '4px' }}>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-6">
+                                {section.settings.map((setting, idx) => (
+                                    <div key={setting.id}>
+                                        <div className="flex justify-between items-start py-4">
+                                            <div className="space-y-1 flex-1 mr-6">
+                                                <h3 className="text-sm font-medium leading-none text-slate-900">
                                                     {setting.label}
-                                                </div>
-                                                <div style={{ fontSize: '13px', color: theme.colors.text.secondary }}>
+                                                </h3>
+                                                <p className="text-sm text-slate-500">
                                                     {setting.description}
-                                                </div>
+                                                </p>
                                             </div>
-                                            <div style={{ flexShrink: 0 }}>
+                                            <div className="flex-shrink-0">
                                                 {renderSettingInput(setting)}
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                                        {idx < section.settings.length - 1 && <Separator className="my-2" />}
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
                     ))}
                 </div>
 
                 {/* System Information */}
-                <div style={{
-                    marginTop: '32px',
-                    backgroundColor: theme.colors.background.card,
-                    borderRadius: '12px',
-                    border: `1px solid ${theme.colors.border.default}`,
-                    padding: '24px'
-                }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: 700, color: theme.colors.text.primary, marginBottom: '16px' }}>
-                        System Information
-                    </h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
-                        <div>
-                            <div style={{ fontSize: '12px', color: theme.colors.text.secondary, fontWeight: 600, marginBottom: '4px' }}>
-                                VERSION
+                <Card className="mt-8">
+                    <CardHeader>
+                        <CardTitle className="text-lg">System Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                            <div>
+                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                                    Version
+                                </div>
+                                <div className="text-sm font-medium text-slate-900">
+                                    ARC-Hawk v1.2.0
+                                </div>
                             </div>
-                            <div style={{ fontSize: '14px', color: theme.colors.text.primary }}>
-                                ARC-Hawk v1.2.0
+                            <div>
+                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                                    Last Updated
+                                </div>
+                                <div className="text-sm font-medium text-slate-900">
+                                    January 15, 2026
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '12px', color: theme.colors.text.secondary, fontWeight: 600, marginBottom: '4px' }}>
-                                LAST UPDATED
+                            <div>
+                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                                    Environment
+                                </div>
+                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
+                                    Production
+                                </Badge>
                             </div>
-                            <div style={{ fontSize: '14px', color: theme.colors.text.primary }}>
-                                January 15, 2026
-                            </div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '12px', color: theme.colors.text.secondary, fontWeight: 600, marginBottom: '4px' }}>
-                                ENVIRONMENT
-                            </div>
-                            <div style={{ fontSize: '14px', color: theme.colors.text.primary }}>
-                                Production
-                            </div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: '12px', color: theme.colors.text.secondary, fontWeight: 600, marginBottom: '4px' }}>
-                                LICENSE
-                            </div>
-                            <div style={{ fontSize: '14px', color: theme.colors.text.primary }}>
-                                Enterprise
+                            <div>
+                                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                                    License
+                                </div>
+                                <Badge variant="outline" className="text-blue-700 bg-blue-50 border-blue-200">
+                                    Enterprise
+                                </Badge>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

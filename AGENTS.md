@@ -196,3 +196,37 @@ ARC-Hawk/
 - Use GitHub Actions for CI/CD (`.github/workflows/`)
 - Kubernetes configurations in `infra/` directory
 - Follow semantic versioning for releases
+
+---
+
+## 🧰 Agentic Toolchain
+
+This project uses four integrated productivity tools. See `WORKFLOW.md` for the full unified protocol.
+
+### Antigravity Awesome Skills (`.agent/skills/`)
+860+ expert markdown skills. Load with `@skill-name`:
+- Backend: `@golang-pro`, `@api-design-principles`
+- Frontend: `@nextjs-best-practices`, `@react-patterns`, `@typescript-expert`
+- Scanner: `@python-patterns`, `@test-driven-development`
+- Infra: `@docker-expert`
+- Security: `@api-security-best-practices`
+
+### GSD — Get Shit Done (`.claude/`, `.gemini/`, `.codex/`)
+Spec-driven development system with 31 commands and 11 agents:
+- `/gsd:quick` — Fast ad-hoc tasks
+- `/gsd:new-project` → `/gsd:discuss-phase` → `/gsd:plan-phase` → `/gsd:execute-phase` → `/gsd:verify-work`
+- Creates: `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `.planning/`
+
+### Ralph (`scripts/ralph/`)
+Autonomous PRD-driven iteration loop:
+- `prd.json` — User stories with `passes: true/false`
+- `progress.txt` — Learnings across iterations
+- `ralph.sh` — Bash loop that executes until all stories pass
+- `prompt.md` — Customized for ARC-Hawk conventions
+
+### Hive (`.agent/hive/`)
+Goal-driven agent framework:
+- Define goals in natural language → auto-generates agent graph
+- MCP tools + TUI dashboard
+- Self-healing: captures failures, evolves graph, redeploys
+- `quickstart.ps1` for Windows setup

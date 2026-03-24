@@ -2,24 +2,20 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, AlertTriangle, Database, CheckCircle, RefreshCw, Play, Wifi, WifiOff } from 'lucide-react';
+import { Shield, AlertTriangle, Scan, History, Plus, PlayCircle, Settings, FileText, ChevronRight, Activity, Zap, Database } from 'lucide-react';
+import { GlobalLayout } from '@/components/layout/GlobalLayout';
 import MetricCards from '@/components/ui/MetricCards';
 import FindingsTable from '@/components/ui/FindingsTable';
 import RiskChart from '@/components/ui/RiskChart';
 import ScanStatusCard from '@/components/ui/ScanStatusCard';
-// @ts-ignore
 import { dashboardApi, DashboardData } from '@/services/dashboard.api';
-import { useWebSocket, useSystemStatus } from '@/hooks/useWebSocket';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { AddSourceModal } from '@/components/sources/AddSourceModal';
 import { ScanConfigModal } from '@/components/scans/ScanConfigModal';
 
+// Fallback data for initial load or error
 const FALLBACK_DATA: DashboardData = {
-    metrics: {
-        totalPII: 0,
-        highRiskFindings: 0,
-        assetsHit: 0,
-        actionsRequired: 0
-    },
+    metrics: { totalPII: 0, highRiskFindings: 0, assetsHit: 0, actionsRequired: 0 },
     recentFindings: [],
     riskDistribution: {},
     riskByAsset: {},
@@ -29,60 +25,64 @@ const FALLBACK_DATA: DashboardData = {
 
 // Skeleton component for loading state
 const DashboardSkeleton = () => (
-    <div className="min-h-screen bg-background p-6 space-y-8">
-        <div className="flex justify-between items-center animate-pulse">
-            <div className="h-10 w-64 bg-muted rounded"></div>
-            <div className="h-10 w-32 bg-muted rounded"></div>
+    <GlobalLayout>
+        <div className="max-w-7xl mx-auto p-6 space-y-8">
+            <div className="h-20 bg-white rounded-xl shadow-sm animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="h-32 bg-white rounded-xl shadow-sm animate-pulse" />
+                ))}
+            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="xl:col-span-2 h-96 bg-white rounded-xl shadow-sm animate-pulse" />
+                <div className="h-96 bg-white rounded-xl shadow-sm animate-pulse" />
+            </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-32 bg-muted rounded-xl animate-pulse"></div>
-            ))}
-        </div>
-        <div className="h-64 bg-muted rounded-xl animate-pulse"></div>
-    </div>
+    </GlobalLayout>
 );
 
 export default function Home() {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+    const [isAddSourceOpen, setIsAddSourceOpen] = useState(false);
+    const [isScanConfigOpen, setIsScanConfigOpen] = useState(false);
+
+    // WebSocket for real-time updates
+    const { lastMessage, isConnected: wsConnected } = useWebSocket({ url: 'ws://localhost:8000/ws' });
     const [liveFindings, setLiveFindings] = useState<any[]>([]);
-
-    // Modal states
-    const [showAddSourceModal, setShowAddSourceModal] = useState(false);
-    const [showScanConfigModal, setShowScanConfigModal] = useState(false);
-
-    // Real-time WebSocket connection
-    const systemStatus = useSystemStatus();
-    const { isConnected: wsConnected } = useWebSocket({
-        onMessage: (message) => {
-            switch (message.type) {
-                case 'new_finding':
-                    // Add new finding to live findings
-                    setLiveFindings(prev => [message.data, ...prev.slice(0, 9)]);
-                    // Refresh dashboard data
-                    fetchDashboardData();
-                    break;
-                case 'scan_progress':
-                    // Update scan progress (could show in UI)
-                    console.log('Scan progress:', message.data);
-                    break;
-                case 'scan_complete':
-                    // Refresh dashboard when scan completes
-                    fetchDashboardData();
-                    break;
-            }
-        }
-    });
 
     useEffect(() => {
         fetchDashboardData();
-        // Auto-refresh every 60 seconds (less frequent with real-time updates)
-        const interval = setInterval(fetchDashboardData, 60000);
-        return () => clearInterval(interval);
     }, []);
+
+    // Handle real-time updates
+    useEffect(() => {
+        if (lastMessage) {
+            try {
+                const msg = JSON.parse(lastMessage.data);
+                if (msg.type === 'new_finding') {
+                    setLiveFindings(prev => [msg.data, ...prev].slice(0, 5));
+                    // Optimistically update counts
+                    setData(prev => prev ? {
+                        ...prev,
+                        metrics: {
+                            ...prev.metrics,
+                            totalPII: prev.metrics.totalPII + 1,
+                            highRiskFindings: ['High', 'Critical'].includes(msg.data.severity)
+                                ? prev.metrics.highRiskFindings + 1
+                                : prev.metrics.highRiskFindings
+                        }
+                    } : null);
+                } else if (msg.type === 'scan_complete' || msg.type === 'scan_progress') {
+                    // Refresh data on major scan events
+                    fetchDashboardData();
+                }
+            } catch (e) {
+                console.error('Error parsing WS message:', e);
+            }
+        }
+    }, [lastMessage]);
 
     const fetchDashboardData = async () => {
         try {
@@ -90,391 +90,256 @@ export default function Home() {
             const dashboardData = await dashboardApi.getDashboardData();
             setData(dashboardData);
             setError(null);
-            setLastUpdated(new Date());
         } catch (err) {
-            console.error('Failed to load dashboard:', err);
-            setError('Failed to load dashboard data. Using fallback.');
-            setData(FALLBACK_DATA);
+            console.error('Error fetching dashboard data:', err);
+            setError('Failed to load dashboard data. Showing cached view.');
         } finally {
             setLoading(false);
         }
     };
 
+    const displayData = data || FALLBACK_DATA;
+
     if (loading && !data) {
         return <DashboardSkeleton />;
     }
 
-    const displayData = data || FALLBACK_DATA;
-
-    // Empty state for no data sources
-    if (!loading && !displayData.latestScanId && displayData.metrics.totalPII === 0) {
+    // Empty state for first-time users
+    if (!loading && !data?.latestScanId && displayData.metrics.totalPII === 0 && !error) {
         return (
-            <div className="min-h-screen bg-background">
-                <div className="max-w-7xl mx-auto p-6">
-                    {/* Modals */}
-                    <AddSourceModal
-                        isOpen={showAddSourceModal}
-                        onClose={() => setShowAddSourceModal(false)}
-                    />
-                    <ScanConfigModal
-                        isOpen={showScanConfigModal}
-                        onClose={() => setShowScanConfigModal(false)}
-                        onRunScan={() => {
-                            setTimeout(fetchDashboardData, 1000);
-                        }}
-                    />
-
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center py-20"
-                    >
-                        <div className="mx-auto w-24 h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center mb-8">
-                            <Shield className="w-12 h-12 text-blue-400" />
+            <GlobalLayout>
+                <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
+                    <div className="max-w-2xl space-y-8">
+                        <div className="p-6 bg-blue-50 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6 ring-8 ring-blue-50/50">
+                            <Shield className="w-12 h-12 text-blue-600" />
                         </div>
-                        <h1 className="text-3xl font-bold text-white mb-4">
-                            Welcome to ARC-Hawk
+                        <h1 className="text-4xl font-bold text-slate-900 tracking-tight">
+                            Welcome to ARC Hawk
                         </h1>
-                        <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                            Your enterprise-grade PII governance platform. Start by connecting your data sources and running your first scan to discover sensitive information.
+                        <p className="text-xl text-slate-600 leading-relaxed">
+                            Your enterprise-grade PII discovery and remediation platform is ready. <br />
+                            Connect a data source to start scanning for sensitive information.
                         </p>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-12">
-                            <motion.div
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.2 }}
-                                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+                            <button
+                                onClick={() => setIsAddSourceOpen(true)}
+                                className="group p-6 bg-white border border-slate-200 rounded-xl hover:shadow-lg hover:border-blue-500/30 transition-all text-left"
                             >
-                                <div className="p-3 bg-blue-500/20 rounded-lg w-fit mb-4">
-                                    <Database className="w-6 h-6 text-blue-400" />
+                                <div className="bg-blue-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <Database className="w-6 h-6 text-blue-600" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-white mb-2">Connect Data Sources</h3>
-                                <p className="text-muted-foreground text-sm">
-                                    Link databases, file systems, cloud storage, and APIs to scan for PII.
-                                </p>
-                            </motion.div>
+                                <h3 className="font-semibold text-slate-900 text-lg mb-2">Connect Source</h3>
+                                <p className="text-slate-500 text-sm">Add a database, file system, or cloud storage bucket.</p>
+                            </button>
 
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.4 }}
-                                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
+                            <button
+                                onClick={() => setIsScanConfigOpen(true)}
+                                className="group p-6 bg-white border border-slate-200 rounded-xl hover:shadow-lg hover:border-emerald-500/30 transition-all text-left"
                             >
-                                <div className="p-3 bg-emerald-500/20 rounded-lg w-fit mb-4">
-                                    <Play className="w-6 h-6 text-emerald-400" />
+                                <div className="bg-emerald-100 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                    <PlayCircle className="w-6 h-6 text-emerald-600" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-white mb-2">Run Your First Scan</h3>
-                                <p className="text-muted-foreground text-sm">
-                                    Execute comprehensive PII discovery across all connected sources.
-                                </p>
-                            </motion.div>
-
-                            <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.6 }}
-                                className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
-                            >
-                                <div className="p-3 bg-purple-500/20 rounded-lg w-fit mb-4">
-                                    <CheckCircle className="w-6 h-6 text-purple-400" />
-                                </div>
-                                <h3 className="text-lg font-semibold text-white mb-2">Review & Remediate</h3>
-                                <p className="text-muted-foreground text-sm">
-                                    Analyze findings and take automated remediation actions.
-                                </p>
-                            </motion.div>
+                                <h3 className="font-semibold text-slate-900 text-lg mb-2">Start Scan</h3>
+                                <p className="text-slate-500 text-sm">Configure and launch your first PII discovery scan.</p>
+                            </button>
                         </div>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.8 }}
-                            className="flex flex-col sm:flex-row gap-4 justify-center"
-                        >
-                            <button
-                                onClick={() => setShowAddSourceModal(true)}
-                                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
-                            >
-                                Get Started
-                            </button>
-                            <button
-                                onClick={() => window.open('https://docs.arc-hawk.io', '_blank')}
-                                className="px-8 py-3 bg-secondary hover:bg-accent text-slate-300 hover:text-white rounded-lg font-medium transition-all border border-border/50 hover:border-slate-500/50"
-                            >
-                                View Documentation
-                            </button>
-                        </motion.div>
-                    </motion.div>
+                    </div>
+                    <AddSourceModal isOpen={isAddSourceOpen} onClose={() => setIsAddSourceOpen(false)} />
+                    <ScanConfigModal isOpen={isScanConfigOpen} onClose={() => setIsScanConfigOpen(false)} />
                 </div>
-            </div>
-        );
+            </GlobalLayout>
+        )
     }
 
     return (
-        <div className="min-h-screen bg-background">
-            <div className="max-w-7xl mx-auto p-6 space-y-8">
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center justify-between"
-                >
-                    <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                            ARC-Hawk Dashboard
-                        </h1>
-                        <p className="text-muted-foreground mt-2">
-                            Real-time PII governance and risk management
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        {/* WebSocket Connection Status */}
-                        <div className="flex items-center gap-2">
-                            {wsConnected ? (
-                                <Wifi className="w-4 h-4 text-green-400" />
-                            ) : (
-                                <WifiOff className="w-4 h-4 text-red-400" />
-                            )}
-                            <span className={`text-sm ${wsConnected ? 'text-green-400' : 'text-red-400'}`}>
-                                {wsConnected ? 'Live' : 'Offline'}
-                            </span>
-                        </div>
-
-                        <div className="text-right">
-                            <div className="text-sm text-muted-foreground">Last updated</div>
-                            <div className="text-white font-medium">
-                                {lastUpdated.toLocaleTimeString()}
-                            </div>
-                        </div>
-                        <button
-                            onClick={fetchDashboardData}
-                            className="p-3 bg-muted hover:bg-accent rounded-lg transition-colors"
-                            title="Refresh data"
-                        >
-                            <RefreshCw className="w-5 h-5 text-slate-300" />
-                        </button>
-                    </div>
-                </motion.div>
-
-                {/* Modals */}
-                <AddSourceModal
-                    isOpen={showAddSourceModal}
-                    onClose={() => setShowAddSourceModal(false)}
-                />
-                <ScanConfigModal
-                    isOpen={showScanConfigModal}
-                    onClose={() => setShowScanConfigModal(false)}
-                    onRunScan={() => {
-                        setTimeout(fetchDashboardData, 1000);
-                    }}
-                />
-
-                {/* Error Banner */}
-                {error && (
+        <GlobalLayout>
+            <div className="min-h-screen bg-slate-50/50">
+                <div className="max-w-7xl mx-auto p-6 space-y-8">
+                    {/* Header */}
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl p-4"
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                     >
+                        <div>
+                            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Security Overview</h1>
+                            <p className="text-slate-500 mt-1">Real-time PII detection and risk analysis</p>
+                        </div>
                         <div className="flex items-center gap-3">
-                            <AlertTriangle className="w-5 h-5 text-amber-400" />
-                            <div>
-                                <h3 className="text-amber-400 font-medium">Connection Issue</h3>
-                                <p className="text-amber-300/80 text-sm">{error}</p>
-                            </div>
+                            <span className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border ${wsConnected
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                <Zap className={`w-3 h-3 ${wsConnected ? 'fill-emerald-500' : 'fill-amber-500'}`} />
+                                {wsConnected ? 'System Operational' : 'Connecting...'}
+                            </span>
+                            <button
+                                onClick={fetchDashboardData}
+                                className="p-2 text-slate-500 hover:text-slate-700 hover:bg-white rounded-full transition-colors border border-transparent hover:border-slate-200"
+                                title="Refresh Data"
+                            >
+                                <History className="w-5 h-5" />
+                            </button>
                         </div>
                     </motion.div>
-                )}
 
-                {/* Metrics Cards */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                >
-                    <MetricCards
-                        totalPII={displayData.metrics.totalPII}
-                        highRiskFindings={displayData.metrics.highRiskFindings}
-                        assetsHit={displayData.metrics.assetsHit}
-                        actionsRequired={displayData.metrics.actionsRequired}
-                        loading={loading}
-                    />
-                </motion.div>
+                    {/* Modals */}
+                    <AddSourceModal isOpen={isAddSourceOpen} onClose={() => setIsAddSourceOpen(false)} />
+                    <ScanConfigModal isOpen={isScanConfigOpen} onClose={() => setIsScanConfigOpen(false)} />
 
-                {/* Scan Status */}
-                {displayData.latestScanId && (
+                    {/* Error Banner */}
+                    {error && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3"
+                        >
+                            <AlertTriangle className="w-5 h-5" />
+                            <span className="font-medium">{error}</span>
+                        </motion.div>
+                    )}
+
+                    {/* Metrics Cards */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
+                        transition={{ delay: 0.1 }}
                     >
-                        <ScanStatusCard scanId={displayData.latestScanId} />
-                    </motion.div>
-                )}
-
-                {/* Live Findings */}
-                {wsConnected && liveFindings.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.25 }}
-                        className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
-                    >
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
-                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold text-white">Live Findings</h3>
-                                <p className="text-sm text-muted-foreground">Real-time PII detections from active scans</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            {liveFindings.slice(0, 5).map((finding, index) => (
-                                <motion.div
-                                    key={`${finding.id}-${index}`}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    className="flex items-center justify-between p-3 bg-accent rounded-lg border border-border/30"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${finding.severity === 'Critical' ? 'bg-red-400' :
-                                            finding.severity === 'High' ? 'bg-orange-400' :
-                                                'bg-yellow-400'
-                                            }`}></div>
-                                        <div>
-                                            <div className="text-sm font-medium text-white">
-                                                {finding.pii_type} in {finding.asset_name}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {finding.asset_path}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-xs text-slate-500">
-                                        {new Date().toLocaleTimeString()}
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </div>
-                    </motion.div>
-                )}
-
-                {/* Main Content Grid */}
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                    {/* Findings Table */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="xl:col-span-2"
-                    >
-                        <FindingsTable
-                            findings={displayData.recentFindings.map(f => ({
-                                id: f.id,
-                                assetName: f.assetName,
-                                assetPath: f.assetPath,
-                                field: f.field,
-                                piiType: f.piiType,
-                                confidence: f.confidence,
-                                risk: f.risk === 'High' ? 'Critical' : f.risk === 'Medium' ? 'High' : 'Low' as const,
-                                sourceType: f.sourceType === 'Filesystem' ? 'File' : f.sourceType === 'S3' ? 'Cloud' : 'Database' as const,
-                            }))}
+                        <MetricCards
+                            {...displayData.metrics}
                             loading={loading}
                         />
                     </motion.div>
 
-                    {/* Risk Analysis */}
+                    {/* Scan Status */}
+                    {displayData.latestScanId && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                        >
+                            <ScanStatusCard scanId={displayData.latestScanId} />
+                        </motion.div>
+                    )}
+
+                    {/* Live Findings Ticker */}
+                    {wsConnected && liveFindings.length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="bg-white border border-slate-200 rounded-lg p-3 flex items-center gap-4 shadow-sm overflow-hidden"
+                        >
+                            <div className="flex items-center gap-2 px-2 border-r border-slate-200">
+                                <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                </span>
+                                <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">Live Feed</span>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                <div className="animate-marquee flex gap-8">
+                                    {liveFindings.map((f, i) => (
+                                        <span key={i} className="text-sm font-mono text-slate-600 flex items-center gap-2">
+                                            <span className={`w-2 h-2 rounded-full ${f.severity === 'Critical' ? 'bg-red-500' : 'bg-amber-500'
+                                                }`} />
+                                            Found {f.type} in {f.source}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+
+                    {/* Main Content Grid */}
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        {/* Findings Table */}
+                        <motion.div
+                            className="xl:col-span-2"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                            <Activity className="w-5 h-5 text-blue-600" />
+                                            Recent Findings
+                                        </h2>
+                                        <p className="text-sm text-slate-500">Latest discovered PII instances</p>
+                                    </div>
+                                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 hover:gap-2 transition-all">
+                                        View All <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <FindingsTable findings={displayData.recentFindings} loading={loading} />
+                            </div>
+                        </motion.div>
+
+                        {/* Risk Analysis */}
+                        <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <RiskChart
+                                byPiiType={displayData.riskDistribution}
+                                byAsset={displayData.riskByAsset}
+                                byConfidence={displayData.riskByConfidence}
+                                loading={loading}
+                            />
+                        </motion.div>
+                    </div>
+
+                    {/* Quick Actions */}
                     <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.4 }}
                     >
-                        <RiskChart
-                            byPiiType={displayData.riskDistribution}
-                            byAsset={displayData.riskByAsset}
-                            byConfidence={displayData.riskByConfidence}
-                            loading={loading}
-                        />
+                        <h3 className="text-lg font-bold text-slate-800 mb-4 px-1">Quick Actions</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                            <button
+                                onClick={() => setIsScanConfigOpen(true)}
+                                className="p-4 bg-white border border-slate-200 hover:border-blue-300 hover:shadow-md rounded-xl transition-all group text-left"
+                            >
+                                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <PlayCircle className="w-6 h-6" />
+                                </div>
+                                <div className="font-semibold text-slate-800">New Scan</div>
+                                <div className="text-xs text-slate-500 mt-1">Configure and start scanning</div>
+                            </button>
+
+                            <button
+                                onClick={() => setIsAddSourceOpen(true)}
+                                className="p-4 bg-white border border-slate-200 hover:border-emerald-300 hover:shadow-md rounded-xl transition-all group text-left"
+                            >
+                                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <Plus className="w-6 h-6" />
+                                </div>
+                                <div className="font-semibold text-slate-800">Add Source</div>
+                                <div className="text-xs text-slate-500 mt-1">Connect new data source</div>
+                            </button>
+
+                            <button className="p-4 bg-white border border-slate-200 hover:border-purple-300 hover:shadow-md rounded-xl transition-all group text-left">
+                                <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <FileText className="w-6 h-6" />
+                                </div>
+                                <div className="font-semibold text-slate-800">Generate Report</div>
+                                <div className="text-xs text-slate-500 mt-1">Export compliance status</div>
+                            </button>
+
+                            <button className="p-4 bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md rounded-xl transition-all group text-left">
+                                <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <Settings className="w-6 h-6" />
+                                </div>
+                                <div className="font-semibold text-slate-800">Settings</div>
+                                <div className="text-xs text-slate-500 mt-1">System configuration</div>
+                            </button>
+                        </div>
                     </motion.div>
                 </div>
-
-                {/* Quick Actions */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="bg-card backdrop-blur-sm border border-border/30 rounded-xl p-6"
-                >
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
-                            <p className="text-muted-foreground text-sm mt-1">Common tasks to manage your PII governance</p>
-                        </div>
-                        <div className="text-xs text-slate-500 bg-card/50 px-2 py-1 rounded">
-                            {displayData.latestScanId ? 'System Active' : 'Setup Required'}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <motion.button
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setShowScanConfigModal(true)}
-                            className="group relative flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/10 hover:from-blue-500/20 hover:to-blue-600/20 border border-blue-500/20 hover:border-blue-500/40 rounded-xl transition-all duration-200"
-                            title="Start a new comprehensive scan of all connected data sources"
-                        >
-                            <div className="p-3 bg-blue-500/20 rounded-lg group-hover:bg-blue-500/30 transition-colors">
-                                <Shield className="w-6 h-6 text-blue-400 group-hover:text-blue-300" />
-                            </div>
-                            <div className="text-center">
-                                <span className="text-sm font-medium text-slate-300 group-hover:text-white block">New Scan</span>
-                                <span className="text-xs text-slate-500 group-hover:text-muted-foreground block mt-1">Discover PII</span>
-                            </div>
-                        </motion.button>
-
-                        <motion.button
-                            whileHover={{ scale: 1.02, y: -2 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setShowAddSourceModal(true)}
-                            className="group relative flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 hover:from-emerald-500/20 hover:to-emerald-600/20 border border-emerald-500/20 hover:border-emerald-500/40 rounded-xl transition-all duration-200"
-                            title="Connect a new data source (database, cloud storage, etc.)"
-                        >
-                            <div className="p-3 bg-emerald-500/20 rounded-lg group-hover:bg-emerald-500/30 transition-colors">
-                                <Database className="w-6 h-6 text-emerald-400 group-hover:text-emerald-300" />
-                            </div>
-                            <div className="text-center">
-                                <span className="text-sm font-medium text-slate-300 group-hover:text-white block">Add Source</span>
-                                <span className="text-xs text-slate-500 group-hover:text-muted-foreground block mt-1">Connect Data</span>
-                            </div>
-                        </motion.button>
-
-                        <div className="relative group/btn cursor-pointer">
-                            <motion.button
-                                whileHover={{ scale: 1.02, y: -2 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => window.location.href = '/remediation'}
-                                className="w-full h-full group relative flex flex-col items-center gap-3 p-6 bg-gradient-to-br from-amber-500/10 to-amber-600/10 hover:from-amber-500/20 hover:to-amber-600/20 border border-amber-500/20 hover:border-amber-500/40 rounded-xl transition-all duration-200"
-                                title="Manage remediation tasks"
-                            >
-                                <div className="p-3 bg-amber-500/20 rounded-lg transition-colors group-hover:bg-amber-500/30">
-                                    <CheckCircle className="w-6 h-6 text-amber-500 group-hover:text-amber-400" />
-                                </div>
-                                <div className="text-center">
-                                    <span className="text-sm font-medium text-slate-300 group-hover:text-white block">Remediate</span>
-                                    <span className="text-xs text-slate-500 group-hover:text-muted-foreground block mt-1">
-                                        Action Center
-                                    </span>
-                                </div>
-                            </motion.button>
-                        </div>
-                    </div>
-                </motion.div>
             </div>
-        </div>
+        </GlobalLayout>
     );
 }

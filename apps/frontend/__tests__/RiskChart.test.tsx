@@ -47,7 +47,7 @@ describe('RiskChart', () => {
 
   it('displays correct data source count', () => {
     render(<RiskChart {...defaultProps} />);
-    expect(screen.getByText('3')).toBeInTheDocument(); // 3 assets
+    expect(screen.getAllByText('3')[0]).toBeInTheDocument(); // 3 assets
   });
 
   it('renders PII type legend items', () => {

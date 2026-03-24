@@ -20,8 +20,16 @@ echo "============================================"
 
 # Check if cypher-shell is available
 if ! command -v cypher-shell &> /dev/null; then
-    echo "⚠️  cypher-shell command not found."
-    echo "   Alternative: Use curl to check HTTP port 7474"
+    if docker ps | grep -q "neo4j"; then
+        echo "ℹ️  cypher-shell not found locally, but found neo4j docker container."
+        CYPHER_CMD="docker exec -i arc-platform-neo4j cypher-shell"
+    else
+        echo "⚠️  cypher-shell command not found."
+        echo "   Alternative: Use curl to check HTTP port 7474"
+        CYPHER_CMD=""
+    fi
+else
+    CYPHER_CMD="cypher-shell"
 fi
 
 # Test HTTP connection first (always available)
@@ -42,13 +50,17 @@ else
 fi
 
 # Test Bolt connection if cypher-shell available
-if command -v cypher-shell &> /dev/null; then
+if [ -n "$CYPHER_CMD" ]; then
     echo ""
     echo "🔄 Testing Neo4j Bolt connection (port $PORT)..."
 
     START_TIME=$(date +%s%N)
 
-    BOLT_RESULT=$(echo "RETURN 1 as test;" | cypher-shell -a "bolt://$HOST:$PORT" -u "$USER" -p "$PASSWORD" 2>&1)
+    if [[ "$CYPHER_CMD" == *"docker"* ]]; then
+        BOLT_RESULT=$(echo "RETURN 1 as test;" | $CYPHER_CMD -u "$USER" -p "$PASSWORD" 2>&1)
+    else
+        BOLT_RESULT=$(echo "RETURN 1 as test;" | $CYPHER_CMD -a "bolt://$HOST:$PORT" -u "$USER" -p "$PASSWORD" 2>&1)
+    fi
 
     END_TIME=$(date +%s%N)
     LATENCY=$(( (END_TIME - START_TIME) / 1000000 ))

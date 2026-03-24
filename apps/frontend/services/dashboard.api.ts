@@ -16,7 +16,7 @@ export interface DashboardFinding {
     piiType: string;
     confidence: number;
     risk: 'High' | 'Medium' | 'Low';
-    sourceType: 'Database' | 'Filesystem' | 'S3';
+    sourceType: 'Database' | 'File' | 'Cloud' | 'API';
 }
 
 export interface DashboardData {
@@ -80,11 +80,12 @@ function mapSeverityToRisk(severity: string): 'High' | 'Medium' | 'Low' {
     return 'Low';
 }
 
-function mapSourceType(sourceType: string): 'Database' | 'Filesystem' | 'S3' {
+function mapSourceType(sourceType: string): 'Database' | 'File' | 'Cloud' | 'API' {
     if (!sourceType) return 'Database';
     const s = sourceType.toLowerCase();
-    if (s.includes('s3') || s.includes('bucket')) return 'S3';
-    if (s.includes('fs') || s.includes('file') || s.includes('filesystem')) return 'Filesystem';
+    if (s.includes('s3') || s.includes('bucket') || s.includes('cloud') || s.includes('gcs')) return 'Cloud';
+    if (s.includes('fs') || s.includes('file') || s.includes('filesystem')) return 'File';
+    if (s.includes('api') || s.includes('endpoint')) return 'API';
     return 'Database';
 }
 

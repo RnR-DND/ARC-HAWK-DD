@@ -4,6 +4,7 @@ from rich.console import Console
 
 console = Console()
 
+
 def connect_mysql(args, host, port, user, password, database):
     try:
         conn = pymysql.connect(
@@ -17,16 +18,19 @@ def connect_mysql(args, host, port, user, password, database):
             system.print_info(args, f"Connected to MySQL database at {host}")
             return conn
     except Exception as e:
-        system.print_error(args, f"Failed to connect to MySQL database at {host} with error: {e}")
+        system.print_error(
+            args, f"Failed to connect to MySQL database at {host} with error: {e}")
+
 
 def check_data_patterns(args, conn, patterns, profile_name, database_name, limit_start=0, limit_end=500, whitelisted_tables=None, exclude_columns=None):
     cursor = conn.cursor()
-    
+
     # Get the list of tables to scan
     cursor.execute("SHOW TABLES")
     tables = [table[0] for table in cursor.fetchall()]
     if whitelisted_tables:
-        tables_to_scan = [table for table in tables if table in whitelisted_tables]
+        tables_to_scan = [
+            table for table in tables if table in whitelisted_tables]
     else:
         tables_to_scan = tables or []
 
@@ -34,7 +38,8 @@ def check_data_patterns(args, conn, patterns, profile_name, database_name, limit
 
     results = []
     for table in tables_to_scan:
-        cursor.execute(f"SELECT * FROM {table} LIMIT {limit_end} OFFSET {limit_start}")
+        cursor.execute(
+            f"SELECT * FROM {table} LIMIT {limit_end} OFFSET {limit_start}")
         columns = [column[0] for column in cursor.description]
 
         data_count = 1
@@ -66,9 +71,10 @@ def check_data_patterns(args, conn, patterns, profile_name, database_name, limit
     cursor.close()
     return results
 
+
 def execute(args):
     results = []
-    system.print_info(args, f"Running Checks for MySQL Sources")
+    system.print_info(args, "Running Checks for MySQL Sources")
     connections = system.get_connection(args)
     if 'sources' in connections:
         sources_config = connections['sources']
@@ -89,18 +95,25 @@ def execute(args):
                 exclude_columns = config.get('exclude_columns', [])
 
                 if host and user and database:
-                    system.print_info(args, f"Checking MySQL Profile {key} and database {database}")
-                    conn = connect_mysql(args, host, port, user, password, database)
+                    system.print_info(
+                        args, f"Checking MySQL Profile {key} and database {database}")
+                    conn = connect_mysql(
+                        args, host, port, user, password, database)
                     if conn:
-                        results += check_data_patterns(args, conn, patterns, key, database, limit_start=limit_start, limit_end=limit_end, whitelisted_tables=tables, exclude_columns=exclude_columns)
+                        results += check_data_patterns(args, conn, patterns, key, database, limit_start=limit_start,
+                                                       limit_end=limit_end, whitelisted_tables=tables, exclude_columns=exclude_columns)
                         conn.close()
                 else:
-                    system.print_error(args, f"Incomplete MySQL configuration for key: {key}")
+                    system.print_error(
+                        args, f"Incomplete MySQL configuration for key: {key}")
         else:
-            system.print_error(args, "No MySQL connection details found in connection.yml")
+            system.print_error(
+                args, "No MySQL connection details found in connection.yml")
     else:
-        system.print_error(args, "No 'sources' section found in connection.yml")
+        system.print_error(
+            args, "No 'sources' section found in connection.yml")
     return results
+
 
 # Example usage
 if __name__ == "__main__":

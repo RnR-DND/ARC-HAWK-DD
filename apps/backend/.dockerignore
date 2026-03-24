@@ -1,0 +1,18 @@
+# Binaries
+server
+main
+*.exe
+*.test
+*.out
+
+# Directories
+.git
+.idea
+.vscode
+tmp
+logs
+vendor
+
+# Files
+.env
+.DS_Store

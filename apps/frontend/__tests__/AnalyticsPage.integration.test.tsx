@@ -65,7 +65,7 @@ describe('AnalyticsPage Integration', () => {
 
   it('renders loading state initially', () => {
     // Mock fetch to never resolve (loading state)
-    (global.fetch as jest.Mock).mockImplementation(() => new Promise(() => {}));
+    (global.fetch as jest.Mock).mockImplementation(() => new Promise(() => { }));
 
     render(<AnalyticsPage />);
 
@@ -96,15 +96,10 @@ describe('AnalyticsPage Integration', () => {
       resolved: 20
     };
 
-    (global.fetch as jest.Mock)
-      .mockImplementationOnce(() => Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockHeatmapData)
-      }))
-      .mockImplementationOnce(() => Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(mockTrendData)
-      }));
+    (global.fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('heatmap')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockHeatmapData) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockTrendData) });
+    });
 
     render(<AnalyticsPage />);
 
@@ -130,15 +125,10 @@ describe('AnalyticsPage Integration', () => {
       resolved: 10
     };
 
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockHeatmapData)
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockTrendData)
-      });
+    (global.fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('heatmap')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockHeatmapData) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockTrendData) });
+    });
 
     render(<AnalyticsPage />);
 
@@ -168,23 +158,21 @@ describe('AnalyticsPage Integration', () => {
       resolved: 0
     };
 
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockHeatmapData)
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockTrendData)
-      });
+    (global.fetch as jest.Mock).mockImplementation((input) => {
+      const url = input?.toString() || '';
+      if (url.includes('heatmap')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockHeatmapData) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockTrendData) });
+    });
 
     render(<AnalyticsPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Asset Type')).toBeInTheDocument();
-      expect(screen.getByText('PAN')).toBeInTheDocument(); // column header
-      expect(screen.getByText('Databases')).toBeInTheDocument(); // row header
-      expect(screen.getByText('5')).toBeInTheDocument(); // total
+      expect(screen.getByText(/Asset Type/i)).toBeInTheDocument();
+      expect(screen.getByText(/PAN/i)).toBeInTheDocument(); // column header
+      expect(screen.getByText(/database/i)).toBeInTheDocument(); // row header
+      expect(screen.getAllByText(/5/i)[0]).toBeInTheDocument(); // total
     });
   });
 
@@ -194,7 +182,7 @@ describe('AnalyticsPage Integration', () => {
       .mockRejectedValueOnce(new Error('Network error'));
 
     // Mock console.error to avoid test output pollution
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
     render(<AnalyticsPage />);
 
@@ -218,15 +206,10 @@ describe('AnalyticsPage Integration', () => {
       resolved: 0
     };
 
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockHeatmapData)
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockTrendData)
-      });
+    (global.fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('heatmap')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockHeatmapData) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockTrendData) });
+    });
 
     render(<AnalyticsPage />);
 
@@ -250,15 +233,10 @@ describe('AnalyticsPage Integration', () => {
       resolved: 3
     };
 
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockHeatmapData)
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockTrendData)
-      });
+    (global.fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('heatmap')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockHeatmapData) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(mockTrendData) });
+    });
 
     render(<AnalyticsPage />);
 

@@ -1,7 +1,15 @@
-import jmespath
-from rich.console import Console 
-from rich.table import Table
-import json, requests, argparse, yaml, re, datetime, os, subprocess, platform, hashlib
+from hawk_scanner.internals.scanner_engine import ContextAwareScanner
+from rich.console import Console
+import json
+import requests
+import argparse
+import yaml
+import re
+import datetime
+import os
+import subprocess
+import platform
+import hashlib
 from tinydb import TinyDB, Query
 import numpy as np
 import pytesseract
@@ -13,61 +21,87 @@ import PyPDF2
 import patoolib
 import tempfile
 import shutil
-import os, cv2
+import os
+import cv2
 import tarfile
 import pkg_resources
 from concurrent.futures import ProcessPoolExecutor
 
 
-data_sources = ['s3', 'mysql', 'redis', 'firebase', 'gcs', 'fs', 'postgresql', 'mongodb', 'slack', 'couchdb', 'gdrive', 'gdrive_workspace', 'text']
+data_sources = ['s3', 'mysql', 'redis', 'firebase', 'gcs', 'fs', 'postgresql',
+                'mongodb', 'slack', 'couchdb', 'gdrive', 'gdrive_workspace', 'text']
 data_sources_option = ['all'] + data_sources
 
+
 def parse_args(args=None):
-    version = pkg_resources.require("hawk_scanner")[0].version 
-    parser = argparse.ArgumentParser(description='🦅 A powerful scanner to scan your Filesystem, S3, MySQL, PostgreSQL, MongoDB, Redis, Google Cloud Storage and Firebase storage for PII and sensitive data.')
-    parser.add_argument('command', nargs='?', choices=data_sources_option, help='Command to execute')
-    parser.add_argument('--connection', action='store', help='YAML Connection file path')
-    parser.add_argument('--config', action='store', help='JSON Scan config file path (from Go backend)')
-    parser.add_argument('--connection-json', type=str, help='Connection details in JSON format, useful for passing connection info directly as CLI Input')
-    parser.add_argument('--fingerprint', action='store', help='Override YAML fingerprint file path')
+    version = pkg_resources.require("hawk_scanner")[0].version
+    parser = argparse.ArgumentParser(
+        description='🦅 A powerful scanner to scan your Filesystem, S3, MySQL, PostgreSQL, MongoDB, Redis, Google Cloud Storage and Firebase storage for PII and sensitive data.')
+    parser.add_argument('command', nargs='?',
+                        choices=data_sources_option, help='Command to execute')
+    parser.add_argument('--connection', action='store',
+                        help='YAML Connection file path')
+    parser.add_argument('--config', action='store',
+                        help='JSON Scan config file path (from Go backend)')
+    parser.add_argument('--connection-json', type=str,
+                        help='Connection details in JSON format, useful for passing connection info directly as CLI Input')
+    parser.add_argument('--fingerprint', action='store',
+                        help='Override YAML fingerprint file path')
     parser.add_argument('--json', help='Save output to a json file')
     parser.add_argument('--csv', help='Save output to a csv file')
-    parser.add_argument('--stdout', action='store_true', help='Print output to stdout in JSON format')
-    parser.add_argument('--quiet', action='store_true', help='Print only the results')
-    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-    parser.add_argument('--no-write', action='store_true', help='Do not write previous alerts to file, this may flood you with duplicate alerts')
-    parser.add_argument('--shutup', action='store_true', help='Suppress the Hawk Eye banner 🫣', default=False)
-    parser.add_argument('--version', action='version', version='%(prog)s v' + version)
-    parser.add_argument('--hawk-thuu', action='store_true', help="Delete all spitted files during testing phase forcefully")
+    parser.add_argument('--stdout', action='store_true',
+                        help='Print output to stdout in JSON format')
+    parser.add_argument('--quiet', action='store_true',
+                        help='Print only the results')
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug mode')
+    parser.add_argument('--no-write', action='store_true',
+                        help='Do not write previous alerts to file, this may flood you with duplicate alerts')
+    parser.add_argument('--shutup', action='store_true',
+                        help='Suppress the Hawk Eye banner 🫣', default=False)
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s v' + version)
+    parser.add_argument('--hawk-thuu', action='store_true',
+                        help="Delete all spitted files during testing phase forcefully")
     # NEW: Auto-ingestion support
-    parser.add_argument('--ingest-url', type=str, help='Automatically POST scan results to backend API (e.g., http://localhost:8080/api/v1/ingest)')
-    parser.add_argument('--ingest-retry', type=int, default=3, help='Number of retries for ingestion (default: 3)')
-    parser.add_argument('--ingest-timeout', type=int, default=30, help='Timeout for ingestion request in seconds (default: 30)')
+    parser.add_argument('--ingest-url', type=str,
+                        help='Automatically POST scan results to backend API (e.g., http://localhost:8080/api/v1/ingest)')
+    parser.add_argument('--ingest-retry', type=int, default=3,
+                        help='Number of retries for ingestion (default: 3)')
+    parser.add_argument('--ingest-timeout', type=int, default=30,
+                        help='Timeout for ingestion request in seconds (default: 30)')
     return parser.parse_args(args)
-    
+
+
 console = Console()
+
 
 def calculate_msg_hash(msg):
     return hashlib.sha256(msg.encode()).hexdigest()
+
 
 def print_info(args, message):
     if not args.quiet:
         console.print(f"[yellow][INFO][/yellow] {str(message)}")
 
+
 def print_debug(args, message):
     if args and type(args) == argparse.Namespace and args.debug and not args.quiet:
         try:
             console.print(f"[blue][DEBUG][/blue] {str(message)}")
-        except Exception as e:
+        except Exception:
             pass
+
 
 def print_error(args, message):
     if not args.quiet:
         console.print(f"[bold red]❌ {message}")
 
+
 def print_success(args, message):
     if not args.quiet:
         console.print(f"[bold green]✅ {message}")
+
 
 def get_file_owner(file_path):
     owner_name = ""
@@ -78,7 +112,8 @@ def get_file_owner(file_path):
     if system == "Windows":
         try:
             # Run the 'dir /q' command and capture its output
-            result = subprocess.check_output(['dir', '/q', file_path], shell=True, text=True)
+            result = subprocess.check_output(
+                ['dir', '/q', file_path], shell=True, text=True)
             # Extract the line containing the file information
             lines = result.splitlines()
             file_name = os.path.basename(file_path)
@@ -87,19 +122,22 @@ def get_file_owner(file_path):
                     if file_name in line:
                         exploded_line = line.split(' ')
                         owner_name = exploded_line[-2]
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             owner_name = ""
     else:
         try:
             from pwd import getpwuid
             # Use the 'os.stat()' method to get the file owner on non-Windows systems
             file_stat = os.stat(file_path)
-            owner_name = file_stat.st_uid  # You can also use pwd.getpwuid(file_stat.st_uid).pw_name to get the username
-            owner_name = getpwuid(owner_name).pw_name + " (" + str(owner_name) + ")"
-        except OSError as e:
+            # You can also use pwd.getpwuid(file_stat.st_uid).pw_name to get the username
+            owner_name = file_stat.st_uid
+            owner_name = getpwuid(owner_name).pw_name + \
+                " (" + str(owner_name) + ")"
+        except OSError:
             owner_name = ""
 
     return owner_name
+
 
 def RedactData(input_string):
     if len(input_string) < 3:
@@ -124,6 +162,7 @@ def RedactData(input_string):
 
     return redacted_string
 
+
 def get_connection(args):
     if args.connection:
         if os.path.exists(args.connection):
@@ -141,10 +180,14 @@ def get_connection(args):
             print_error(args, f"Error parsing JSON: {e}")
             exit(1)
     else:
-        print_error(args, "Please provide a connection file using --connection flag or connection details using --connection-json flag")
+        print_error(
+            args, "Please provide a connection file using --connection flag or connection details using --connection-json flag")
         exit(1)
+
+
 # Global cache for fingerprint data
 _fingerprint_cache = None
+
 
 def get_fingerprint_file(args=None):
     global _fingerprint_cache
@@ -160,7 +203,8 @@ def get_fingerprint_file(args=None):
                 return _fingerprint_cache
         else:
             if args:
-                print_error(args, f"Fingerprint file not found: {args.fingerprint}")
+                print_error(
+                    args, f"Fingerprint file not found: {args.fingerprint}")
             exit(1)
     elif args and type(args) == dict and 'fingerprint' in args:
         _fingerprint_cache = args['fingerprint']
@@ -174,14 +218,15 @@ def get_fingerprint_file(args=None):
                     # NEW: Validate patterns after loading
                     _validate_fingerprint_patterns(args, _fingerprint_cache)
                     return _fingerprint_cache
-            except Exception as e:
+            except Exception:
                 pass
 
         file_path = "https://github.com/rohitcoder/hawk-eye/raw/main/fingerprint.yml"
         try:
             response = requests.get(file_path, timeout=10)
             if args:
-                print_info(args, f"Downloading default fingerprint.yml from {file_path}")
+                print_info(
+                    args, f"Downloading default fingerprint.yml from {file_path}")
             if response.status_code == 200:
                 with open('fingerprint.yml', 'wb') as file:
                     file.write(response.content)
@@ -191,29 +236,34 @@ def get_fingerprint_file(args=None):
                 return _fingerprint_cache
             else:
                 if args:
-                    print_error(args, f"Unable to download default fingerprint.yml please provide your own fingerprint file using --fingerprint flag")
+                    print_error(
+                        args, "Unable to download default fingerprint.yml please provide your own fingerprint file using --fingerprint flag")
                 exit(1)
-        except Exception as e:
+        except Exception:
             if args:
-                print_error(args, f"Unable to download default fingerprint.yml please provide your own fingerprint file using --fingerprint flag")
+                print_error(
+                    args, "Unable to download default fingerprint.yml please provide your own fingerprint file using --fingerprint flag")
             exit(1)
+
 
 def _validate_fingerprint_patterns(args, patterns):
     """Validate fingerprint patterns for common issues"""
     if not patterns:
         return
-    
+
     # Check 1: Warn about case-sensitive patterns that might miss data
     case_sensitive_patterns = []
     for name, regex in patterns.items():
         if not regex.startswith('(?i)') and any(char.isalpha() for char in regex):
             case_sensitive_patterns.append(name)
-    
+
     if case_sensitive_patterns and args:
-        print_info(args, f"ℹ️  Note: {len(case_sensitive_patterns)} patterns are case-sensitive (may miss lowercase variants)")
+        print_info(
+            args, f"ℹ️  Note: {len(case_sensitive_patterns)} patterns are case-sensitive (may miss lowercase variants)")
         if hasattr(args, 'debug') and args.debug:
-            print_debug(args, f"Case-sensitive patterns: {', '.join(case_sensitive_patterns[:10])}")
-    
+            print_debug(
+                args, f"Case-sensitive patterns: {', '.join(case_sensitive_patterns[:10])}")
+
     # Check 2: Validate regex compilation
     invalid_patterns = []
     for name, regex in patterns.items():
@@ -222,14 +272,17 @@ def _validate_fingerprint_patterns(args, patterns):
         except re.error as e:
             invalid_patterns.append(f"{name}: {e}")
             print_error(args, f"❌ Invalid regex in pattern '{name}': {e}")
-    
+
     if invalid_patterns:
-        print_error(args, f"Found {len(invalid_patterns)} invalid regex patterns - scan may fail")
-    
+        print_error(
+            args, f"Found {len(invalid_patterns)} invalid regex patterns - scan may fail")
+
     # Check 3: Pattern statistics
     total_patterns = len(patterns)
     if args:
-        print_success(args, f"✅ Loaded {total_patterns} patterns from fingerprint.yml")
+        print_success(
+            args, f"✅ Loaded {total_patterns} patterns from fingerprint.yml")
+
 
 def print_banner(args):
     line1 = "+ ================================================== +"
@@ -240,38 +293,39 @@ def print_banner(args):
     line6 = "A Tool by [bold red]Rohit Kumar (@rohitcoder)[/bold red]"
 
     banner = f"""
-                              ⢀⣀⣀⣀⣀⣤⠶⣒⣛⣛⡲⠶⣶⣶⠤⣤⣀⡀              
-                            ⣠⠴⢻⣭⣶⣶⣶⣶⣶⣦⣽⣿⣿⣿⣷⣾⣥⣝⣶⣭⣗⣲⡕⣠⡀         
-                          ⢀⣨⣷⣺⣵⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣵⣝⣦⡀       
-                        ⣠⡾⡫⢵⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⣿⣿⡿⣿⣿⣞⣿⡄      
-                       ⢼⣟⣯⣾⣿⣿⣿⣿⣿⡍⠉⠙⠛⠟⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡌⣿⣷⢸⣿⣿⣾⣿      
-                      ⢠⢫⣾⣿⣿⣿⣿⣿⠋⠁ ⠠     ⠉⠻⢿⣿⣿⣿⣿⣿⠟⢀⣿⠟⣘⣿⣿⣿⣿      
-                     ⣰⣏⣿⣿⣿⣿⣿⣿⣿⣇ ⠠⡖⠒⣲⣶⣶⣶⣦⣤⣄⡛⠛⠛⢛⣁⣤⡽⠿⠋⠉⠉ ⠙⠛⠒⠦⣄   
-                     ⢿⡅⣼⣿⣿⣿⣿⣿⣿⣿⠗ ⠱⡀⢿⣿⣤⣧⡼⢻⢻⣿⠟⠉⢻⠟⠁⡰⠟⠁       ⠈⢳⡄ 
-                    ⢀⡾⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿  ⠈⠓⠭⠿⠭⠄⡊⠤⠊⠎⢢⠏              ⢳ 
+                              ⢀⣀⣀⣀⣀⣤⠶⣒⣛⣛⡲⠶⣶⣶⠤⣤⣀⡀
+                            ⣠⠴⢻⣭⣶⣶⣶⣶⣶⣦⣽⣿⣿⣿⣷⣾⣥⣝⣶⣭⣗⣲⡕⣠⡀
+                          ⢀⣨⣷⣺⣵⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣵⣝⣦⡀
+                        ⣠⡾⡫⢵⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⣿⣿⡿⣿⣿⣞⣿⡄
+                       ⢼⣟⣯⣾⣿⣿⣿⣿⣿⡍⠉⠙⠛⠟⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡌⣿⣷⢸⣿⣿⣾⣿
+                      ⢠⢫⣾⣿⣿⣿⣿⣿⠋⠁ ⠠     ⠉⠻⢿⣿⣿⣿⣿⣿⠟⢀⣿⠟⣘⣿⣿⣿⣿
+                     ⣰⣏⣿⣿⣿⣿⣿⣿⣿⣇ ⠠⡖⠒⣲⣶⣶⣶⣦⣤⣄⡛⠛⠛⢛⣁⣤⡽⠿⠋⠉⠉ ⠙⠛⠒⠦⣄
+                     ⢿⡅⣼⣿⣿⣿⣿⣿⣿⣿⠗ ⠱⡀⢿⣿⣤⣧⡼⢻⢻⣿⠟⠉⢻⠟⠁⡰⠟⠁       ⠈⢳⡄
+                    ⢀⡾⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿  ⠈⠓⠭⠿⠭⠄⡊⠤⠊⠎⢢⠏              ⢳
                     ⣼⢱⣿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣄⡀    ⡀⢀    ⡜⢠⢠⢀⢀          ⠈⣾⡄	 {line1}
                     ⣿⣨⢅⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡶⠄⣀⣀⡀  ⡠⢊⣀   ⠈           ⢿⡇	 {line2}
                    ⢀⡴⣽⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠟⠁ ⡘⠠⠋⢀⠤⢒⣒⣒⣒⠢⠤⢤⣄⣀⣀⣀⡀  ⣼⠁   {line3}
                    ⣎⠾⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠆   ⠱⢄⢘⣡⠔⠶⢴⣒⣢⣤⡤⠖⠛⡏⠉⠉⠉⢣⢀⡟    {line4}
                   ⠸⣴⣳⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠁ ⠐  ⢀⠒⣭⠅    ⠰⠌⠁ ⡀⣷    ⠛     {line5}
-                 ⢀⡼⣱⣿⣿⣿⣿⣿⣿⣿⡿⣻⣿⣿⣷⡦⠄    ⠈ ⠈⠁ ⠂    ⠈  ⢀⣾⣧⣿⠁         {line6} 
-                ⣠⣿⢃⢋⣽⣿⣿⣿⣿⣿⣿⠵⣿⡿⣿⣿⣶⡿⣃⣀⣤⣴⣇⣠⣾⡇       ⢠⡗⣸⣿⣿⣿⠆      
-              ⢀⣾⣿⢟⣵⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣶⣿⣿⣿⣿⣿⢿⣿⣿⢿⣿⡟  ⢀⡄   ⢀⣾⣿⣿⣿⣿⣯       
-             ⢀⣿⣿⣯⣶⢖⣸⣟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣃⣿⣭⣾⣿⣯⣤⣴⣾⣿⢇⢌⣾⡆⣼⣿⣿⣿⣿⣏⢃⠃      
-            ⠠⣫⠾⣻⣿⢿⣿⠫⠾⠿⠿⣿⡛⣫⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⣷⣄⡀     
-            ⠐⠁⣼⠟⢡⣿⠿⣿⣿⣿⡿⢟⣡⢖⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣛⣻⢹⣇⡀     
-             ⠐⠁⢀⠟⢁⣾⣿⠿⣿⣾⣿⢯⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⡿⣿⢓⣛⣿⣿⡿⢆⡀   
-               ⠊⢀⡞⠉ ⣴⠟⣻⣷⣶⣶⣾⣭⣽⣿⣭⣵⡾⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣉⠿⣩⣣⣿⣷⡞⢟⠟⣿⢛⠆⠈⠂  
-                ⠈  ⠐⠁⣼⠟⢻⣿⣿⡿⠿⢿⣿⣿⣟⣟⣻⣿⣻⣿⣭⢇⡿⣛⢻⣿⣋⢿⢣⣿⣿⢿⣿⣿⡇   ⠙⠈⠌    
-                    ⠈⠁ ⠛⠋ ⣀⣴⣿⣿⣿⡿⢿⣿⣿⣿⣿⣿⣬⣾⣿⣟⣷⣿⣶⣿⠟⠁ ⣿⡟           
-                        ⠐⠞⠛⠉    ⣼⠿⠋ ⠉⢹⣿⡿⣿⣿⢿⣿⠏⠃   ⠙            
-                                    ⢀⣾⠏⢠⡿⠁⡾⠋                  
-                                    ⠈⠁ ⠈                      
+                 ⢀⡼⣱⣿⣿⣿⣿⣿⣿⣿⡿⣻⣿⣿⣷⡦⠄    ⠈ ⠈⠁ ⠂    ⠈  ⢀⣾⣧⣿⠁         {line6}
+                ⣠⣿⢃⢋⣽⣿⣿⣿⣿⣿⣿⠵⣿⡿⣿⣿⣶⡿⣃⣀⣤⣴⣇⣠⣾⡇       ⢠⡗⣸⣿⣿⣿⠆
+              ⢀⣾⣿⢟⣵⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣶⣿⣿⣿⣿⣿⢿⣿⣿⢿⣿⡟  ⢀⡄   ⢀⣾⣿⣿⣿⣿⣯
+             ⢀⣿⣿⣯⣶⢖⣸⣟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣃⣿⣭⣾⣿⣯⣤⣴⣾⣿⢇⢌⣾⡆⣼⣿⣿⣿⣿⣏⢃⠃
+            ⠠⣫⠾⣻⣿⢿⣿⠫⠾⠿⠿⣿⡛⣫⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⣷⣄⡀
+            ⠐⠁⣼⠟⢡⣿⠿⣿⣿⣿⡿⢟⣡⢖⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣛⣻⢹⣇⡀
+             ⠐⠁⢀⠟⢁⣾⣿⠿⣿⣾⣿⢯⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⡿⣿⢓⣛⣿⣿⡿⢆⡀
+               ⠊⢀⡞⠉ ⣴⠟⣻⣷⣶⣶⣾⣭⣽⣿⣭⣵⡾⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣉⠿⣩⣣⣿⣷⡞⢟⠟⣿⢛⠆⠈⠂
+                ⠈  ⠐⠁⣼⠟⢻⣿⣿⡿⠿⢿⣿⣿⣟⣟⣻⣿⣻⣿⣭⢇⡿⣛⢻⣿⣋⢿⢣⣿⣿⢿⣿⣿⡇   ⠙⠈⠌
+                    ⠈⠁ ⠛⠋ ⣀⣴⣿⣿⣿⡿⢿⣿⣿⣿⣿⣿⣬⣾⣿⣟⣷⣿⣶⣿⠟⠁ ⣿⡟
+                        ⠐⠞⠛⠉    ⣼⠿⠋ ⠉⢹⣿⡿⣿⣿⢿⣿⠏⠃   ⠙
+                                    ⢀⣾⠏⢠⡿⠁⡾⠋
+                                    ⠈⠁ ⠈
 """
     if args.quiet:
         args.shutup = True
     if not args.shutup:
         console.print(banner)
+
 
 def normalize_for_matching(text):
     """Normalize text for consistent pattern matching (removes formatting)"""
@@ -286,45 +340,50 @@ def normalize_for_matching(text):
     # normalized = normalized.replace('.', '')
     return normalized
 
-from hawk_scanner.internals.scanner_engine import ContextAwareScanner
 
 def match_strings(args, content, source='text'):
     redacted = False
     if args and 'connection' in args:
         connections = get_connection(args)
         if 'notify' in connections:
-            redacted: bool = connections.get('notify', {}).get('redacted', False)
-    
+            redacted: bool = connections.get(
+                'notify', {}).get('redacted', False)
+
     patterns = get_fingerprint_file(args)
-    
+
     # Use New Context-Aware Scanner
     scanner = ContextAwareScanner(debug=args.debug if args else False)
     findings = scanner.scan(content, patterns, source)
-    
+
     # Process findings for compatibility with legacy format
     matched_strings = []
-    
+
     for finding in findings:
         # Normalize structure for older consumers if needed
         # Or just pass through the enriched finding
         matched_strings.append(finding)
-        
+
         if args:
-            print_debug(args, f"Found pattern: {finding['pattern_name']} Score: {finding['confidence_score']}")
-            
+            print_debug(
+                args, f"Found pattern: {finding['pattern_name']} Score: {finding['confidence_score']}")
+
     return matched_strings
+
 
 def should_exclude_file(args, file_name, exclude_patterns):
     _, extension = os.path.splitext(file_name)
     if extension in exclude_patterns:
-        print_debug(args, f"Excluding file: {file_name} because of extension: {extension}")
+        print_debug(
+            args, f"Excluding file: {file_name} because of extension: {extension}")
         return True
-    
+
     for pattern in exclude_patterns:
         if pattern in file_name:
-            print_debug(args, f"Excluding file: {file_name} because of pattern: {pattern}")
+            print_debug(
+                args, f"Excluding file: {file_name} because of pattern: {pattern}")
             return True
     return False
+
 
 def should_exclude_folder(folder_name, exclude_patterns):
     for pattern in exclude_patterns:
@@ -332,13 +391,16 @@ def should_exclude_folder(folder_name, exclude_patterns):
             return True
     return False
 
+
 def list_all_files_iteratively(args, path, exclude_patterns):
     for root, dirs, files in os.walk(path, topdown=True):
-        dirs[:] = [d for d in dirs if not should_exclude_folder(os.path.join(root, d), exclude_patterns)]
+        dirs[:] = [d for d in dirs if not should_exclude_folder(
+            os.path.join(root, d), exclude_patterns)]
 
         for file in files:
             if not should_exclude_file(args, file, exclude_patterns):
                 yield os.path.join(root, file)
+
 
 def scan_file(file_path, args=None, source=None):
     content = ''
@@ -356,7 +418,7 @@ def scan_file(file_path, args=None, source=None):
     elif file_path.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
         content = read_video(args, file_path)
     elif file_path.lower().endswith(('.zip', '.rar', '.tar', '.tar.gz')):
-        ## this is archive, so we need to extract it and find pii from it, and return matched_strings
+        # this is archive, so we need to extract it and find pii from it, and return matched_strings
         matched_strings = find_pii_in_archive(args, file_path, source)
         is_archive = True
     else:
@@ -369,6 +431,7 @@ def scan_file(file_path, args=None, source=None):
         matched_strings = match_strings(args, content, source)
     return matched_strings
 
+
 def read_match_strings(args, file_path, source):
     print_info(args, f"Scanning file: {file_path} for Source: {source}")
     try:
@@ -378,13 +441,15 @@ def read_match_strings(args, file_path, source):
         matched_strings = []
     return matched_strings
 
+
 def read_pdf(args, file_path):
     content = ''
     try:
         # Read content from PDF document
         with open(file_path, 'rb') as file:
             pdf_reader = PyPDF2.PdfReader(file)
-            for page_num in range(len(pdf_reader.pages)):  # Use len() instead of deprecated numPages
+            # Use len() instead of deprecated numPages
+            for page_num in range(len(pdf_reader.pages)):
                 page = pdf_reader.pages[page_num]
                 try:
                     content += page.extract_text()
@@ -394,6 +459,7 @@ def read_pdf(args, file_path):
     except Exception as e:
         print_debug(args, f"Error in read_pdf: {e}")
     return content
+
 
 def process_frame(frame, frame_num, args):
     """
@@ -408,10 +474,12 @@ def process_frame(frame, frame_num, args):
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Resize for faster OCR if resolution is not critical
-        small_frame = cv2.resize(gray_frame, (gray_frame.shape[1] // 2, gray_frame.shape[0] // 2))
+        small_frame = cv2.resize(
+            gray_frame, (gray_frame.shape[1] // 2, gray_frame.shape[0] // 2))
 
         # Apply thresholding (optional, improves OCR on some images)
-        _, thresh_frame = cv2.threshold(small_frame, 150, 255, cv2.THRESH_BINARY)
+        _, thresh_frame = cv2.threshold(
+            small_frame, 150, 255, cv2.THRESH_BINARY)
 
         # Perform OCR with optimized configuration
         custom_config = r'--oem 3'  # PSM 6 for uniform block of text
@@ -419,17 +487,20 @@ def process_frame(frame, frame_num, args):
 
         if args.debug:
             print(f"Processed frame {frame_num}")
-        
+
         return text.strip()
     except Exception as e:
         if args.debug:
             print(f"Error processing frame {frame_num}: {e}")
         return ""
 
+
 def process_frames_parallel(frames, args):
     with ProcessPoolExecutor(max_workers=4) as executor:  # Use multiple processes
-        futures = [executor.submit(process_frame, frame, i, args) for i, frame in enumerate(frames)]
+        futures = [executor.submit(process_frame, frame, i, args)
+                   for i, frame in enumerate(frames)]
         return [future.result() for future in futures]
+
 
 def read_video(args, file_path, frame_interval=30, max_workers=10):
     """
@@ -451,7 +522,8 @@ def read_video(args, file_path, frame_interval=30, max_workers=10):
 
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         frame_rate = cap.get(cv2.CAP_PROP_FPS)
-        print_debug(args, f"Processing {frame_count} frames at {frame_rate} FPS")
+        print_debug(
+            args, f"Processing {frame_count} frames at {frame_rate} FPS")
 
         futures = []
         processed_frames = 0
@@ -465,9 +537,11 @@ def read_video(args, file_path, frame_interval=30, max_workers=10):
 
                 # Process only every `frame_interval`-th frame
                 if frame_num % frame_interval == 0:
-                    print_debug(args, f"Submitting frame {frame_num}/{frame_count} for processing")
+                    print_debug(
+                        args, f"Submitting frame {frame_num}/{frame_count} for processing")
                     # Submit the frame to the thread pool for processing
-                    futures.append(executor.submit(process_frame, frame, frame_num, args))
+                    futures.append(executor.submit(
+                        process_frame, frame, frame_num, args))
                     processed_frames += 1
 
             # Wait for all submitted frames to complete and gather the results
@@ -476,7 +550,8 @@ def read_video(args, file_path, frame_interval=30, max_workers=10):
                 content += text + '\n'
 
         cap.release()
-        print_debug(args, f"Processed {processed_frames} frames out of {frame_count}")
+        print_debug(
+            args, f"Processed {processed_frames} frames out of {frame_count}")
 
     except Exception as e:
         print_debug(args, f"Error in read_video: {e}")
@@ -509,6 +584,7 @@ def read_office_document(args, file_path):
         print_debug(args, f"Error in read_office_document: {e}")
     return content
 
+
 def find_pii_in_archive(args, file_path, source):
     content = []
     # Create a temporary directory to extract the contents of the archive
@@ -540,7 +616,7 @@ def getFileData(file_path):
     try:
         import pwd
         import grp
-        
+
         # Get file metadata
         file_stat = os.stat(file_path)
 
@@ -549,7 +625,7 @@ def getFileData(file_path):
             creator_name = pwd.getpwuid(file_stat.st_uid).pw_name
         except KeyError:
             creator_name = str(file_stat.st_uid)
-            
+
         # Get Group name
         try:
             group_name = grp.getgrgid(file_stat.st_gid).gr_name
@@ -557,9 +633,12 @@ def getFileData(file_path):
             group_name = str(file_stat.st_gid)
 
         # Convert timestamps to human-readable format
-        created_time = datetime.datetime.fromtimestamp(file_stat.st_ctime).strftime("%Y-%m-%d %H:%M:%S")
-        modified_time = datetime.datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-        accessed_time = datetime.datetime.fromtimestamp(file_stat.st_atime).strftime("%Y-%m-%d %H:%M:%S")
+        created_time = datetime.datetime.fromtimestamp(
+            file_stat.st_ctime).strftime("%Y-%m-%d %H:%M:%S")
+        modified_time = datetime.datetime.fromtimestamp(
+            file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+        accessed_time = datetime.datetime.fromtimestamp(
+            file_stat.st_atime).strftime("%Y-%m-%d %H:%M:%S")
 
         # Create a dictionary with the file information
         file_info = {
@@ -586,7 +665,7 @@ def SlackNotify(msg, args):
     connections = get_connection(args)
     if not args.no_write:
         db = TinyDB('previous_alerts.json')
-   
+
     if 'notify' in connections:
         notify_config = connections['notify']
         # Check if suppress_duplicates is set to True
@@ -594,19 +673,20 @@ def SlackNotify(msg, args):
         original_msg = msg
         if suppress_duplicates and not args.no_write:
             # Calculate the hash of the message
-            ## check if "msg" has "Message Link" in any line, then remove that complete line
+            # check if "msg" has "Message Link" in any line, then remove that complete line
             if "Message Link" in msg:
                 msg = msg.split("\n")
                 msg = [line for line in msg if "Message Link" not in line]
                 msg = "\n".join(msg)
-            
+
             msg_hash = calculate_msg_hash(msg)
             # Check if the message hash already exists in the previous alerts database
             alert_query = Query()
             if db.search(alert_query['msg_hash'] == msg_hash):
-                print_info(args, "Duplicate message detected. Skipping webhook trigger.")
+                print_info(
+                    args, "Duplicate message detected. Skipping webhook trigger.")
                 return
-        
+
         slack_config = notify_config.get('slack', {})
         webhook_url = slack_config.get('webhook_url', '')
         if webhook_url and webhook_url.startswith('https://hooks.slack.com/services/'):
@@ -615,17 +695,19 @@ def SlackNotify(msg, args):
                     'text': original_msg,
                 }
                 headers = {'Content-Type': 'application/json'}
-                requests.post(webhook_url, data=json.dumps(payload), headers=headers)
+                requests.post(webhook_url, data=json.dumps(
+                    payload), headers=headers)
                 if suppress_duplicates and not args.no_write:
                     # Store the message hash in the previous alerts database
                     db.insert({'msg_hash': msg_hash})
             except Exception as e:
                 print_error(args, f"An error occurred: {str(e)}")
 
+
 def evaluate_severity(json_data, rules):
     """Evaluate severity based on PII TYPE, not volume (Phase 3 fix)"""
     pattern_name = json_data.get('pattern_name', '').lower()
-    
+
     # TYPE-BASED SEVERITY (not volume-based)
     # Sensitive government IDs and financial data
     if any(kw in pattern_name for kw in ['ssn', 'aadhaar', 'aadhar', 'pan', 'pancard', 'credit_card', 'debit_card', 'passport']):
@@ -643,10 +725,11 @@ def evaluate_severity(json_data, rules):
     else:
         severity = 'MEDIUM'
         description = 'Potentially sensitive data detected'
-    
+
     json_data['severity'] = severity
     json_data['severity_description'] = description
     return json_data
+
 
 def enhance_and_ocr(image_path):
     # Load the image
@@ -660,10 +743,11 @@ def enhance_and_ocr(image_path):
 
     # Perform OCR on the enhanced image
     ocr_text = perform_ocr(enhanced_image)
-    ## delete the enhanced image
+    # delete the enhanced image
     os.remove("enhanced_image.png")
 
     return ocr_text
+
 
 def enhance_image(image):
     # Convert to grayscale
@@ -676,18 +760,22 @@ def enhance_image(image):
 
     # Apply thresholding
     threshold_value = 100  # Adjust as needed
-    thresholded_image = contrast_enhanced_image.point(lambda x: 0 if x < threshold_value else 255)
+    thresholded_image = contrast_enhanced_image.point(
+        lambda x: 0 if x < threshold_value else 255)
 
     # Reduce noise (optional)
-    denoised_image = cv2.fastNlMeansDenoising(np.array(thresholded_image), None, h=10, templateWindowSize=7, searchWindowSize=21)
+    denoised_image = cv2.fastNlMeansDenoising(np.array(
+        thresholded_image), None, h=10, templateWindowSize=7, searchWindowSize=21)
 
     return Image.fromarray(denoised_image)
+
 
 def perform_ocr(image):
     # Use Tesseract OCR
     ocr_text = pytesseract.image_to_string(image)
 
     return ocr_text
+
 
 def get_jira_accId(args, email):
     config = get_connection(args)
@@ -701,7 +789,8 @@ def get_jira_accId(args, email):
     # Check if the accountId is already cached
     cached_user = db.search(user_query.email == email)
     if cached_user:
-        print_debug(args, f"Using cached accountId for {email}: {cached_user[0]['accountId']}")
+        print_debug(
+            args, f"Using cached accountId for {email}: {cached_user[0]['accountId']}")
         return cached_user[0]['accountId']
 
     # Fetch accountId from Jira
@@ -723,9 +812,11 @@ def get_jira_accId(args, email):
             print_debug(args, f"No accountId found for {email}.")
             return None
     else:
-        print_debug(args, f"Failed to fetch accountId for {email}: {response.status_code}, {response.text}")
+        print_debug(
+            args, f"Failed to fetch accountId for {email}: {response.status_code}, {response.text}")
         return None
-    
+
+
 def create_jira_ticket(args, issue_data, message):
     orig_msg = message
     config = get_connection(args)
@@ -734,20 +825,23 @@ def create_jira_ticket(args, issue_data, message):
         if 'notify' in config:
             notify_config = config['notify']
             # Check if suppress_duplicates is set to True
-            suppress_duplicates = notify_config.get('suppress_duplicates', False)
+            suppress_duplicates = notify_config.get(
+                'suppress_duplicates', False)
             if suppress_duplicates and not args.no_write:
                 # Calculate the hash of the message
-                ## check if "msg" has "Message Link" in any line, then remove that complete line
+                # check if "msg" has "Message Link" in any line, then remove that complete line
                 if "Message Link" in message:
                     message = message.split("\n")
-                    message = [line for line in message if "Message Link" not in line]
+                    message = [
+                        line for line in message if "Message Link" not in line]
                     message = "\n".join(message)
-                
+
                 msg_hash = calculate_msg_hash(message)
                 # Check if the message hash already exists in the previous alerts database
                 alert_query = Query()
                 if db.search(alert_query['msg_hash'] == msg_hash):
-                    print_info(args, "Duplicate message detected. Skipping ticket creation")
+                    print_info(
+                        args, "Duplicate message detected. Skipping ticket creation")
                     return
 
     """Creates a Jira ticket using the provided configuration and issue data."""
@@ -755,7 +849,8 @@ def create_jira_ticket(args, issue_data, message):
 
     # Check if Jira is enabled
     if not jira_config.get('username') or jira_config.get('username') == '':
-        print_debug(args, "Jira ticket creation is disabled in the configuration.")
+        print_debug(
+            args, "Jira ticket creation is disabled in the configuration.")
         return
 
     # Extract Jira config details
@@ -769,9 +864,11 @@ def create_jira_ticket(args, issue_data, message):
     default_issue_type = jira_config.get('issue_type')
     issue_fields = jira_config.get('issue_fields', {})
     total_matches = len(issue_data.get('matches', []))
-    summary = "Found " + str(total_matches) + " " + issue_data.get('pattern_name') + " in " + issue_data.get('data_source')
+    summary = "Found " + str(total_matches) + " " + issue_data.get(
+        'pattern_name') + " in " + issue_data.get('data_source')
     description_template = issue_fields.get('description_template', '')
-    orig_msg = orig_msg + "\n\n" + "Severity: " + severity + "\n" + "Severity Description: " + severity_description
+    orig_msg = orig_msg + "\n\n" + "Severity: " + severity + \
+        "\n" + "Severity Description: " + severity_description
     description = description_template.format(details=orig_msg, **issue_data)
     print("severity - ", severity)
     payload = {
@@ -783,12 +880,13 @@ def create_jira_ticket(args, issue_data, message):
             "priority": {"name": severity},
         }
     }
-    
+
     # Check if the assignee is specified in the configuration
     assignee = jira_config.get('assignee')
     if assignee:
-        payload['fields']['assignee'] = {"accountId": get_jira_accId(args, assignee)}
-    
+        payload['fields']['assignee'] = {
+            "accountId": get_jira_accId(args, assignee)}
+
     labels = jira_config.get('labels')
     if labels:
         payload['fields']['labels'] = labels
@@ -800,6 +898,8 @@ def create_jira_ticket(args, issue_data, message):
 
     response = requests.post(url, json=payload, auth=auth, headers=headers)
     if response.status_code == 201:
-        print_debug(args, f"Jira ticket created successfully: {response.json().get('key')}")
+        print_debug(
+            args, f"Jira ticket created successfully: {response.json().get('key')}")
     else:
-        print_debug(args, f"Failed to create Jira ticket: {response.status_code} - {response.text}")
+        print_debug(
+            args, f"Failed to create Jira ticket: {response.status_code} - {response.text}")

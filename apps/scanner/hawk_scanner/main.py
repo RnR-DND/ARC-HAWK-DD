@@ -1,7 +1,6 @@
 import sys
 import os
 import json
-import yaml
 import importlib
 import time
 from rich.console import Console
@@ -13,6 +12,7 @@ from hawk_scanner.internals import system
 from rich import print
 # SSL verification is enabled by default
 
+
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
@@ -20,6 +20,7 @@ def clear_screen():
 clear_screen()
 
 console = Console()
+
 
 def load_command_module(command):
     try:
@@ -217,7 +218,7 @@ def main():
     start_time = time.time()
 
     args = system.parse_args()
-    
+
     # NEW: Read scan config file if provided (from Go backend)
     if hasattr(args, 'config') and args.config:
         try:
@@ -228,8 +229,9 @@ def main():
                     pass  # Use command line value
                 elif 'ingest_url' in scan_config:
                     args.ingest_url = scan_config['ingest_url']
-                    print(f"[INFO] Using ingest_url from config: {args.ingest_url}")
-                
+                    print(
+                        f"[INFO] Using ingest_url from config: {args.ingest_url}")
+
                 # Extract scan_id if present
                 if 'scan_id' in scan_config:
                     args.scan_id = scan_config['scan_id']
@@ -237,10 +239,10 @@ def main():
 
         except Exception as e:
             print(f"[WARNING] Failed to read scan config: {e}")
-    
+
     system.print_banner(args)
     results = []
-    
+
     if args.command:
         connections = system.get_connection(args)
         data_sources = connections.get('sources', {}).keys()
@@ -265,8 +267,9 @@ def main():
         import csv
         with open(args.csv, 'w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
-            writer.writerow(["Sl. No.", "Data Source", "Vulnerable Profile", "Location", "Pattern Name", "Match Value", "Sample Text", "Severity", "Severity Description"])
-            
+            writer.writerow(["Sl. No.", "Data Source", "Vulnerable Profile", "Location",
+                            "Pattern Name", "Match Value", "Sample Text", "Severity", "Severity Description"])
+
             i = 1
             for group, group_data in grouped_results.items():
                 for result in group_data:
@@ -292,7 +295,7 @@ def main():
                         location = result.get('file_path', '')
                     elif group == 'text':
                         location = "Text Input"
-                    
+
                     # Explode matches into individual rows
                     for match in result['matches']:
                         writer.writerow([
@@ -315,19 +318,23 @@ def main():
         sys.exit(0)
 
     # Display results in the table format
-    console.print(Panel(Text("Now, let's look at findings!", justify="center")))
+    console.print(
+        Panel(Text("Now, let's look at findings!", justify="center")))
 
     for group, group_data in grouped_results.items():
-        table = Table(show_header=True, header_style="bold magenta", show_lines=True, 
+        table = Table(show_header=True, header_style="bold magenta", show_lines=True,
                       title=f"[bold blue]Total {len(group_data)} findings in {group}[/bold blue]")
         table.add_column("Sl. No.")
         table.add_column("Vulnerable Profile")
         add_columns_to_table(group, table)
         for i, result in enumerate(group_data, 1):
-            records_mini = ', '.join(result['matches']) if len(result['matches']) < 25 else ', '.join(result['matches'][:25]) + f" + {len(result['matches']) - 25} more"
+            records_mini = ', '.join(result['matches']) if len(result['matches']) < 25 else ', '.join(
+                result['matches'][:25]) + f" + {len(result['matches']) - 25} more"
             connection = system.get_connection(args)
-            mention = connection.get('notify', {}).get('slack', {}).get('mention', '')
-            slack_message = format_slack_message(group, result, records_mini, mention)
+            mention = connection.get('notify', {}).get(
+                'slack', {}).get('mention', '')
+            slack_message = format_slack_message(
+                group, result, records_mini, mention)
             if slack_message:
                 system.create_jira_ticket(args, result, slack_message)
                 system.SlackNotify(slack_message, args)
@@ -375,7 +382,7 @@ def main():
     # NEW: Auto-ingestion to backend API
     if hasattr(args, 'ingest_url') and args.ingest_url:
         from hawk_scanner.internals.auto_ingest import ingest_scan_results, validate_ingest_url
-        
+
         if validate_ingest_url(args.ingest_url):
             scan_metadata = {
                 "scanner_version": "hawk-eye-scanner",
@@ -386,19 +393,24 @@ def main():
             }
             ingest_scan_results(args, grouped_results, scan_metadata)
         else:
-            console.print(f"[bold red]❌ Invalid ingestion URL: {args.ingest_url}[/bold red]")
-            console.print("[yellow]URL should end with /ingest, /api/v1/ingest, or /api/ingest[/yellow]")
+            console.print(
+                f"[bold red]❌ Invalid ingestion URL: {args.ingest_url}[/bold red]")
+            console.print(
+                "[yellow]URL should end with /ingest, /api/v1/ingest, or /api/ingest[/yellow]")
 
     if args.hawk_thuu:
         console.print("Hawk thuuu, Spitting on that thang!....")
-        os.system("rm -rf data/*")
+        import shutil
+        if os.path.exists("data"):
+            shutil.rmtree("data")
         time.sleep(2)
         console.print("Cleaned hawk data! 🧹")
 
     # Measure and print the total execution time
     end_time = time.time()
     execution_time = end_time - start_time
-    print(f"[bold green]Execution completed in {execution_time:.2f} seconds.[/bold green]")
+    print(
+        f"[bold green]Execution completed in {execution_time:.2f} seconds.[/bold green]")
 
 
 if __name__ == '__main__':

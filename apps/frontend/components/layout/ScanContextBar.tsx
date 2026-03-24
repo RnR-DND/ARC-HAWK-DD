@@ -20,11 +20,11 @@ export function ScanContextBar() {
     const envColor = environment ? envColors[environment] : envColors.DEV;
 
     return (
-        <div className="flex items-center gap-3 px-4 py-2 bg-secondary border-b border-border">
+        <div className="flex items-center gap-3 px-4 py-2 bg-white/50 backdrop-blur-sm border-b border-slate-200/60 shadow-sm">
             {/* Scan Context */}
             <div className="flex items-center gap-2">
-                <div className="text-xs text-muted-foreground">Active Scan:</div>
-                <div className="text-sm font-mono text-slate-200">{currentScanName || currentScanId}</div>
+                <div className="text-xs text-slate-500 font-medium">Active Scan:</div>
+                <div className="text-sm font-mono text-slate-700 bg-slate-100/50 px-2 py-0.5 rounded border border-slate-200/50">{currentScanName || currentScanId}</div>
             </div>
 
             {/* Environment Badge */}
@@ -37,7 +37,7 @@ export function ScanContextBar() {
             {/* Zero-Value Mode Indicator */}
             <button
                 onClick={toggleZeroValueMode}
-                className="flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-accent text-slate-300 hover:bg-accent transition-colors"
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors border border-slate-200"
                 title={zeroValueMode ? "PII values hidden (click to show)" : "PII values visible (click to hide)"}
             >
                 {zeroValueMode ? (
@@ -56,7 +56,7 @@ export function ScanContextBar() {
             {/* Clear Scan */}
             <button
                 onClick={clearScan}
-                className="ml-auto p-1 rounded hover:bg-accent text-muted-foreground hover:text-slate-200 transition-colors"
+                className="ml-auto p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
                 title="Clear scan context"
             >
                 <X className="w-4 h-4" />

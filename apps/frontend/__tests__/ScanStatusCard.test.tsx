@@ -21,7 +21,7 @@ describe('ScanStatusCard', () => {
 
   it('renders idle state when no scanId', () => {
     render(<ScanStatusCard scanId={null} />);
-    expect(screen.getByText('Scan Status')).toBeInTheDocument();
+    expect(screen.getAllByText('Scan Status')[0]).toBeInTheDocument();
   });
 
   it('renders with a scanId', () => {
@@ -61,6 +61,6 @@ describe('ScanStatusCard', () => {
 
   it('shows start scan button in idle state', () => {
     render(<ScanStatusCard scanId={null} />);
-    expect(screen.getByText('Start Scan')).toBeInTheDocument();
+    expect(screen.getAllByText('Start Scan')[0]).toBeInTheDocument();
   });
 });

@@ -204,3 +204,32 @@ export interface FindingPreview {
     sample_before: string;
     sample_after: string;
 }
+
+export interface UserSettings {
+    // Security
+    enableJWT?: boolean;
+    sessionTimeout?: string;
+    passwordPolicy?: string;
+    twoFactorEnabled?: boolean;
+
+    // Scanner
+    scanFrequency?: string;
+    maxFileSize?: string;
+    supportedFormats?: string[];
+    enableDeepScan?: boolean;
+
+    // Notifications
+    emailNotifications?: boolean;
+    slackNotifications?: boolean;
+    criticalAlertsOnly?: boolean;
+    weeklyReports?: boolean;
+
+    // Data Retention
+    logRetention?: string;
+    scanHistoryRetention?: string;
+    backupFrequency?: string;
+
+    // Appearance
+    theme?: 'light' | 'dark' | 'system';
+    density?: 'compact' | 'comfortable';
+}

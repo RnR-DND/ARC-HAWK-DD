@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -165,9 +166,15 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		return
 	}
 
-	// TODO: In a real implementation, this would trigger the actual scanner
-	// For now, we'll simulate a scan completion after a delay
-	time.Sleep(5 * time.Second)
+	// Trigger the actual scanner
+	cmd := exec.Command("python", "-m", "hawk_scanner.main", "fs", "--connection", configFile)
+	cmd.Dir = "../scanner" // Run from the scanner directory
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		log.Printf("ERROR: Scanner execution failed: %v", err)
+	}
 
 	log.Printf("Scan execution completed: %s", scanID.String())
 }

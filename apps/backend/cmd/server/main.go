@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -302,6 +303,28 @@ func main() {
 		c.Set("authenticated", true)
 		c.Next()
 	}
+
+	// Prometheus Metrics endpoint
+	router.GET("/metrics", func(c *gin.Context) {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+
+		fmt.Fprintf(c.Writer, "# HELP go_goroutines Number of goroutines that currently exist.\n")
+		fmt.Fprintf(c.Writer, "# TYPE go_goroutines gauge\n")
+		fmt.Fprintf(c.Writer, "go_goroutines %d\n", runtime.NumGoroutine())
+
+		fmt.Fprintf(c.Writer, "# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use.\n")
+		fmt.Fprintf(c.Writer, "# TYPE go_memstats_alloc_bytes gauge\n")
+		fmt.Fprintf(c.Writer, "go_memstats_alloc_bytes %d\n", m.Alloc)
+
+		fmt.Fprintf(c.Writer, "# HELP go_memstats_sys_bytes Number of bytes obtained from system.\n")
+		fmt.Fprintf(c.Writer, "# TYPE go_memstats_sys_bytes gauge\n")
+		fmt.Fprintf(c.Writer, "go_memstats_sys_bytes %d\n", m.Sys)
+
+		fmt.Fprintf(c.Writer, "# HELP arc_hawk_modules_count Current number of initialized modules.\n")
+		fmt.Fprintf(c.Writer, "# TYPE arc_hawk_modules_count gauge\n")
+		fmt.Fprintf(c.Writer, "arc_hawk_modules_count %d\n", len(registry.GetAll()))
+	})
 
 	// Health check with detailed status
 	router.GET("/health", func(c *gin.Context) {

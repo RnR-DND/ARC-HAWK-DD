@@ -41,18 +41,12 @@ def is_dummy_data(text: str) -> bool:
         if is_descending:
             return True
     
-    # Check 3: Repeating pairs (121212..., 010101...)
+    # Check 3: Repeating sequences (1212..., 123123..., 12341234...)
     if len(text) >= 6:
-        # Check if pattern repeats
-        half = len(text) // 2
-        if text[:half] == text[half:2*half]:
-            return True
-    
-    # Check 4: Repeating triplets (123123123..., 456456456...)
-    if len(text) >= 9:
-        triplet = text[:3]
-        if text == triplet * (len(text) // 3) + triplet[:len(text) % 3]:
-            return True
+        for n in range(2, len(text) // 2 + 1):
+            block = text[:n]
+            if text == block * (len(text) // n) + block[:len(text) % n]:
+                return True
     
     # Check 5: Too simple (entropy check)
     # Only apply if length is significant AND entropy is very low

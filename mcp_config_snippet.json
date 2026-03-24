@@ -19,7 +19,7 @@
                 "-m",
                 "framework.mcp.agent_builder_server"
             ],
-            "cwd": "/Users/prathameshyadav/.agent/hive/core"
+            "cwd": ".agent/hive/core"
         },
         "hive-tools": {
             "command": "uv",
@@ -28,7 +28,7 @@
                 "mcp_server.py",
                 "--stdio"
             ],
-            "cwd": "/Users/prathameshyadav/.agent/hive/tools"
+            "cwd": ".agent/hive/tools"
         }
     }
 }

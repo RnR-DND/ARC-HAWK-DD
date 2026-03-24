@@ -1,24 +1,27 @@
 import couchdb
 from hawk_scanner.internals import system
 from rich.console import Console
-from rich.table import Table
 
 console = Console()
+
 
 def connect_couchdb(args, host, port, username, password, database):
     try:
         server = couchdb.Server(f"http://{username}:{password}@{host}:{port}/")
         if database not in server:
-            system.print_error(args, f"Database {database} not found on CouchDB server.")
+            system.print_error(
+                args, f"Database {database} not found on CouchDB server.")
             return None
         db = server[database]
-        system.print_info(args, f"Connected to CouchDB database")
+        system.print_info(args, "Connected to CouchDB database")
         return db
     except Exception as e:
-        system.print_error(args, f"Failed to connect to CouchDB database with error: {e}")
+        system.print_error(
+            args, f"Failed to connect to CouchDB database with error: {e}")
         return None
 
-def check_data_patterns(db, patterns, profile_name, database_name):
+
+def check_data_patterns(args, db, patterns, profile_name, database_name):
     results = []
     for doc_id in db:
         document = db[doc_id]
@@ -42,9 +45,10 @@ def check_data_patterns(db, patterns, profile_name, database_name):
 
     return results
 
+
 def execute(args):
     results = []
-    system.print_info(args, f"Running Checks for CouchDB Sources")
+    system.print_info(args, "Running Checks for CouchDB Sources")
     connections = system.get_connection(args)
 
     if 'sources' in connections:
@@ -62,16 +66,22 @@ def execute(args):
                 database = config.get('database')
 
                 if host and username and password and database:
-                    system.print_info(args, f"Checking CouchDB Profile {key} with host and authentication")
+                    system.print_info(
+                        args, f"Checking CouchDB Profile {key} with host and authentication")
                 else:
-                    system.print_error(args, f"Incomplete CouchDB configuration for key: {key}")
+                    system.print_error(
+                        args, f"Incomplete CouchDB configuration for key: {key}")
                     continue
 
-                db = connect_couchdb(args, host, port, username, password, database)
+                db = connect_couchdb(
+                    args, host, port, username, password, database)
                 if db:
-                    results += check_data_patterns(db, patterns, key, database)
+                    results += check_data_patterns(args,
+                                                   db, patterns, key, database)
         else:
-            system.print_error(args, "No CouchDB connection details found in connection.yml")
+            system.print_error(
+                args, "No CouchDB connection details found in connection.yml")
     else:
-        system.print_error(args, "No 'sources' section found in connection.yml")
+        system.print_error(
+            args, "No 'sources' section found in connection.yml")
     return results

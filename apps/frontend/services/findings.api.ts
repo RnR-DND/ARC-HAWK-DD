@@ -1,4 +1,5 @@
 import { get, post } from '@/utils/api-client';
+import { FindingsResponse } from '@/types';
 
 export interface FeedbackRequest {
     feedback_type: 'FALSE_POSITIVE' | 'FALSE_NEGATIVE' | 'CONFIRMED';
@@ -26,33 +27,36 @@ export const findingsApi = {
         asset?: string;
         pii_type?: string;
         search?: string;
-    }): Promise<{ findings: any[], total: number }> => {
+    }): Promise<FindingsResponse> => {
         // Backend returns wrapped response: { data: { findings: [], total: ... } }
         const res = await get<any>('/findings', params);
 
-        // Debug Log
-        // console.log('Findings API Response:', JSON.stringify(res, null, 2));
-
-        // Handle the wrapper { data: { findings: [], total: ... } }
         let findingsList: any[] = [];
         let totalCount = 0;
+        let totalPages = 0;
 
         if (res.data && Array.isArray(res.data.findings)) {
             findingsList = res.data.findings;
             totalCount = res.data.total || 0;
+            totalPages = res.data.total_pages || Math.ceil(totalCount / (params?.page_size || 20));
         } else if (Array.isArray(res.data)) {
             // Fallback for legacy unwrapped array
             findingsList = res.data;
             totalCount = findingsList.length;
+            totalPages = 1;
         } else if (res.findings && Array.isArray(res.findings)) {
             // Fallback if 'data' wrapper is missing but 'findings' key exists
             findingsList = res.findings;
             totalCount = res.total || 0;
+            totalPages = res.total_pages || Math.ceil(totalCount / (params?.page_size || 20));
         }
 
         return {
             findings: findingsList,
             total: totalCount,
+            page: params?.page || 1,
+            page_size: params?.page_size || 20,
+            total_pages: totalPages
         };
     }
 };

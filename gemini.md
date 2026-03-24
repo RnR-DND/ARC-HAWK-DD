@@ -17,7 +17,7 @@
 
 ## 🤖 Agentic Operation System
 
-**Core Workflow:** Meta-Prompting & Autonomous Loop — plan with GSD, execute with Ralph, orchestrate with Hive.
+**Core Workflow:** Meta-Prompting & Autonomous Loop — plan with GSD, execute with Ralph, orchestrate with Hive, and persist with Supermemory.
 
 ### Tool-to-Phase Mapping
 
@@ -28,6 +28,7 @@
 | **Architect** | GSD + Ralph | `plan-phase` → `execute-plan` | `@golang-pro`, `@python-pro`, `@api-design-principles`, `@database-architect` |
 | **Stylize** | Ralph | `prd.json` with UI stories | `@nextjs-best-practices`, `@react-patterns`, `@react-state-management` |
 | **Trigger** | Hive | Multi-agent deploy + verify | `@docker-expert`, `@observability-monitoring-*`, `@security-auditor` |
+| **Persist** | Supermemory | Cross-session context management | `@supermemory-pro` |
 
 ### Skill Trigger Rules
 
@@ -49,6 +50,7 @@
 1. **GSD Planning** → `npx get-shit-done-cc` → `.planning/PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`
 2. **Ralph Loop** → `./ralph.sh` → reads `prd.json`, executes stories one-by-one, updates `progress.txt`
 3. **Hive Orchestration** → `./hive` → parallel multi-agent tasks with TUI monitoring
+4. **Supermemory Persistence** → `supermemory` MCP → persistent project memory across all phases
 
 ---
 

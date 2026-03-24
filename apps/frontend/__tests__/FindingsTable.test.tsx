@@ -65,8 +65,8 @@ describe('FindingsTable', () => {
 
   it('displays risk badges', () => {
     render(<FindingsTable findings={mockFindings} />);
-    expect(screen.getByText('High')).toBeInTheDocument();
-    expect(screen.getByText('Critical')).toBeInTheDocument();
+    expect(screen.getAllByText('High')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('Critical')[0]).toBeInTheDocument();
   });
 
   it('displays PII types', () => {

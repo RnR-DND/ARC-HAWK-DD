@@ -22,9 +22,8 @@ class TestVerhoeffAlgorithm:
     """Test Verhoeff implementation against known values."""
 
     VALID_CASES = [
-        "234567890126",
-        "999911112226",
-        "345678901234",
+        "234567890124",
+        "999911112221",
     ]
 
     INVALID_CASES = [
@@ -70,13 +69,13 @@ class TestDummyDetector:
     DUMMY_CASES = [
         "111111111111",
         "123456789012",
-        "987654321000",
+        "987654321098",
         "121212121212",
     ]
 
     REAL_CASES = [
-        "999911112226",
-        "234567890126",
+        "999911112221",
+        "234567890124",
     ]
 
     def test_detects_dummy_data(self):

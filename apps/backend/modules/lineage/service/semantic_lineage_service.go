@@ -145,6 +145,19 @@ func (s *SemanticLineageService) SyncAssetToNeo4j(ctx context.Context, assetID u
 			continue
 		}
 
+		// [New] Max Marginal Relevance (MMR) Style Deduplication Logic
+		// If a very similar finding already mapped to this PII_Category with higher confidence,
+		// we skip adding redundant duplicate nodes to the lineage graph to prevent explosion.
+		if existing, exists := piiCategoryMap[classification.SubCategory]; exists {
+			if existing.ConfidenceScore > classification.ConfidenceScore + 0.15 {
+				skippedCount++
+				continue // Ignore this lower confidence redundant finding
+			} else if classification.ConfidenceScore > existing.ConfidenceScore {
+				// Upgrade existing confidence score representation
+				existing.ConfidenceScore = classification.ConfidenceScore
+			}
+		}
+
 		// Extract PII type from SubCategory (e.g., "IN_AADHAAR", "CREDIT_CARD")
 		piiType := classification.SubCategory
 		if piiType == "" {
@@ -157,9 +170,7 @@ func (s *SemanticLineageService) SyncAssetToNeo4j(ctx context.Context, assetID u
 				PIIType:         piiType,
 				DPDPACategory:   classification.DPDPACategory,
 				RequiresConsent: classification.RequiresConsent,
-				FindingCount:    0,
-				TotalConfidence: 0.0,
-				Findings:        []FindingAggregate{},
+				ConfidenceScore: classification.ConfidenceScore,
 			}
 		}
 
@@ -290,6 +301,7 @@ type PIICategoryAggregate struct {
 	RequiresConsent bool
 	FindingCount    int
 	TotalConfidence float64
+	ConfidenceScore float64 // Highest individual recorded confidence
 	Findings        []FindingAggregate
 }
 

@@ -5,22 +5,26 @@ from rich.console import Console
 
 console = Console()
 
+
 def connect_mongodb(args, host, port, username, password, database, uri=None):
     try:
         if uri:
             client = pymongo.MongoClient(uri)
         else:
-            client = pymongo.MongoClient(host=host, port=port, username=username, password=password)
+            client = pymongo.MongoClient(
+                host=host, port=port, username=username, password=password)
 
         if database not in client.list_database_names():
-            system.print_error(args, f"Database {database} not found on MongoDB server.")
+            system.print_error(
+                args, f"Database {database} not found on MongoDB server.")
             return None
 
         db = client[database]
-        system.print_info(args, f"Connected to MongoDB database")
+        system.print_info(args, "Connected to MongoDB database")
         return db
     except Exception as e:
-        system.print_error(args, f"Failed to connect to MongoDB database with error: {e}")
+        system.print_error(
+            args, f"Failed to connect to MongoDB database with error: {e}")
         return None
 
 
@@ -29,13 +33,15 @@ def check_data_patterns(args, db, patterns, profile_name, database_name, limit_s
     all_collections = db.list_collection_names()
 
     if whitelisted_collections:
-        collections_to_scan = [collection for collection in all_collections if collection in whitelisted_collections]
+        collections_to_scan = [
+            collection for collection in all_collections if collection in whitelisted_collections]
     else:
         collections_to_scan = all_collections or []
 
     for collection_name in collections_to_scan:
         if collection_name not in all_collections:
-            system.print_error(args, f"Collection {collection_name} not found in the database. Skipping.")
+            system.print_error(
+                args, f"Collection {collection_name} not found in the database. Skipping.")
             continue
 
         collection = db[collection_name]
@@ -62,9 +68,10 @@ def check_data_patterns(args, db, patterns, profile_name, database_name, limit_s
 
     return results
 
+
 def execute(args):
     results = []
-    system.print_info(args, f"Running Checks for MongoDB Sources")
+    system.print_info(args, "Running Checks for MongoDB Sources")
     connections = system.get_connection(args)
 
     if 'sources' in connections:
@@ -86,21 +93,29 @@ def execute(args):
                 collections = config.get('collections', [])
 
                 if uri:
-                    system.print_info(args, f"Checking MongoDB Profile {key} using URI")
+                    system.print_info(
+                        args, f"Checking MongoDB Profile {key} using URI")
                 elif host and username and password and database:
-                    system.print_info(args, f"Checking MongoDB Profile {key} with host and authentication")
+                    system.print_info(
+                        args, f"Checking MongoDB Profile {key} with host and authentication")
                 else:
-                    system.print_error(args, f"Incomplete MongoDB configuration for key: {key}")
+                    system.print_error(
+                        args, f"Incomplete MongoDB configuration for key: {key}")
                     continue
 
-                db = connect_mongodb(host, port, username, password, database, uri)
+                db = connect_mongodb(host, port, username,
+                                     password, database, uri)
                 if db:
-                    results += check_data_patterns(args, db, patterns, key, database, limit_start=limit_start, limit_end=limit_end, whitelisted_collections=collections)
+                    results += check_data_patterns(args, db, patterns, key, database, limit_start=limit_start,
+                                                   limit_end=limit_end, whitelisted_collections=collections)
         else:
-            system.print_error(args, "No MongoDB connection details found in connection.yml")
+            system.print_error(
+                args, "No MongoDB connection details found in connection.yml")
     else:
-        system.print_error(args, "No 'sources' section found in connection.yml")
+        system.print_error(
+            args, "No 'sources' section found in connection.yml")
     return results
+
 
 # Example usage
 if __name__ == "__main__":

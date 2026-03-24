@@ -88,6 +88,10 @@ def validate_credit_card(number: str) -> bool:
     # Must be 13-19 digits
     if len(clean) < 13 or len(clean) > 19:
         return False
+        
+    # Reject all zeros
+    if clean == '0' * len(clean):
+        return False
     
     return Luhn.validate(clean)
 

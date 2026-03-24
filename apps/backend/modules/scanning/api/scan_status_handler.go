@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/arc-platform/backend/modules/scanning/service"
 	"github.com/arc-platform/backend/modules/websocket"
@@ -90,9 +91,18 @@ func (h *ScanStatusHandler) GetScanStatus(c *gin.Context) {
 // Returns a paginated list of scan runs
 func (h *ScanStatusHandler) ListScans(c *gin.Context) {
 	limit := 10
-	offset := 0
+	if limitQuery := c.Query("limit"); limitQuery != "" {
+		if parsedLimit, err := strconv.Atoi(limitQuery); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
 
-	// TODO: Parse limit and offset from query params
+	offset := 0
+	if offsetQuery := c.Query("offset"); offsetQuery != "" {
+		if parsedOffset, err := strconv.Atoi(offsetQuery); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
 
 	scans, err := h.scanService.ListScanRuns(c.Request.Context(), limit, offset)
 	if err != nil {

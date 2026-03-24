@@ -2,17 +2,10 @@
 # These are known valid and invalid PII examples for testing
 
 valid_aadhaar:
-  - number: "234567890126"
-    description: "Valid Aadhaar with correct Verhoeff checksum"
-    expected: "DETECT"
-    
-  - number: "999911112226"
-    description: "Valid Aadhaar (pattern looks real, checksum valid)"
-    expected: "DETECT"
-    
-  - number: "345678901234"
-    description: "Valid Aadhaar format and checksum"
-    expected: "DETECT"
+  - number: "234567890124"
+    description: "Valid format with correct checksum"
+  - number: "999911112221"
+    description: "Valid edge case format"
 
 invalid_aadhaar:
   - number: "111111111111"

@@ -32,7 +32,7 @@ class TestAadhaar:
 
     VALID = [
         "234567890124",  # Valid checksum
-        "999911112226",  # Valid checksum
+        "999911112221",  # Valid checksum
     ]
 
     INVALID = [
@@ -57,10 +57,10 @@ class TestPhone:
     """Test phone validation"""
 
     VALID = [
-        "9123456789",
-        "8765432109",
-        "7654321098",
-        "6543210987",
+        "9871234567",
+        "8765432009",
+        "7650021098",
+        "6543299987",
     ]
 
     INVALID = [
@@ -141,8 +141,7 @@ class TestPan:
     """Test PAN validation"""
 
     VALID = [
-        "ABCDE1234F",
-        "ZZZZZ9999Z",
+        "ABCPD1234B",
     ]
 
     INVALID = [

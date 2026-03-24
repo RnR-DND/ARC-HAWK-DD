@@ -19,7 +19,7 @@ class TestVerhoeffSnapshot:
     # Known valid Aadhaar numbers (with correct Verhoeff checksums)
     VALID_AADHAAR = [
         "234567890124",  # Valid checksum
-        "999911112226",  # Valid checksum
+        "999911112221",  # Valid checksum
     ]
 
     # Known invalid Aadhaar numbers

@@ -18,6 +18,13 @@ active_scans = {}
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://backend:8080')
 
+@app.before_request
+def log_request_info():
+    """Log incoming request details for auditability."""
+    app.logger.info(f"[{datetime.now().isoformat()}] {request.method} {request.path} from {request.remote_addr}")
+    if request.path == '/scan':
+        app.logger.info(f"Scan request data: {request.get_data(as_text=True)}")
+
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({

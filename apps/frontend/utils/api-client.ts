@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 // Standard API Response wrapper
 export interface ApiResponse<T> {
@@ -21,22 +21,39 @@ export const apiClient: AxiosInstance = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 10000, // 10s timeout to prevent hanging requests
+    timeout: 10000, // 10s timeout
 });
 
-// Response Interceptor for standardized error handling
+// Request Interceptor
+apiClient.interceptors.request.use(
+    (config: InternalAxiosRequestConfig) => {
+        // You can add auth tokens here if needed
+        // const token = localStorage.getItem('token');
+        // if (token) config.headers.Authorization = `Bearer ${token}`;
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// Response Interceptor
 apiClient.interceptors.response.use(
     (response: AxiosResponse) => response,
-    (error: AxiosError) => {
-        // Standardize error log
+    async (error: AxiosError) => {
+        const originalRequest = error.config;
+
+        // Log Error
         console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
             status: error.response?.status,
             data: error.response?.data,
             message: error.message
         });
 
-        // Simply rethrow for services to handle specific cases if needed,
-        // or we could normalize the error object here.
+        // Simple Retry Logic (optional, for idempotency)
+        // if (error.code === 'ECONNABORTED' && !originalRequest._retry) {
+        //     originalRequest._retry = true;
+        //     return apiClient(originalRequest);
+        // }
+
         return Promise.reject(error);
     }
 );

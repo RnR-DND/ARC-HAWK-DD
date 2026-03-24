@@ -1,27 +1,28 @@
-import os, json
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
-from rich.console import Console
+import os
+import json
 from hawk_scanner.internals import system
 from pydrive2.fs import GDriveFileSystem
+
 
 def connect_google_drive(args, credentials_file):
     credentials = open(credentials_file, 'r').read()
     credentials = json.loads(credentials)
-    ## if installed key is in the credentials file, use it
+    # if installed key is in the credentials file, use it
     if 'installed' in credentials:
         credentials = credentials['installed']
     client_id = credentials['client_id']
     client_secret = credentials['client_secret']
 
     try:
-        fs = GDriveFileSystem("root", client_id=client_id, client_secret=client_secret, token=credentials_file)
+        fs = GDriveFileSystem("root", client_id=client_id,
+                              client_secret=client_secret, token=credentials_file)
         system.print_debug(args, "Connected to Google Drive")
         drive = fs.client
         return drive
     except Exception as e:
         print(f"Failed to connect to Google Drive: {e}")
     os.system("rm -rf client_secrets.json")
+
 
 def download_file(args, drive, file_obj, base_path):
     try:
@@ -47,7 +48,8 @@ def download_file(args, drive, file_obj, base_path):
         if file_obj['mimeType'] == 'application/vnd.google-apps.folder':
             if not os.path.exists(file_path):
                 os.makedirs(file_path)
-            folder_files = drive.ListFile({'q': f"'{file_id}' in parents"}).GetList()
+            folder_files = drive.ListFile(
+                {'q': f"'{file_id}' in parents"}).GetList()
             for folder_file in folder_files:
                 download_file(drive, folder_file, folder_path)
         else:
@@ -57,13 +59,16 @@ def download_file(args, drive, file_obj, base_path):
     except Exception as e:
         print(f"Failed to download file: {e}")
 
+
 def list_files(drive, folder_name=None):
     try:
-        file_list = drive.ListFile({'q': f"'root' in parents and title='{folder_name}'"}).GetList() if folder_name else drive.ListFile().GetList()
+        file_list = drive.ListFile({'q': f"'root' in parents and title='{folder_name}'"}).GetList(
+        ) if folder_name else drive.ListFile().GetList()
         return file_list
     except Exception as e:
         print(f"Error listing files: {e}")
         return []
+
 
 def execute(args):
     results = []
@@ -76,7 +81,8 @@ def execute(args):
         sources_config = connections['sources']
         drive_config = sources_config.get('gdrive')
     else:
-        system.print_error(args, "No 'sources' section found in connection.yml")
+        system.print_error(
+            args, "No 'sources' section found in connection.yml")
 
     if drive_config:
         for key, config in drive_config.items():
@@ -101,10 +107,12 @@ def execute(args):
                     folder_path = "data/google_drive"
                     if parent_folder_ids:
                         for parent_id in parent_folder_ids:
-                            parent_folder = drive.CreateFile({'id': parent_id['id']})
+                            parent_folder = drive.CreateFile(
+                                {'id': parent_id['id']})
                             if parent_folder['title'] == 'My Drive':
                                 continue
-                            folder_path = os.path.join(folder_path, parent_folder['title'])
+                            folder_path = os.path.join(
+                                folder_path, parent_folder['title'])
 
                     file_path = os.path.join(folder_path, file_name)
 
@@ -113,14 +121,16 @@ def execute(args):
 
                     if config.get("cache") and os.path.exists(file_path):
                         should_download = False
-                        system.print_debug(args, f"File already exists in cache, using it.")
+                        system.print_debug(
+                            args, "File already exists in cache, using it.")
                     else:
                         should_download = True
 
                     if should_download:
                         download_file(drive, file_obj, "data/google_drive")
 
-                    matches = system.read_match_strings(args, file_path, 'gdrive')
+                    matches = system.read_match_strings(
+                        args, file_path, 'gdrive')
                     if matches:
                         for match in matches:
                             results.append({
@@ -136,7 +146,8 @@ def execute(args):
             else:
                 system.print_error(args, "Failed to connect to Google Drive")
     else:
-        system.print_error(args, "No Google Drive connection details found in connection file")
+        system.print_error(
+            args, "No Google Drive connection details found in connection file")
 
     if not is_cache_enabled:
         os.system("rm -rf data/google_drive")

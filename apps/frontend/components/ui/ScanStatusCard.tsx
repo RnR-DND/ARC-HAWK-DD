@@ -7,10 +7,10 @@ interface ScanStatusCardProps {
 }
 
 const scanStatuses = {
-    'idle': { label: 'Idle', color: 'text-muted-foreground', bg: 'bg-slate-500/10', icon: Pause },
-    'running': { label: 'Running', color: 'text-blue-400', bg: 'bg-blue-500/10', icon: Play },
-    'completed': { label: 'Completed', color: 'text-emerald-400', bg: 'bg-emerald-500/10', icon: CheckCircle },
-    'failed': { label: 'Failed', color: 'text-red-400', bg: 'bg-red-500/10', icon: AlertCircle },
+    'idle': { label: 'Idle', color: 'text-slate-500', bg: 'bg-slate-100', ring: 'ring-slate-200', icon: Pause },
+    'running': { label: 'Running', color: 'text-blue-600', bg: 'bg-blue-100', ring: 'ring-blue-200', icon: Play },
+    'completed': { label: 'Completed', color: 'text-emerald-600', bg: 'bg-emerald-100', ring: 'ring-emerald-200', icon: CheckCircle },
+    'failed': { label: 'Failed', color: 'text-red-600', bg: 'bg-red-100', ring: 'ring-red-200', icon: AlertCircle },
 };
 
 type ScanStatus = 'idle' | 'running' | 'completed' | 'failed';
@@ -95,12 +95,12 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
 
     const getStatusColor = () => {
         switch (status) {
-            case 'idle': return 'text-muted-foreground';
-            case 'completed': return 'text-emerald-400';
-            case 'running': return 'text-blue-400';
-            case 'failed': return 'text-red-400';
+            case 'idle': return 'text-slate-500';
+            case 'completed': return 'text-emerald-600';
+            case 'running': return 'text-blue-600';
+            case 'failed': return 'text-red-600';
         }
-        return 'text-muted-foreground';
+        return 'text-slate-500';
     };
 
     const getRecommendedActions = () => {
@@ -132,19 +132,19 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-secondary backdrop-blur-sm border border-border/30 rounded-xl p-6"
+            className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm"
         >
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-lg ${scanStatuses[status as keyof typeof scanStatuses].bg} ring-2 ring-white/10`}>
+                    <div className={`p-3 rounded-lg ${scanStatuses[status as keyof typeof scanStatuses].bg} ring-1 ${scanStatuses[status as keyof typeof scanStatuses].ring}`}>
                         <StatusIcon className={`w-6 h-6 ${scanStatuses[status as keyof typeof scanStatuses].color}`} />
                     </div>
                     <div>
-                        <h3 className="text-lg font-semibold text-white">Scan Status</h3>
+                        <h3 className="text-lg font-bold text-slate-800">Scan Status</h3>
                         <p className={`text-sm font-medium ${getStatusColor()}`}>
                             {scanStatuses[status as keyof typeof scanStatuses].label}
                         </p>
-                        <p className="text-muted-foreground text-sm mt-1">
+                        <p className="text-slate-500 text-sm mt-1">
                             {getStatusDescription()}
                         </p>
                     </div>
@@ -153,7 +153,7 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
                 {scanId && (
                     <div className="text-right">
                         <div className="text-xs text-slate-500 mb-1">Latest Scan</div>
-                        <div className="text-sm font-mono text-slate-300 bg-card/50 px-2 py-1 rounded">
+                        <div className="text-sm font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">
                             {scanId}
                         </div>
                     </div>
@@ -163,15 +163,15 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
             {/* Progress Bar */}
             <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-muted-foreground">Progress</span>
-                    <span className="text-sm text-slate-300">{progress}%</span>
+                    <span className="text-sm text-slate-500 font-medium">Progress</span>
+                    <span className="text-sm text-slate-700 font-bold">{progress}%</span>
                 </div>
-                <div className="w-full bg-accent rounded-full h-2">
+                <div className="w-full bg-slate-100 rounded-full h-2">
                     <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
                         transition={{ duration: 1, ease: "easeOut" }}
-                        className={`h-2 rounded-full ${status === 'completed' ? 'bg-emerald-500' : status === 'running' ? 'bg-blue-500' : 'bg-slate-500'
+                        className={`h-2 rounded-full ${status === 'completed' ? 'bg-emerald-500' : status === 'running' ? 'bg-blue-500' : 'bg-slate-400'
                             }`}
                     />
                 </div>
@@ -181,8 +181,8 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
             <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                     <div className="text-slate-500 mb-1">Started</div>
-                    <div className="text-slate-300 flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
+                    <div className="text-slate-700 font-medium flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-slate-400" />
                         {startTime ? startTime.toLocaleTimeString() : 'N/A'}
                     </div>
                 </div>
@@ -192,8 +192,8 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
                         <div className="text-slate-500 mb-1">
                             {status === 'completed' ? 'Completed' : 'Failed'}
                         </div>
-                        <div className="text-slate-300 flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4" />
+                        <div className="text-slate-700 font-medium flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-emerald-500" />
                             {endTime ? endTime.toLocaleTimeString() : 'N/A'}
                         </div>
                     </div>
@@ -202,7 +202,7 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
                 {status === 'completed' && (
                     <div>
                         <div className="text-slate-500 mb-1">Duration</div>
-                        <div className="text-slate-300">
+                        <div className="text-slate-700 font-medium">
                             {endTime && startTime ? `${Math.floor((endTime.getTime() - startTime.getTime()) / 1000 / 60)}m total` : 'N/A'}
                         </div>
                     </div>
@@ -211,7 +211,7 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
 
             {/* Recommended Actions */}
             <div className="mb-6 mt-6">
-                <h4 className="text-sm font-medium text-slate-300 mb-3">Recommended Next Steps</h4>
+                <h4 className="text-sm font-semibold text-slate-800 mb-3">Recommended Next Steps</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {recommendedActions.map((action, index) => (
                         <motion.button
@@ -220,23 +220,23 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1 }}
                             className={`p-3 rounded-lg border transition-all duration-200 text-left group ${action.priority === 'high'
-                                ? 'bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-500/50'
+                                ? 'bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300'
                                 : action.priority === 'medium'
-                                    ? 'bg-accent border-border/50 hover:bg-slate-600/50 hover:border-slate-500/50'
-                                    : 'bg-secondary border-border/50 hover:bg-accent hover:border-border/50'
+                                    ? 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
                                 }`}
                             title={action.description}
                         >
-                            <div className={`text-sm font-medium mb-1 ${action.priority === 'high' ? 'text-blue-400' : 'text-slate-300'
+                            <div className={`text-sm font-semibold mb-1 ${action.priority === 'high' ? 'text-blue-700' : 'text-slate-700'
                                 }`}>
                                 {action.label}
                             </div>
-                            <div className="text-xs text-muted-foreground group-hover:text-slate-300 transition-colors">
+                            <div className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">
                                 {action.description}
                             </div>
                             {action.priority === 'high' && (
                                 <div className="mt-2">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
                                         Priority
                                     </span>
                                 </div>
@@ -252,16 +252,16 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
                     <button
                         onClick={handleCancelScan}
                         disabled={cancelling}
-                        className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 px-4 py-2.5 rounded-lg transition-all duration-200 border border-red-600/50 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-4 py-2.5 rounded-lg transition-all duration-200 border border-red-200 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                     >
                         {cancelling ? 'Cancelling...' : 'Cancel Scan'}
                     </button>
                 )}
-                <button className="flex-1 bg-accent hover:bg-slate-600/50 text-slate-300 hover:text-white px-4 py-2.5 rounded-lg transition-all duration-200 border border-border/50 hover:border-slate-500/50">
+                <button className="flex-1 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 px-4 py-2.5 rounded-lg transition-all duration-200 border border-slate-200 hover:border-slate-300 font-medium shadow-sm">
                     View Details
                 </button>
                 {status !== 'running' && (
-                    <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl">
+                    <button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg transition-all duration-200 shadow hover:shadow-lg font-medium">
                         {status === 'completed' ? 'New Scan' : status === 'idle' ? 'Start Scan' : 'Retry Scan'}
                     </button>
                 )}

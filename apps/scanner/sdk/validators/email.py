@@ -91,6 +91,11 @@ class EmailValidator:
         # Domain starts with hyphen
         if domain.startswith('-'):
             return True
+            
+        # Reject obvious test domains
+        invalid_domains = {"test.com", "example.com", "dummy.com", "localhost", "mailinator.com", "testdomain.com"}
+        if domain.lower() in invalid_domains:
+            return True
         
         return False
 
