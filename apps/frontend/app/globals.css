@@ -38,8 +38,8 @@
     --radius: 0.75rem;
   }
 
-  /* Force Light Mode even if system is dark */
-  .dark {
+  /* Standard Theme Control */
+  .dark, [data-theme='dark'] {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -73,23 +73,14 @@
   }
 
   /* Typography improvements */
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  h1, h2, h3, h4, h5, h6 {
     @apply font-semibold text-foreground;
   }
 
-  /* Ensure all text has proper contrast */
-  p,
-  span,
-  div {
+  p, span, div {
     @apply text-foreground;
   }
 
-  /* Links */
   a {
     @apply text-primary hover:text-primary/90;
   }

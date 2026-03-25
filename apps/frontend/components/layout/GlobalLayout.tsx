@@ -146,7 +146,7 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                 </motion.header>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto bg-muted/30">
+                <main className="flex-1 overflow-auto bg-white border-l border-slate-200">
                     <ErrorBoundary>
                         {children}
                     </ErrorBoundary>

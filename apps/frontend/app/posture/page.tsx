@@ -5,7 +5,6 @@ import { scansApi } from '@/services/scans.api';
 import { colors } from '@/design-system/colors';
 import { theme } from '@/design-system/themes';
 import LoadingState from '@/components/LoadingState';
-import Topbar from '@/components/Topbar';
 import ErrorBanner from '@/components/ErrorBanner';
 
 interface ScanRun {
@@ -151,7 +150,7 @@ export default function PosturePage() {
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: colors.background.primary, padding: '24px' }}>
-            <Topbar environment="Production" riskScore={0} />
+
 
             <div style={{ padding: '20px', maxWidth: '1800px', margin: '0 auto' }}>
                 <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

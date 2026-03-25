@@ -120,7 +120,7 @@ export default function FindingsTable({
                                             {(confidence * 100).toFixed(0)}%
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                                            <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                                                 Active
                                             </span>
                                         </td>

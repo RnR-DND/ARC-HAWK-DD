@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { FileText, Download, TrendingUp, Shield, AlertTriangle } from 'lucide-react';
-import Topbar from '@/components/Topbar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -98,8 +97,8 @@ export default function ReportsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
-            <Topbar />
+        <div className="min-h-screen bg-white">
+
             <div className="container mx-auto px-4 py-8 max-w-6xl">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-8">

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { theme, getRiskColor } from '@/design-system/theme';
-import Topbar from '@/components/Topbar';
 import Tooltip, { InfoIcon } from '@/components/Tooltip';
 
 interface ComplianceOverview {
@@ -59,7 +58,6 @@ export default function CompliancePage() {
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
-            <Topbar riskScore={data ? Math.round(100 - data.compliance_score) : 0} />
             <div className="container" style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{ marginBottom: '32px' }}>

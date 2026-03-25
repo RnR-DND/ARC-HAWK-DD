@@ -45,12 +45,12 @@ export function FindingDetailDrawer({
                     {/* Header */}
                     <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
                         <div>
-                            <h2 className="text-lg font-semibold text-white">Finding Details</h2>
-                            <p className="text-sm text-muted-foreground font-mono mt-0.5">{finding.id}</p>
+                            <h2 className="text-lg font-semibold text-slate-900">Finding Details</h2>
+                            <p className="text-sm text-slate-500 font-mono mt-0.5">{finding.id}</p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-2 text-muted-foreground hover:text-white hover:bg-muted rounded-lg transition-colors"
+                            className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -64,7 +64,7 @@ export function FindingDetailDrawer({
                                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                                     Asset Path
                                 </label>
-                                <div className="font-mono text-sm text-blue-300 break-all">
+                                <div className="font-mono text-sm text-blue-700 break-all">
                                     {finding.asset_name} ▸ {finding.asset_path.replace(/\//g, ' ▸ ').replace(/\./g, ' ▸ ')}
                                 </div>
                             </div>
@@ -74,7 +74,7 @@ export function FindingDetailDrawer({
                                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                                         PII Type
                                     </label>
-                                    <div className="text-white font-medium flex items-center gap-2">
+                                    <div className="text-slate-900 font-medium flex items-center gap-2">
                                         {piiType}
                                     </div>
                                 </div>
@@ -82,7 +82,7 @@ export function FindingDetailDrawer({
                                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                                         Confidence
                                     </label>
-                                    <div className="text-white font-medium">
+                                    <div className="text-slate-900 font-medium">
                                         {(confidence * 100).toFixed(0)}%
                                     </div>
                                 </div>
@@ -105,10 +105,10 @@ export function FindingDetailDrawer({
 
                         {/* Detection Method */}
                         <div>
-                            <h3 className="text-sm font-semibold text-white mb-3">Detection Logic</h3>
-                            <div className="bg-background rounded border border-border p-3">
-                                <div className="flex items-center gap-2 text-sm text-slate-300 mb-2">
-                                    <Shield className="w-4 h-4 text-green-400" />
+                            <h3 className="text-sm font-semibold text-slate-900 mb-3">Detection Logic</h3>
+                            <div className="bg-slate-50 rounded border border-slate-200 p-3">
+                                <div className="flex items-center gap-2 text-sm text-slate-700 mb-2">
+                                    <Shield className="w-4 h-4 text-green-600" />
                                     <span>Presidio Analysis + Context Validation</span>
                                 </div>
                                 <div className="text-xs text-slate-500">
@@ -119,8 +119,8 @@ export function FindingDetailDrawer({
 
                         {/* Evidence */}
                         <div>
-                            <h3 className="text-sm font-semibold text-white mb-3">Matching Evidence</h3>
-                            <div className="bg-background rounded border border-border p-3 font-mono text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap">
+                            <h3 className="text-sm font-semibold text-slate-900 mb-3">Matching Evidence</h3>
+                            <div className="bg-slate-900 rounded border border-slate-800 p-3 font-mono text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap">
                                 {finding.matches?.join('\n') || finding.sample_text}
                             </div>
                         </div>
@@ -130,7 +130,7 @@ export function FindingDetailDrawer({
                     <div className="p-6 border-t border-border bg-card space-y-3">
                         <button
                             onClick={() => onMarkFalsePositive(finding.id)}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-muted hover:bg-accent border border-border text-slate-300 rounded-lg font-medium transition-colors"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
                         >
                             <CheckCircle className="w-4 h-4" />
                             Mark as False Positive

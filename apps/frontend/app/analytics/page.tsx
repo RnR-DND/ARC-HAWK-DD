@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { theme, getRiskColor } from '@/design-system/theme';
-import Topbar from '@/components/Topbar';
 import Tooltip, { InfoIcon } from '@/components/Tooltip';
 import ErrorBanner from '@/components/ErrorBanner';
 
@@ -79,7 +78,7 @@ export default function AnalyticsPage() {
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
-            <Topbar />
+
             <div className="container" style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
                 {error && (
                     <ErrorBanner

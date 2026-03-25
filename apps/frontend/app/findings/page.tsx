@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Topbar from '@/components/Topbar';
 import FindingsTable from '@/components/FindingsTable';
 import LoadingState from '@/components/LoadingState';
 import { findingsApi } from '@/services/findings.api';

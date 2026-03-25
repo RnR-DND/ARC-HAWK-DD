@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { theme } from '@/design-system/theme';
 import {
     Shield,
     Flame,
@@ -54,8 +55,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             style={{
                 width: collapsed ? '64px' : '240px',
                 height: '100vh',
-                background: '#1e293b',
-                borderRight: '1px solid #334155',
+                background: theme.colors.background.secondary,
+                borderRight: `1px solid ${theme.colors.border.default}`,
                 transition: 'width 0.2s ease',
                 position: 'fixed',
                 left: 0,
@@ -69,8 +70,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             {/* Header */}
             <div
                 style={{
-                    padding: collapsed ? '20px 16px' : '20px',
-                    borderBottom: '1px solid #334155',
+                padding: collapsed ? '20px 16px' : '20px',
+                borderBottom: `1px solid ${theme.colors.border.default}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -87,20 +88,20 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             style={{
                                 width: '32px',
                                 height: '32px',
-                                background: '#3b82f6',
+                                background: theme.colors.primary.DEFAULT,
                                 borderRadius: '8px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                             }}
                         >
-                            <Zap size={18} color="#ffffff" strokeWidth={2} />
+                            <Zap size={18} color={theme.colors.text.inverse} strokeWidth={2} />
                         </div>
                         <div
                             style={{
                                 fontSize: '16px',
-                                fontWeight: 600,
-                                color: '#f8fafc',
+                                fontWeight: 700,
+                                color: theme.colors.text.primary,
                             }}
                         >
                             ARC-Hawk
@@ -112,7 +113,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     onClick={onToggle}
                     style={{
                         background: 'transparent',
-                        border: '1px solid #334155',
+                        border: `1px solid ${theme.colors.border.default}`,
                         borderRadius: '6px',
                         width: '32px',
                         height: '32px',
@@ -120,14 +121,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
-                        color: '#cbd5e1',
+                        color: theme.colors.text.secondary,
                         transition: 'all 0.15s',
                     }}
                     onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = '#475569';
+                        e.currentTarget.style.borderColor = theme.colors.border.active;
                     }}
                     onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = '#334155';
+                        e.currentTarget.style.borderColor = theme.colors.border.default;
                     }}
                 >
                     {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -149,8 +150,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                             <div
                                 style={{
                                     fontSize: '11px',
-                                    fontWeight: 600,
-                                    color: '#64748b',
+                                    fontWeight: 700,
+                                    color: theme.colors.text.muted,
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.05em',
                                     marginBottom: '8px',
@@ -176,11 +177,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <div
                 style={{
                     padding: collapsed ? '12px' : '16px',
-                    borderTop: '1px solid #334155',
+                    borderTop: `1px solid ${theme.colors.border.default}`,
                 }}
             >
                 <a
-                    href="https://digitalindia.gov.in/dpdpa"
+                    href="https://www.digitalindia.gov.in/press_release/dpdp-act-2023-upholds-privacy-while-preserving-transparency-under-rti/"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -191,7 +192,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         padding: '10px',
                         borderRadius: '8px',
                         textDecoration: 'none',
-                        color: '#60a5fa',
+                        color: theme.colors.primary.DEFAULT,
                         fontSize: '13px',
                         fontWeight: 500,
                         background: 'rgba(59, 130, 246, 0.05)',
@@ -231,14 +232,14 @@ function NavItem({ icon: Icon, label, href, collapsed, active }: {
                 gap: '12px',
                 padding: collapsed ? '12px' : '10px 12px',
                 borderRadius: '8px',
-                color: active ? '#f8fafc' : '#cbd5e1',
+                color: active ? theme.colors.primary.DEFAULT : theme.colors.text.secondary,
                 textDecoration: 'none',
                 fontSize: '14px',
                 fontWeight: active ? 600 : 400,
                 marginBottom: '4px',
                 transition: 'all 0.15s',
-                background: active ? '#334155' : isHovered ? 'rgba(51, 65, 85, 0.5)' : 'transparent',
-                borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
+                background: active ? `${theme.colors.primary.DEFAULT}10` : isHovered ? theme.colors.background.tertiary : 'transparent',
+                borderLeft: active ? `2px solid ${theme.colors.primary.DEFAULT}` : '2px solid transparent',
                 justifyContent: collapsed ? 'center' : 'flex-start',
             }}
             onMouseEnter={() => setIsHovered(true)}

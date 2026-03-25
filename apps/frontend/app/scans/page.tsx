@@ -57,8 +57,8 @@ export default function ScansPage() {
 
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Scans</h1>
-                    <p className="text-muted-foreground mt-1">Manage and review PII detection scans.</p>
+                    <h1 className="text-2xl font-bold text-slate-900">Scans</h1>
+                    <p className="text-slate-500 mt-1">Manage and review PII detection scans.</p>
                 </div>
                 <button
                     onClick={() => setShowScanConfigModal(true)}
@@ -77,21 +77,21 @@ export default function ScansPage() {
                     </div>
                 ) : scans.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                            <Clock className="w-8 h-8 text-slate-500" />
+                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                            <Clock className="w-8 h-8 text-slate-400" />
                         </div>
-                        <h3 className="text-lg font-medium text-white mb-1">No Scans Found</h3>
-                        <p className="text-sm">Run your first scan to see results here.</p>
+                        <h3 className="text-lg font-medium text-slate-900 mb-1">No Scans Found</h3>
+                        <p className="text-sm text-slate-500">Run your first scan to see results here.</p>
                     </div>
                 ) : (
                     <table className="w-full text-left text-sm">
                         <thead>
-                            <tr className="bg-secondary text-muted-foreground border-b border-border">
-                                <th className="px-6 py-4 font-medium">Scan Name</th>
-                                <th className="px-6 py-4 font-medium">Date</th>
-                                <th className="px-6 py-4 font-medium">Status</th>
-                                <th className="px-6 py-4 font-medium">Duration</th>
-                                <th className="px-6 py-4 font-medium text-right">Findings</th>
+                            <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                                <th className="px-6 py-4 font-semibold">Scan Name</th>
+                                <th className="px-6 py-4 font-semibold">Date</th>
+                                <th className="px-6 py-4 font-semibold">Status</th>
+                                <th className="px-6 py-4 font-semibold">Duration</th>
+                                <th className="px-6 py-4 font-semibold text-right">Findings</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -102,27 +102,27 @@ export default function ScansPage() {
                                 >
                                     <td className="px-6 py-4">
                                         <Link href={`/scans/${scan.id}`} className="block">
-                                            <div className="font-semibold text-blue-400 group-hover:text-blue-300 transition-colors">
+                                            <div className="font-semibold text-blue-600 group-hover:text-blue-700 transition-colors">
                                                 {scan.profile_name || 'Unnamed Scan'}
                                             </div>
                                             <div className="text-xs text-slate-500 mt-0.5">{scan.id}</div>
                                         </Link>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-300">
+                                    <td className="px-6 py-4 text-slate-600">
                                         <Link href={`/scans/${scan.id}`} className="block">
                                             <div className="flex items-center gap-2">
-                                                <Calendar className="w-4 h-4 text-slate-500" />
+                                                <Calendar className="w-4 h-4 text-slate-400" />
                                                 {formatDate(scan.scan_started_at)}
                                             </div>
                                         </Link>
                                     </td>
                                     <td className="px-6 py-4">
                                         <Link href={`/scans/${scan.id}`} className="block">
-                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${scan.status === 'completed'
-                                                ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${scan.status === 'completed'
+                                                ? 'bg-green-50 text-green-700 border-green-200'
                                                 : scan.status === 'failed'
-                                                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                                    : 'bg-blue-50 text-blue-700 border-blue-200'
                                                 }`}>
                                                 {scan.status === 'completed' ? (
                                                     <CheckCircle className="w-3 h-3" />
@@ -135,15 +135,15 @@ export default function ScansPage() {
                                             </div>
                                         </Link>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-300">
+                                    <td className="px-6 py-4 text-slate-600">
                                         <Link href={`/scans/${scan.id}`} className="block">
                                             <div className="flex items-center gap-2">
-                                                <Clock className="w-4 h-4 text-slate-500" />
+                                                <Clock className="w-4 h-4 text-slate-400" />
                                                 {getDuration(scan.scan_started_at, scan.scan_completed_at)}
                                             </div>
                                         </Link>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-slate-300">
+                                    <td className="px-6 py-4 text-right font-mono text-slate-700">
                                         <Link href={`/scans/${scan.id}`} className="block">
                                             {scan.total_findings?.toLocaleString() || 0}
                                         </Link>

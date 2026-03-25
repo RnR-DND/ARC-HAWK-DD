@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, CheckCircle, Clock, Play, Pause, RotateCcw } from 'lucide-react';
 import { theme } from '@/design-system/theme';
-import Topbar from '@/components/Topbar';
 import { remediationApi } from '@/services/remediation.api';
 
 interface RemediationTask {
@@ -159,7 +158,6 @@ export default function RemediationPage() {
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
-            <Topbar />
             <div className="container" style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
 
                 {/* Header */}

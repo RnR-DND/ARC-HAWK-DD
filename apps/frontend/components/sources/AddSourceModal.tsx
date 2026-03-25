@@ -207,21 +207,21 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
     const renderCommonFields = () => (
         <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Source Name *</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Source Name *</label>
                 <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g., Production DB"
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Environment *</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Environment *</label>
                 <select
                     value={environment}
                     onChange={(e) => setEnvironment(e.target.value)}
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="prod">Production</option>
                     <option value="dev">Development</option>
@@ -234,11 +234,11 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
     const renderDatabaseForm = () => (
         <div className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Database Type</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Database Type</label>
                 <select
                     value={dbConfig.type}
                     onChange={(e) => setDbConfig({ ...dbConfig, type: e.target.value })}
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="postgresql">PostgreSQL</option>
                     <option value="mysql">MySQL</option>
@@ -246,55 +246,55 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
             </div>
             <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Host *</label>
+                    <label className="block text-sm font-medium text-foreground font-semibold mb-2">Host *</label>
                     <input
                         type="text"
                         value={dbConfig.host}
                         onChange={(e) => setDbConfig({ ...dbConfig, host: e.target.value })}
                         placeholder="localhost"
-                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Port</label>
+                    <label className="block text-sm font-medium text-foreground font-semibold mb-2">Port</label>
                     <input
                         type="text"
                         value={dbConfig.port}
                         onChange={(e) => setDbConfig({ ...dbConfig, port: e.target.value })}
                         placeholder="5432"
-                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Database Name *</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Database Name *</label>
                 <input
                     type="text"
                     value={dbConfig.database}
                     onChange={(e) => setDbConfig({ ...dbConfig, database: e.target.value })}
                     placeholder="my_database"
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Username</label>
+                    <label className="block text-sm font-medium text-foreground font-semibold mb-2">Username</label>
                     <input
                         type="text"
                         value={dbConfig.username}
                         onChange={(e) => setDbConfig({ ...dbConfig, username: e.target.value })}
                         placeholder="admin"
-                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Password</label>
+                    <label className="block text-sm font-medium text-foreground font-semibold mb-2">Password</label>
                     <input
                         type="password"
                         value={dbConfig.password}
                         onChange={(e) => setDbConfig({ ...dbConfig, password: e.target.value })}
                         placeholder="••••••••"
-                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
             </div>
@@ -304,21 +304,21 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
     const renderFilesystemForm = () => (
         <div className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Root Path *</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Root Path *</label>
                 <input
                     type="text"
                     value={fsConfig.path}
                     onChange={(e) => setFsConfig({ ...fsConfig, path: e.target.value })}
                     placeholder="/var/www/html or C:\Users\Data"
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">OS Type</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">OS Type</label>
                 <select
                     value={fsConfig.osType}
                     onChange={(e) => setFsConfig({ ...fsConfig, osType: e.target.value })}
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="linux">Linux / Unix</option>
                     <option value="windows">Windows</option>
@@ -332,44 +332,44 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Bucket Name *</label>
+                    <label className="block text-sm font-medium text-foreground font-semibold mb-2">Bucket Name *</label>
                     <input
                         type="text"
                         value={s3Config.bucket}
                         onChange={(e) => setS3Config({ ...s3Config, bucket: e.target.value })}
                         placeholder="my-company-data"
-                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Region *</label>
+                    <label className="block text-sm font-medium text-foreground font-semibold mb-2">Region *</label>
                     <input
                         type="text"
                         value={s3Config.region}
                         onChange={(e) => setS3Config({ ...s3Config, region: e.target.value })}
                         placeholder="us-east-1"
-                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Access Key ID</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Access Key ID</label>
                 <input
                     type="text"
                     value={s3Config.accessKeyId}
                     onChange={(e) => setS3Config({ ...s3Config, accessKeyId: e.target.value })}
                     placeholder="AKIA..."
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Secret Access Key</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Secret Access Key</label>
                 <input
                     type="password"
                     value={s3Config.secretAccessKey}
                     onChange={(e) => setS3Config({ ...s3Config, secretAccessKey: e.target.value })}
                     placeholder="Within AWS IAM console..."
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
         </div>
@@ -378,33 +378,33 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
     const renderGCSForm = () => (
         <div className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Project ID *</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Project ID *</label>
                 <input
                     type="text"
                     value={gcsConfig.projectId}
                     onChange={(e) => setGcsConfig({ ...gcsConfig, projectId: e.target.value })}
                     placeholder="my-gcp-project"
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Bucket Name *</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Bucket Name *</label>
                 <input
                     type="text"
                     value={gcsConfig.bucket}
                     onChange={(e) => setGcsConfig({ ...gcsConfig, bucket: e.target.value })}
                     placeholder="my-gcs-bucket"
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Service Account JSON (Base64 or Path)</label>
+                <label className="block text-sm font-medium text-foreground font-semibold mb-2">Service Account JSON (Base64 or Path)</label>
                 <textarea
                     value={gcsConfig.serviceAccountJson}
                     onChange={(e) => setGcsConfig({ ...gcsConfig, serviceAccountJson: e.target.value })}
                     placeholder="{ ... }"
                     rows={3}
-                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+                    className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
                 />
             </div>
         </div>
@@ -426,12 +426,12 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
                     <div>
-                        <h2 className="text-xl font-semibold text-white">Add Data Source</h2>
+                        <h2 className="text-xl font-semibold text-foreground">Add Data Source</h2>
                         <p className="text-sm text-muted-foreground mt-1">
                             {step === 1 ? 'Select Source Type' : `Configure ${SOURCE_TYPES.find(s => s.id === selectedType)?.name}`}
                         </p>
                     </div>
-                    <button onClick={handleClose} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-white">
+                    <button onClick={handleClose} className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -443,7 +443,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                             <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4 border border-green-500/20">
                                 <CheckCircle className="w-8 h-8 text-green-500" />
                             </div>
-                            <h3 className="text-xl font-semibold text-white mb-2">Connection Added!</h3>
+                            <h3 className="text-xl font-semibold text-foreground mb-2">Connection Added!</h3>
                             <p className="text-muted-foreground">Successfully connected to {name}</p>
                         </div>
                     ) : step === 1 ? (
@@ -460,12 +460,12 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                     <div className="flex items-start gap-4">
                                         <div className={`
                                             p-3 rounded-lg transition-colors
-                                            ${selectedType === source.id ? 'bg-blue-500/20 text-blue-400' : 'bg-accent group-hover:bg-slate-600 text-muted-foreground group-hover:text-slate-200'}
+                                            ${selectedType === source.id ? 'bg-blue-500/20 text-blue-600' : 'bg-slate-100 group-hover:bg-slate-200 text-slate-500 group-hover:text-slate-700'}
                                         `}>
                                             {source.icon}
                                         </div>
                                         <div className="flex-1">
-                                            <div className={`font-semibold ${selectedType === source.id ? 'text-white' : 'text-slate-200'}`}>
+                                            <div className={`font-semibold ${selectedType === source.id ? 'text-blue-700 font-bold' : 'text-slate-700'}`}>
                                                 {source.name}
                                             </div>
                                             <div className="text-sm text-muted-foreground mt-1">{source.description}</div>
@@ -477,7 +477,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     ) : (
                         <div className="space-y-6 animate-in slide-in-from-right duration-300">
                             {error && (
-                                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-400">
+                                <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-700">
                                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
                                     <p className="text-sm font-medium">{error}</p>
                                 </div>
@@ -490,7 +490,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                             </div>
 
                             <div className="bg-background p-4 rounded-lg border border-border space-y-3">
-                                <label className="block text-sm font-medium text-slate-300">
+                                <label className="block text-sm font-medium text-foreground font-semibold">
                                     Connection Scope
                                 </label>
                                 <div className="flex items-center gap-3">
@@ -500,7 +500,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                             id="read-only"
                                             checked={isReadOnly}
                                             onChange={(e) => setIsReadOnly(e.target.checked)}
-                                            className="w-4 h-4 rounded border-border bg-muted text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-slate-900"
+                                            className="w-4 h-4 rounded border-border bg-muted text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-white"
                                         />
                                         <label htmlFor="read-only" className="text-sm text-muted-foreground select-none cursor-pointer">
                                             Read-only access
@@ -514,7 +514,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                             checked={allowRemediation}
                                             onChange={(e) => setAllowRemediation(e.target.checked)}
                                             disabled={true}
-                                            className="w-4 h-4 rounded border-border bg-muted text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-slate-900 cursor-not-allowed"
+                                            className="w-4 h-4 rounded border-border bg-muted text-blue-500 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-white cursor-not-allowed"
                                         />
                                         <label htmlFor="allow-remediation" className="text-sm text-muted-foreground select-none cursor-not-allowed">
                                             Allow remediation actions (Coming Soon)
@@ -526,8 +526,8 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                             {/* Test Connection Result */}
                             {testResult && (
                                 <div className={`p-4 rounded-lg border flex items-center gap-3 ${testResult.success
-                                    ? 'bg-green-500/10 border-green-500/20 text-green-400'
-                                    : 'bg-red-500/10 border-red-500/20 text-red-400'
+                                    ? 'bg-green-50 border-green-200 text-green-700'
+                                    : 'bg-red-50 border-red-200 text-red-700'
                                     }`}>
                                     {testResult.success ? <CheckCircle className="w-5 h-5 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 flex-shrink-0" />}
                                     <div className="text-sm font-medium flex-1">
@@ -544,7 +544,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                     <button
                         onClick={handleClose}
                         disabled={isSubmitting || isTesting}
-                        className="px-4 py-2 text-muted-foreground hover:text-white transition-colors disabled:opacity-50"
+                        className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                     >
                         Cancel
                     </button>
@@ -555,14 +555,14 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                     <button
                                         onClick={() => setStep(1)}
                                         disabled={isSubmitting || isTesting}
-                                        className="px-4 py-2 bg-muted hover:bg-accent text-white rounded-lg font-medium transition-colors border border-border disabled:opacity-50"
+                                        className="px-4 py-2 bg-muted hover:bg-accent text-foreground rounded-lg font-medium transition-colors border border-border disabled:opacity-50"
                                     >
                                         Back
                                     </button>
                                     <button
                                         onClick={handleTestConnection}
                                         disabled={isSubmitting || isTesting}
-                                        className="px-4 py-2 bg-muted hover:bg-accent text-white rounded-lg font-medium transition-colors border border-border disabled:opacity-50 flex items-center gap-2"
+                                        className="px-4 py-2 bg-muted hover:bg-accent text-foreground rounded-lg font-medium transition-colors border border-border disabled:opacity-50 flex items-center gap-2"
                                     >
                                         {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                                         Test Connection
@@ -570,7 +570,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                     <button
                                         onClick={handleSubmit}
                                         disabled={isSubmitting || isTesting}
-                                        className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/20"
+                                        className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-200/50"
                                     >
                                         {isSubmitting ? (
                                             <>
@@ -587,7 +587,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                                 <button
                                     onClick={() => setStep(2)}
                                     disabled={!selectedType}
-                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted disabled:text-slate-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/20"
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-muted disabled:text-slate-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-200/50"
                                 >
                                     Next Step
                                 </button>

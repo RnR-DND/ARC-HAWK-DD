@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Topbar from '@/components/Topbar';
 import InfoPanel from '@/components/InfoPanel';
 import LineageCanvas from '@/modules/lineage/LineageCanvas';
 import LoadingState from '@/components/LoadingState';
@@ -83,13 +82,6 @@ export default function DashboardPage() {
 
     return (
         <div style={{ padding: '0', minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
-            <Topbar
-                scanTime={new Date().toISOString()}
-                environment="Production"
-                riskScore={avgRiskScore}
-                onSearch={setSearchQuery}
-            />
-
             <div style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
                 {error && (
                     <div
@@ -157,7 +149,7 @@ export default function DashboardPage() {
                             borderRadius: '12px',
                             overflow: 'hidden',
                             backgroundColor: theme.colors.background.card,
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.4)'
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)'
                         }}>
                             <LineageCanvas
                                 nodes={filteredNodes}

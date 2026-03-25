@@ -25,20 +25,18 @@ const FALLBACK_DATA: DashboardData = {
 
 // Skeleton component for loading state
 const DashboardSkeleton = () => (
-    <GlobalLayout>
-        <div className="max-w-7xl mx-auto p-6 space-y-8">
-            <div className="h-20 bg-white rounded-xl shadow-sm animate-pulse" />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="h-32 bg-white rounded-xl shadow-sm animate-pulse" />
-                ))}
-            </div>
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <div className="xl:col-span-2 h-96 bg-white rounded-xl shadow-sm animate-pulse" />
-                <div className="h-96 bg-white rounded-xl shadow-sm animate-pulse" />
-            </div>
+    <div className="max-w-7xl mx-auto p-6 space-y-8">
+        <div className="h-20 bg-white rounded-xl shadow-sm animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-32 bg-white rounded-xl shadow-sm animate-pulse" />
+            ))}
         </div>
-    </GlobalLayout>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <div className="xl:col-span-2 h-96 bg-white rounded-xl shadow-sm animate-pulse" />
+            <div className="h-96 bg-white rounded-xl shadow-sm animate-pulse" />
+        </div>
+    </div>
 );
 
 export default function Home() {
@@ -107,8 +105,7 @@ export default function Home() {
     // Empty state for first-time users
     if (!loading && !data?.latestScanId && displayData.metrics.totalPII === 0 && !error) {
         return (
-            <GlobalLayout>
-                <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
+            <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
                     <div className="max-w-2xl space-y-8">
                         <div className="p-6 bg-blue-50 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6 ring-8 ring-blue-50/50">
                             <Shield className="w-12 h-12 text-blue-600" />
@@ -148,14 +145,12 @@ export default function Home() {
                     <AddSourceModal isOpen={isAddSourceOpen} onClose={() => setIsAddSourceOpen(false)} />
                     <ScanConfigModal isOpen={isScanConfigOpen} onClose={() => setIsScanConfigOpen(false)} />
                 </div>
-            </GlobalLayout>
         )
     }
 
     return (
-        <GlobalLayout>
-            <div className="min-h-screen bg-slate-50/50">
-                <div className="max-w-7xl mx-auto p-6 space-y-8">
+        <div className="min-h-screen bg-white">
+            <div className="max-w-7xl mx-auto p-6 space-y-8">
                     {/* Header */}
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
@@ -163,8 +158,8 @@ export default function Home() {
                         className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                     >
                         <div>
-                            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Security Overview</h1>
-                            <p className="text-slate-500 mt-1">Real-time PII detection and risk analysis</p>
+                            <h1 className="text-3xl font-bold text-slate-950 tracking-tight">Security Overview</h1>
+                            <p className="text-slate-600 mt-1">Real-time PII detection and risk analysis</p>
                         </div>
                         <div className="flex items-center gap-3">
                             <span className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border ${wsConnected
@@ -262,11 +257,11 @@ export default function Home() {
                             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                                 <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                                     <div>
-                                        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                                             <Activity className="w-5 h-5 text-blue-600" />
                                             Recent Findings
                                         </h2>
-                                        <p className="text-sm text-slate-500">Latest discovered PII instances</p>
+                                        <p className="text-sm text-slate-600">Latest discovered PII instances</p>
                                     </div>
                                     <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 hover:gap-2 transition-all">
                                         View All <ChevronRight className="w-4 h-4" />
@@ -339,7 +334,6 @@ export default function Home() {
                         </div>
                     </motion.div>
                 </div>
-            </div>
-        </GlobalLayout>
+        </div>
     );
 }

@@ -7,7 +7,6 @@ import { colors } from '@/design-system/colors';
 import { theme } from '@/design-system/themes';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
-import Topbar from '@/components/Topbar';
 
 export default function AssetInventoryPage() {
     const [assets, setAssets] = useState<Asset[]>([]);
@@ -72,11 +71,7 @@ export default function AssetInventoryPage() {
 
     return (
         <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: colors.background.primary }}>
-            <Topbar
-                environment="Production"
-                riskScore={0}
-                onSearch={(q) => setSearchQuery(q)}
-            />
+
 
             <div style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
                 <div style={{ marginBottom: '32px' }}>

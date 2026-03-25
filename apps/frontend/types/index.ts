@@ -27,6 +27,9 @@ export interface Asset {
     file_metadata?: Record<string, any>;
     risk_score: number;
     total_findings: number;
+    is_masked?: boolean;
+    masking_strategy?: string;
+    masked_at?: string;
     created_at: string;
     updated_at: string;
 }

@@ -115,10 +115,10 @@ function LineageCanvasContent({ nodes: graphNodes, edges: graphEdges, onNodeClic
             <div
                 style={{
                     height: 'calc(100vh - 250px)',
-                    background: '#0f172a',
+                    background: '#ffffff',
                     borderRadius: '12px',
                     overflow: 'hidden',
-                    border: '1px solid #334155',
+                    border: '1px solid #e2e8f0',
                     position: 'relative',
                 }}
             >
@@ -146,7 +146,7 @@ function LineageCanvasContent({ nodes: graphNodes, edges: graphEdges, onNodeClic
                     proOptions={{ hideAttribution: true }}
                     defaultEdgeOptions={{
                         style: {
-                            stroke: '#475569',
+                            stroke: '#94a3b8',
                             strokeWidth: 1.5,
                         },
                         animated: false,
@@ -155,16 +155,16 @@ function LineageCanvasContent({ nodes: graphNodes, edges: graphEdges, onNodeClic
                     <Controls
                         showInteractive={false}
                         style={{
-                            background: '#1e293b',
-                            border: '1px solid #334155',
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
                             borderRadius: '8px',
                         }}
                     />
                     <Background
-                        color="#334155"
+                        color="#cbd5e1"
                         gap={20}
                         size={0.5}
-                        style={{ opacity: 0.3 }}
+                        style={{ opacity: 0.5 }}
                     />
                     <MiniMap
                         nodeColor={(n) => {
@@ -179,11 +179,11 @@ function LineageCanvasContent({ nodes: graphNodes, edges: graphEdges, onNodeClic
                             return '#64748b';
                         }}
                         style={{
-                            background: '#1e293b',
-                            border: '1px solid #334155',
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
                             borderRadius: '8px',
                         }}
-                        maskColor="rgba(15, 23, 42, 0.8)"
+                        maskColor="rgba(255, 255, 255, 0.7)"
                     />
                 </ReactFlow>
 

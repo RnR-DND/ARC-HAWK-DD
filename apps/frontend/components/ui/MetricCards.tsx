@@ -105,7 +105,7 @@ export default function MetricCards({
                         <div className="relative z-10">
                             {/* Icon with priority styling */}
                             <div className={`inline-flex p-3 rounded-lg mb-4 transition-all duration-300 ${hasValue
-                                ? `bg-white shadow-sm border border-slate-100`
+                                ? `bg-white shadow-sm border border-slate-200`
                                 : 'bg-slate-100'
                                 }`}>
                                 <Icon className={`w-6 h-6 transition-colors duration-300 ${hasValue ? metric.iconBg.split(' ')[1] : 'text-slate-400'
@@ -148,20 +148,20 @@ export default function MetricCards({
                             </div>
 
                             {/* Label with better hierarchy */}
-                            <h3 className={`font-semibold text-lg mb-1 transition-colors duration-300 ${hasValue ? 'text-slate-800' : 'text-slate-400'
+                            <h3 className={`font-semibold text-lg mb-1 transition-colors duration-300 ${hasValue ? 'text-slate-900' : 'text-slate-500'
                                 }`}>
                                 {metric.label}
                             </h3>
 
                             {/* Subtitle with action hint */}
-                            <p className="text-slate-500 text-sm mb-4 line-clamp-1">
+                            <p className="text-slate-600 text-sm mb-4 line-clamp-1">
                                 {metric.subtitle}
                             </p>
 
                             {/* Action button for better UX */}
                             <button className={`w-full py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-300 ${hasValue
-                                ? `bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm hover:shadow`
-                                : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                                ? `bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 shadow-sm hover:shadow-md`
+                                : 'bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-200'
                                 }`}>
                                 {metric.actionText}
                             </button>

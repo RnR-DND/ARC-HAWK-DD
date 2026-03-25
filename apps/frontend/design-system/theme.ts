@@ -1,23 +1,23 @@
 export const theme = {
     colors: {
-        // Backgrounds - Modern Dark Theme with gradients
+        // Backgrounds - Modern Light Theme
         background: {
-            primary: '#0F172A',   // Slate 900
-            secondary: '#1E293B', // Slate 800
-            tertiary: '#334155',  // Slate 700
-            card: '#1E293B',
-            overlay: 'rgba(15, 23, 42, 0.8)',
-            gradient: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+            primary: '#FFFFFF',   // Pure White
+            secondary: '#F8FAFC', // Slate 50
+            tertiary: '#F1F5F9',  // Slate 100
+            card: '#FFFFFF',
+            overlay: 'rgba(255, 255, 255, 0.8)',
+            gradient: 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)',
         },
 
-        // Text - Enhanced typography
+        // Text - Enhanced typography for Light Mode
         text: {
-            primary: '#F8FAFC',   // Slate 50
-            secondary: '#CBD5E1', // Slate 300
-            tertiary: '#94A3B8',  // Slate 400
-            muted: '#64748B',     // Slate 500
-            inverse: '#0F172A',
-            accent: '#60A5FA',    // Blue 400
+            primary: '#0F172A',   // Slate 900
+            secondary: '#475569', // Slate 600
+            tertiary: '#64748B',  // Slate 500
+            muted: '#94A3B8',     // Slate 400
+            inverse: '#FFFFFF',
+            accent: '#3B82F6',    // Blue 500
         },
 
         // Risk Levels (MANDATORY: Risk-First Color Language)
@@ -27,10 +27,10 @@ export const theme = {
             medium: '#EAB308',   // Yellow 500
             low: '#22C55E',      // Green 500
             info: '#3B82F6',     // Blue 500
-            none: '#64748B',     // Slate 500
+            none: '#94A3B8',     // Slate 400
         },
 
-        // Brand / Interactive - Enhanced gradients
+        // Brand / Interactive
         primary: {
             DEFAULT: '#3B82F6', // Blue 500
             hover: '#2563EB',   // Blue 600
@@ -47,12 +47,12 @@ export const theme = {
             gradient: 'linear-gradient(135deg, #8B5CF6 0%, #A855F7 100%)',
         },
 
-        // Borders - Enhanced
+        // Borders - Enhanced Light Contrast
         border: {
-            default: '#334155', // Slate 700
-            active: '#475569',  // Slate 600
-            subtle: '#1E293B',  // Slate 800
-            accent: '#60A5FA',  // Blue 400
+            default: '#E2E8F0', // Slate 200
+            active: '#CBD5E1',  // Slate 300
+            subtle: '#F1F5F9',  // Slate 100
+            accent: '#3B82F6',  // Blue 500
         },
 
         // Status - Consistent with risk colors
@@ -63,10 +63,10 @@ export const theme = {
             info: '#3B82F6',     // Blue 500
         },
 
-        // Glassmorphism effects
+        // Glassmorphism effects for Light Mode
         glass: {
-            background: 'rgba(30, 41, 59, 0.8)',
-            border: 'rgba(51, 65, 85, 0.3)',
+            background: 'rgba(255, 255, 255, 0.7)',
+            border: 'rgba(0, 0, 0, 0.05)',
             backdrop: 'blur(12px)',
         },
     },
@@ -91,13 +91,13 @@ export const theme = {
         mono: 'JetBrains Mono, Fira Code, monospace',
     },
 
-    // Shadows & Effects
+    // Shadows & Effects - Standard Light Mode Shadows
     shadows: {
         sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
         md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
         lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
         xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-        glow: '0 0 20px rgba(59, 130, 246, 0.3)',
+        glow: '0 0 20px rgba(59, 130, 246, 0.15)',
     },
 
     // Animations
@@ -121,12 +121,12 @@ export const getRiskColor = (riskLevel: string) => {
     }
 };
 
-// Start Risk Badge Component Styles
+// Start Risk Badge Component Styles - Updated for Light Mode
 export const riskBadgeStyles = {
-    critical: 'bg-red-900/30 text-red-400 border-red-800',
-    high: 'bg-orange-900/30 text-orange-400 border-orange-800',
-    medium: 'bg-yellow-900/30 text-yellow-400 border-yellow-800',
-    low: 'bg-emerald-900/30 text-emerald-400 border-emerald-800',
-    info: 'bg-blue-900/30 text-blue-400 border-blue-800',
-    default: 'bg-slate-800 text-slate-400 border-slate-700',
+    critical: 'bg-red-50 text-red-700 border-red-200',
+    high: 'bg-orange-50 text-orange-700 border-orange-200',
+    medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    low: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    info: 'bg-blue-50 text-blue-700 border-blue-200',
+    default: 'bg-slate-50 text-slate-600 border-slate-200',
 };

@@ -121,7 +121,7 @@ export function Sidebar() {
                     className="w-full justify-start gap-2 text-xs"
                 >
                     <a
-                        href="https://digitalindia.gov.in/dpdpa"
+                        href="https://www.digitalindia.gov.in/press_release/dpdp-act-2023-upholds-privacy-while-preserving-transparency-under-rti/"
                         target="_blank"
                         rel="noopener noreferrer"
                     >

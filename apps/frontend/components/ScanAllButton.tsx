@@ -112,7 +112,7 @@ export default function ScanAllButton({ onScanComplete }: ScanAllButtonProps) {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -120,12 +120,12 @@ export default function ScanAllButton({ onScanComplete }: ScanAllButtonProps) {
                     backdropFilter: 'blur(4px)',
                 }}>
                     <div style={{
-                        backgroundColor: theme.colors.background.card,
+                        backgroundColor: '#ffffff',
                         padding: '32px',
                         borderRadius: '12px',
                         width: '400px',
                         border: `1px solid ${theme.colors.border.default}`,
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.4)',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                     }}>
                         <h3 style={{
                             marginBottom: '16px',

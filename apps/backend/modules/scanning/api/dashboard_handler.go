@@ -45,21 +45,6 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 		SystemHealth: "healthy",
 	}
 
-	// Extract tenant_id from Gin context
-	tenantIDVal, exists := c.Get("tenant_id")
-	var tenantID interface{}
-	if !exists {
-		// For anonymous access, use Nil UUID (default tenant)
-		// This matches the behavior where auth middleware allows anonymous requests
-		tenantID = uuid.Nil
-	} else {
-		tenantID = tenantIDVal
-	}
-
-	// Add to context using the key expected by EnsureTenantID
-	// Based on tenant_helper.go, it uses "tenant_id" key
-	ctx = context.WithValue(ctx, "tenant_id", tenantID)
-
 	// Extract environment filter (default to PROD)
 	envFilter := c.Query("env")
 	if envFilter == "" {
@@ -69,6 +54,14 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 	// Get total PII count (excluding false positives)
 	var findings []*entity.Finding
 	var err error
+
+	// Extract localized tenant for if-condition
+	var tenantID uuid.UUID
+	if val, ok := c.Get("tenant_id"); ok {
+		if id, canCast := val.(uuid.UUID); canCast {
+			tenantID = id
+		}
+	}
 
 	if tenantID == uuid.Nil {
 		// Use Global list for system/anonymous view to match ClassificationSummary behavior

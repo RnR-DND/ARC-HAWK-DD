@@ -12,9 +12,9 @@ export function ScanContextBar() {
     }
 
     const envColors = {
-        PROD: 'bg-red-500/10 text-red-400 border-red-500/20',
-        DEV: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-        QA: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+        PROD: 'bg-red-500/10 text-red-600 border-red-500/20',
+        DEV: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+        QA: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
     };
 
     const envColor = environment ? envColors[environment] : envColors.DEV;

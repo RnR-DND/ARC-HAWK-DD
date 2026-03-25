@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { TrendingUp, AlertTriangle, Shield, Database } from 'lucide-react';
+import { theme } from '@/design-system/theme';
 
 interface RiskChartProps {
     byPiiType: Record<string, number>;
@@ -11,11 +12,11 @@ interface RiskChartProps {
 }
 
 const riskColors = {
-    Critical: '#b91c1c', // red-700
-    High: '#c2410c', // orange-700
-    Medium: '#a16207', // yellow-700
-    Low: '#15803d', // green-700
-    Info: '#1d4ed8', // blue-700
+    Critical: theme.colors.risk.critical,
+    High: theme.colors.risk.high,
+    Medium: theme.colors.risk.medium,
+    Low: theme.colors.risk.low,
+    Info: theme.colors.risk.info,
 };
 
 const piiTypeColors = [
@@ -110,13 +111,13 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                             <Shield className="w-5 h-5 text-purple-600" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800">PII Type Distribution</h3>
-                            <p className="text-slate-500 text-sm">Breakdown by sensitive data types</p>
+                            <h3 className="text-lg font-bold text-slate-900">PII Type Distribution</h3>
+                            <p className="text-slate-600 text-sm">Breakdown by sensitive data types</p>
                         </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-slate-500 text-sm">Total Types</p>
-                        <p className="text-slate-800 text-lg font-semibold">{piiTypeData.length}</p>
+                        <p className="text-slate-600 text-sm">Total Types</p>
+                        <p className="text-slate-950 text-lg font-semibold">{piiTypeData.length}</p>
                     </div>
                 </div>
 
@@ -138,13 +139,13 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                             </Pie>
                             <Tooltip
                                 contentStyle={{
-                                    backgroundColor: '#ffffff',
-                                    border: '1px solid #e2e8f0',
+                                    backgroundColor: theme.colors.background.primary,
+                                    border: `1px solid ${theme.colors.border.default}`,
                                     borderRadius: '8px',
-                                    color: '#0f172a',
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                    color: theme.colors.text.primary,
+                                    boxShadow: theme.shadows.md
                                 }}
-                                itemStyle={{ color: '#0f172a' }}
+                                itemStyle={{ color: theme.colors.text.primary }}
                             />
                         </PieChart>
                     </ResponsiveContainer>
@@ -176,8 +177,8 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                         <TrendingUp className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">Asset Risk Overview</h3>
-                        <p className="text-slate-500 text-sm">Findings distribution by asset</p>
+                        <h3 className="text-lg font-bold text-slate-900">Asset Risk Overview</h3>
+                        <p className="text-slate-600 text-sm">Findings distribution by asset</p>
                     </div>
                 </div>
 
@@ -200,13 +201,13 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                             />
                             <Tooltip
                                 contentStyle={{
-                                    backgroundColor: '#ffffff',
-                                    border: '1px solid #e2e8f0',
+                                    backgroundColor: theme.colors.background.primary,
+                                    border: `1px solid ${theme.colors.border.default}`,
                                     borderRadius: '8px',
-                                    color: '#0f172a',
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                    color: theme.colors.text.primary,
+                                    boxShadow: theme.shadows.md
                                 }}
-                                cursor={{ fill: '#f1f5f9' }}
+                                cursor={{ fill: theme.colors.background.tertiary }}
                             />
                             <Bar
                                 dataKey="findings"
@@ -230,8 +231,8 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                         <AlertTriangle className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">Confidence Distribution</h3>
-                        <p className="text-slate-500 text-sm">Detection confidence levels</p>
+                        <h3 className="text-lg font-bold text-slate-900">Confidence Distribution</h3>
+                        <p className="text-slate-600 text-sm">Detection confidence levels</p>
                     </div>
                 </div>
 
@@ -255,7 +256,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                                         }}
                                     />
                                 </div>
-                                <span className="text-slate-500 text-sm w-8 text-right font-medium">{item.count}</span>
+                                <span className="text-slate-600 text-sm w-8 text-right font-medium">{item.count}</span>
                             </div>
                         </div>
                     ))}

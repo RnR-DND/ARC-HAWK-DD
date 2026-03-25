@@ -50,16 +50,16 @@ export default function AssetDetailPage() {
     if (loading) return <LoadingState fullScreen message="Loading Asset Details..." />;
 
     if (error || !asset) return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-background p-8">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-8">
             <div className="text-center max-w-md">
-                <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Shield className="w-8 h-8 text-red-500" />
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Shield className="w-8 h-8 text-red-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Error Loading Asset</h2>
-                <p className="text-muted-foreground mb-8">{error || 'Asset not found or access denied.'}</p>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Error Loading Asset</h2>
+                <p className="text-slate-500 mb-8">{error || 'Asset not found or access denied.'}</p>
                 <button
                     onClick={() => router.push('/')}
-                    className="px-6 py-2 bg-muted hover:bg-accent text-white rounded-lg transition-colors font-medium border border-border"
+                    className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-lg transition-colors font-medium border border-slate-200"
                 >
                     Back to Dashboard
                 </button>
@@ -75,44 +75,44 @@ export default function AssetDetailPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background text-slate-200 font-sans">
+        <div className="min-h-screen bg-slate-50 text-slate-700 font-sans">
             <div className="max-w-7xl mx-auto p-6 md:p-8">
                 {/* Header / Breadcrumb */}
                 <button
-                    onClick={() => router.push('/assets')}
-                    className="flex items-center gap-2 text-muted-foreground hover:text-white mb-6 text-sm font-medium transition-colors group"
+                    onClick={() => router.push('/asset-inventory')}
+                    className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6 text-sm font-medium transition-colors group"
                 >
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     Back to Inventory
                 </button>
 
                 {/* Asset Header Card */}
-                <div className="bg-card rounded-xl border border-border p-8 mb-8 shadow-xl">
+                <div className="bg-white rounded-xl border border-slate-200 p-8 mb-8 shadow-sm">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                         <div className="flex-1">
                             <div className="flex items-center gap-3 mb-4">
-                                <span className="px-2.5 py-1 rounded bg-muted text-slate-300 text-xs font-bold uppercase tracking-wider border border-border">
+                                <span className="px-2.5 py-1 rounded bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider border border-slate-200">
                                     {asset.asset_type}
                                 </span>
                                 <span className="font-mono text-xs text-slate-500">ID: {asset.id.substring(0, 8)}...</span>
                             </div>
 
-                            <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-4 tracking-tight">
+                            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">
                                 {asset.name}
                             </h1>
 
-                            <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground font-medium">
+                            <div className="flex flex-wrap items-center gap-6 text-sm text-slate-500 font-medium">
                                 <div className="flex items-center gap-2">
-                                    <Server className="w-4 h-4 text-slate-500" />
-                                    <span className="text-slate-300">{asset.source_system}</span>
+                                    <Server className="w-4 h-4 text-slate-400" />
+                                    <span className="text-slate-600">{asset.source_system}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4 text-slate-500" />
-                                    <span className="text-slate-300">{asset.owner || 'Unassigned'}</span>
+                                    <User className="w-4 h-4 text-slate-400" />
+                                    <span className="text-slate-600">{asset.owner || 'Unassigned'}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <FolderOpen className="w-4 h-4 text-slate-500" />
-                                    <span className="font-mono bg-background px-2 py-0.5 rounded border border-border text-xs text-blue-300 truncate max-w-[300px]" title={asset.path}>
+                                    <FolderOpen className="w-4 h-4 text-slate-400" />
+                                    <span className="font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-xs text-blue-600 truncate max-w-[300px]" title={asset.path}>
                                         {asset.path}
                                     </span>
                                 </div>
@@ -129,7 +129,7 @@ export default function AssetDetailPage() {
                 </div>
 
                 {/* Tabs */}
-                <div className="flex items-center gap-1 mb-6 border-b border-border">
+                <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
                     <TabButton
                         active={activeTab === 'findings'}
                         onClick={() => setActiveTab('findings')}
@@ -151,7 +151,7 @@ export default function AssetDetailPage() {
                 </div>
 
                 {/* Content Area */}
-                <div className="bg-card rounded-xl border border-border min-h-[400px] shadow-sm">
+                <div className="bg-white rounded-xl border border-slate-200 min-h-[400px] shadow-sm">
                     {activeTab === 'findings' && (
                         findingsData ? (
                             <div className="p-4">
@@ -175,16 +175,16 @@ export default function AssetDetailPage() {
 
                     {activeTab === 'lineage' && (
                         <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
-                            <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mb-6">
-                                <Share2 className="w-8 h-8 text-blue-500" />
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-6">
+                                <Share2 className="w-8 h-8 text-blue-600" />
                             </div>
-                            <h3 className="text-xl font-semibold text-white mb-2">Visual Lineage</h3>
-                            <p className="text-muted-foreground max-w-md mb-8">
+                            <h3 className="text-xl font-semibold text-slate-900 mb-2">Visual Lineage</h3>
+                            <p className="text-slate-500 max-w-md mb-8">
                                 Trace data flow, understand dependencies, and visualize impact analysis for {asset.name}.
                             </p>
                             <button
                                 onClick={() => router.push(`/lineage?assetId=${asset.id}`)}
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/20"
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors shadow-sm"
                             >
                                 <Activity className="w-4 h-4" />
                                 Open Lineage Graph
@@ -195,17 +195,17 @@ export default function AssetDetailPage() {
                     {activeTab === 'metadata' && (
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-12">
                             <div>
-                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                                    <Database className="w-5 h-5 text-purple-400" />
+                                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <Database className="w-5 h-5 text-purple-600" />
                                     Technical Metadata
                                 </h3>
-                                <div className="bg-background rounded-lg border border-border p-4 font-mono text-xs text-slate-300 overflow-auto max-h-[500px]">
+                                <div className="bg-slate-50 rounded-lg border border-slate-200 p-4 font-mono text-xs text-slate-700 overflow-auto max-h-[500px]">
                                     <pre>{JSON.stringify(asset.file_metadata || {}, null, 2)}</pre>
                                 </div>
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                                    <Server className="w-5 h-5 text-green-400" />
+                                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <Server className="w-5 h-5 text-green-600" />
                                     System Information
                                 </h3>
                                 <div className="space-y-4">
@@ -214,7 +214,7 @@ export default function AssetDetailPage() {
                                     <InfoRow
                                         label="Environment"
                                         value={
-                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${asset.environment === 'Production' ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
+                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${asset.environment === 'Production' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
                                                 }`}>
                                                 {asset.environment}
                                             </span>
@@ -239,8 +239,8 @@ function TabButton({ active, onClick, label, icon }: { active: boolean, onClick:
             className={`
                 flex items-center gap-2 px-6 py-3 text-sm font-medium transition-all relative
                 ${active
-                    ? 'text-white border-b-2 border-blue-500 bg-secondary rounded-t-lg'
-                    : 'text-muted-foreground hover:text-white hover:bg-muted'
+                    ? 'text-blue-600 border-b-2 border-blue-600 bg-white rounded-t-lg'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                 }
             `}
         >
@@ -252,9 +252,9 @@ function TabButton({ active, onClick, label, icon }: { active: boolean, onClick:
 
 function InfoRow({ label, value }: { label: string, value: React.ReactNode }) {
     return (
-        <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
+        <div className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
             <span className="text-slate-500 font-medium text-sm">{label}</span>
-            <span className="text-slate-200 font-mono text-sm">{value}</span>
+            <span className="text-slate-800 font-mono text-sm">{value}</span>
         </div>
     );
 }

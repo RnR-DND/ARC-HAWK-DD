@@ -22,8 +22,9 @@ export default function LoadingState({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
             zIndex: theme.zIndex.modal,
+            backdropFilter: 'blur(8px)',
         }
         : {
             display: 'flex',
@@ -41,8 +42,8 @@ export default function LoadingState({
                 style={{
                     width: '48px',
                     height: '48px',
-                    border: `4px solid ${fullScreen ? colors.neutral[800] : colors.neutral[200]}`,
-                    borderTop: `4px solid ${colors.blue[500]}`,
+                    border: `4px solid ${fullScreen ? colors.neutral[100] : colors.neutral[200]}`,
+                    borderTop: `4px solid ${colors.blue[600]}`,
                     borderRadius: '50%',
                     animation: 'spin 1s linear infinite',
                     marginBottom: '16px',
@@ -54,7 +55,7 @@ export default function LoadingState({
                 style={{
                     fontSize: theme.fontSize.base,
                     fontWeight: theme.fontWeight.medium,
-                    color: fullScreen ? colors.neutral[400] : colors.neutral[600],
+                    color: fullScreen ? colors.text.secondary : colors.text.muted,
                 }}
             >
                 {message}

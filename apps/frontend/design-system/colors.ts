@@ -18,8 +18,8 @@ export const neutral = {
     500: '#64748B',
     600: '#475569',
     700: '#334155',
-    800: '#1E293B',
-    900: '#0F172A', // Main Background
+    800: '#1e293b',
+    900: '#0f172a',
 } as const;
 
 export const brand = {
@@ -35,28 +35,28 @@ export const status = {
 } as const;
 
 // ============================================
-// SEMANTIC MAPPINGS
+// SEMANTIC MAPPINGS - Refactored for Light Mode
 // ============================================
 
 export const background = {
-    primary: '#0F172A',     // Slate 900
-    surface: '#1E293B',     // Slate 800 (Card)
-    elevated: '#334155',    // Slate 700 (Hover)
-    muted: '#1E293B',       // Slate 800 - was neutral[100]
-    card: '#1E293B',
+    primary: '#FFFFFF',     // Pure White
+    surface: '#F8FAFC',     // Slate 50
+    elevated: '#F1F5F9',    // Slate 100
+    muted: '#F1F5F9',       // Slate 100
+    card: '#FFFFFF',
 } as const;
 
 export const border = {
-    default: '#334155',     // Slate 700
-    subtle: '#1E293B',      // Slate 800
-    strong: '#475569',      // Slate 600
+    default: '#E2E8F0',     // Slate 200
+    subtle: '#F1F5F9',      // Slate 100
+    strong: '#CBD5E1',      // Slate 300
 } as const;
 
 export const text = {
-    primary: '#F8FAFC',     // Slate 50
-    secondary: '#CBD5E1',   // Slate 300
-    muted: '#94A3B8',       // Slate 400
-    inverse: '#0F172A',
+    primary: '#0F172A',     // Slate 900 (Black)
+    secondary: '#475569',   // Slate 600
+    muted: '#64748B',       // Slate 500
+    inverse: '#FFFFFF',
 } as const;
 
 export const nodeColors = {

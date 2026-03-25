@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/arc-platform/backend/modules/auth/entity"
@@ -53,6 +54,18 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			// In dev mode (AUTH_REQUIRED != "true"), allow anonymous access
+			// This mirrors the global authMiddleware behavior in main.go
+			if os.Getenv("AUTH_REQUIRED") != "true" {
+				// Set anonymous defaults so handlers don't crash
+				c.Set("user_id", uuid.Nil)
+				c.Set("user_email", "anonymous@dev.local")
+				c.Set("user_role", "admin")
+				c.Set("tenant_id", uuid.Nil)
+				c.Set("authenticated", false)
+				c.Next()
+				return
+			}
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "unauthorized",
 				"message": "Authorization header required",

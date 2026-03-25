@@ -120,7 +120,7 @@ func (s *TestConnectionService) testPostgreSQL(ctx context.Context, config map[s
 	sslmode := getString(config, "sslmode")
 
 	if sslmode == "" {
-		sslmode = "prefer"
+		sslmode = "disable"
 	}
 
 	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=10",

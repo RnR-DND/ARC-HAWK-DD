@@ -35,7 +35,7 @@ export default function Topbar({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '0 32px',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.4)',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
             }}
         >
             {/* Left section - Title */}

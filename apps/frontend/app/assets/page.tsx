@@ -35,13 +35,13 @@ export default function AssetInventoryPage() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-background p-8">
+        <div className="flex flex-col h-full bg-slate-50 p-8">
             <div className="mb-8">
-                <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">
+                <h1 className="text-3xl font-extrabold text-slate-900 mb-2 tracking-tight">
                     Asset Inventory
                 </h1>
                 <div className="flex items-center gap-2 text-sm">
-                    <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-bold text-xs">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold text-xs">
                         Total: {total}
                     </span>
                     <span className="text-slate-500">
@@ -53,7 +53,7 @@ export default function AssetInventoryPage() {
             {loading ? (
                 <LoadingState message="Syncing Asset Inventory..." />
             ) : (
-                <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                     <AssetTable
                         assets={assets}
                         total={total}

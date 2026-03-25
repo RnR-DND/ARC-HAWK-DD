@@ -6,7 +6,7 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: 172.28.0.0/16
+        - subnet: 172.29.0.0/16
 
 volumes:
   postgres_data:
@@ -20,7 +20,7 @@ services:
     container_name: arc-platform-db
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.10
+        ipv4_address: 172.29.0.10
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -46,7 +46,7 @@ services:
     container_name: arc-platform-neo4j
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.11
+        ipv4_address: 172.29.0.11
     environment:
       NEO4J_AUTH: ${NEO4J_USERNAME}/${NEO4J_PASSWORD}
       NEO4J_PLUGINS: '["apoc"]'
@@ -75,7 +75,7 @@ services:
     container_name: arc-platform-presidio
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.12
+        ipv4_address: 172.29.0.12
     # Removed host port mapping - purely internal service
     ports:
       - "3001:3000"
@@ -96,7 +96,7 @@ services:
     container_name: arc-platform-temporal
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.13
+        ipv4_address: 172.29.0.13
     # Restrict to localhost
     ports:
       - "127.0.0.1:7233:7233"
@@ -125,7 +125,7 @@ services:
     container_name: arc-platform-temporal-ui
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.14
+        ipv4_address: 172.29.0.14
     ports:
       - "8088:8080"
     environment:
@@ -141,7 +141,7 @@ services:
     container_name: arc-platform-backend
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.20
+        ipv4_address: 172.29.0.20
     ports:
       - "8080:8080"
     environment:
@@ -172,7 +172,7 @@ services:
     container_name: arc-platform-frontend
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.30
+        ipv4_address: 172.29.0.30
     ports:
       - "3000:3000"
     environment:
@@ -187,7 +187,7 @@ services:
     container_name: arc-platform-scanner
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.40
+        ipv4_address: 172.29.0.40
     ports:
       - "5002:5002"
     environment:
@@ -209,7 +209,7 @@ services:
     container_name: arc-platform-prometheus
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.50
+        ipv4_address: 172.29.0.50
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
@@ -220,7 +220,7 @@ services:
     container_name: arc-platform-grafana
     networks:
       arc-platform-internal:
-        ipv4_address: 172.28.0.51
+        ipv4_address: 172.29.0.51
     ports:
       - "127.0.0.1:3002:3000"
     environment:

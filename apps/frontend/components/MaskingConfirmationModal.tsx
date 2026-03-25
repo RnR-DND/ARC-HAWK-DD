@@ -150,19 +150,21 @@ export default function MaskingConfirmationModal({
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.7);
+          background: rgba(15, 23, 42, 0.3);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 2000;
+          backdrop-filter: blur(4px);
         }
 
         .modal-content {
-          background: var(--color-bg, #1e293b);
+          background: #ffffff;
           border-radius: 12px;
           width: 90%;
           max-width: 500px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+          border: 1px solid #e2e8f0;
         }
 
         .modal-header {
@@ -170,20 +172,20 @@ export default function MaskingConfirmationModal({
           justify-content: space-between;
           align-items: center;
           padding: 20px 24px;
-          border-bottom: 1px solid var(--color-border, #334155);
+          border-bottom: 1px solid #e2e8f0;
         }
 
         .modal-header h2 {
           margin: 0;
           font-size: 20px;
-          color: var(--color-text-primary, #f1f5f9);
+          color: var(--color-text-primary, #0f172a);
         }
 
         .close-btn {
           background: none;
           border: none;
           font-size: 28px;
-          color: var(--color-text-muted, #94a3b8);
+          color: #94a3b8;
           cursor: pointer;
           padding: 0;
           width: 32px;
@@ -194,7 +196,7 @@ export default function MaskingConfirmationModal({
         }
 
         .close-btn:hover {
-          color: var(--color-text-primary, #f1f5f9);
+          color: #0f172a;
         }
 
         .modal-body {
@@ -202,24 +204,25 @@ export default function MaskingConfirmationModal({
         }
 
         .warning-banner {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
+          background: #fef2f2;
+          border: 1px solid #fecaca;
           border-radius: 8px;
           padding: 12px 16px;
           margin-bottom: 20px;
-          color: #fca5a5;
+          color: #b91c1c;
         }
 
         .asset-info {
           margin-bottom: 20px;
           padding: 12px;
-          background: rgba(255, 255, 255, 0.05);
+          background: #f1f5f9;
           border-radius: 6px;
+          border: 1px solid #e2e8f0;
         }
 
         .asset-info p {
           margin: 6px 0;
-          color: var(--color-text-primary, #f1f5f9);
+          color: #475569;
         }
 
         .strategy-selector {
@@ -231,16 +234,16 @@ export default function MaskingConfirmationModal({
           font-size: 14px;
           font-weight: 500;
           margin-bottom: 8px;
-          color: var(--color-text-primary, #f1f5f9);
+          color: #475569;
         }
 
         .strategy-selector select {
           width: 100%;
           padding: 10px 12px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--color-border, #334155);
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
           border-radius: 6px;
-          color: var(--color-text-primary, #f1f5f9);
+          color: #0f172a;
           font-size: 14px;
           cursor: pointer;
         }
@@ -253,20 +256,20 @@ export default function MaskingConfirmationModal({
         .strategy-description {
           margin-top: 12px;
           padding: 12px;
-          background: rgba(59, 130, 246, 0.1);
-          border: 1px solid rgba(59, 130, 246, 0.2);
+          background: #eff6ff;
+          border: 1px solid #dbeafe;
           border-radius: 6px;
         }
 
         .strategy-description p {
           margin: 4px 0;
-          color: #93c5fd;
+          color: #1e40af;
           font-size: 13px;
         }
 
         .strategy-description .example {
           font-family: monospace;
-          color: #60a5fa;
+          color: #2563eb;
         }
 
         .confirmation-checkbox {
@@ -291,16 +294,16 @@ export default function MaskingConfirmationModal({
         }
 
         .confirmation-checkbox span {
-          color: var(--color-text-primary, #f1f5f9);
+          color: #0f172a;
           font-size: 14px;
         }
 
         .error-message {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
+          background: #fef2f2;
+          border: 1px solid #fecaca;
           border-radius: 6px;
           padding: 10px 12px;
-          color: #fca5a5;
+          color: #b91c1c;
           font-size: 13px;
           margin-top: 12px;
         }
@@ -310,7 +313,7 @@ export default function MaskingConfirmationModal({
           justify-content: flex-end;
           gap: 12px;
           padding: 16px 24px;
-          border-top: 1px solid var(--color-border, #334155);
+          border-top: 1px solid #e2e8f0;
         }
 
         .btn-secondary,
@@ -325,12 +328,12 @@ export default function MaskingConfirmationModal({
         }
 
         .btn-secondary {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--color-text-primary, #f1f5f9);
+          background: #f1f5f9;
+          color: #475569;
         }
 
         .btn-secondary:hover:not(:disabled) {
-          background: rgba(255, 255, 255, 0.15);
+          background: #e2e8f0;
         }
 
         .btn-danger {

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Handle, Position } from 'reactflow';
 import { Server, Database, Shield, FileText } from 'lucide-react';
+import { theme } from '@/design-system/theme';
 import type { LineageNode as LineageNodeType } from './lineage.types';
 
 interface LineageNodeProps {
@@ -22,17 +23,17 @@ export default function LineageNode({ data, id }: LineageNodeProps) {
     const getNodeColors = () => {
         switch (type) {
             case 'system':
-                return { bg: '#1e293b', border: '#3b82f6', text: '#f8fafc' };
+                return { bg: theme.colors.background.primary, border: theme.colors.primary.DEFAULT, text: theme.colors.text.primary };
             case 'asset':
             case 'file':
             case 'table':
-                return { bg: '#1e293b', border: '#a855f7', text: '#f8fafc' };
+                return { bg: theme.colors.background.primary, border: theme.colors.secondary.DEFAULT, text: theme.colors.text.primary };
             case 'pii_category':
-                if (risk_score >= 70) return { bg: '#1e293b', border: '#ef4444', text: '#f8fafc' };
-                if (risk_score >= 40) return { bg: '#1e293b', border: '#f97316', text: '#f8fafc' };
-                return { bg: '#1e293b', border: '#22c55e', text: '#f8fafc' };
+                if (risk_score >= 70) return { bg: theme.colors.background.primary, border: theme.colors.risk.critical, text: theme.colors.text.primary };
+                if (risk_score >= 40) return { bg: theme.colors.background.primary, border: theme.colors.risk.high, text: theme.colors.text.primary };
+                return { bg: theme.colors.background.primary, border: theme.colors.risk.low, text: theme.colors.text.primary };
             default:
-                return { bg: '#1e293b', border: '#64748b', text: '#f8fafc' };
+                return { bg: theme.colors.background.primary, border: theme.colors.text.muted, text: theme.colors.text.primary };
         }
     };
 
@@ -70,7 +71,7 @@ export default function LineageNode({ data, id }: LineageNodeProps) {
                 minWidth: size.width,
                 maxWidth: size.width,
                 minHeight: size.minHeight,
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
                 fontFamily: 'Inter, sans-serif',
                 overflow: 'hidden',
                 transition: 'box-shadow 0.15s',
@@ -83,10 +84,10 @@ export default function LineageNode({ data, id }: LineageNodeProps) {
                 position={Position.Left}
                 style={{
                     background: colors.border,
-                    width: 8,
-                    height: 8,
-                    border: '2px solid #1e293b',
-                    left: -5,
+                    width: 10,
+                    height: 10,
+                    border: '2px solid #ffffff',
+                    left: -6,
                 }}
             />
 
@@ -107,8 +108,8 @@ export default function LineageNode({ data, id }: LineageNodeProps) {
                     <span
                         style={{
                             fontSize: '11px',
-                            fontWeight: 600,
-                            color: '#94a3b8',
+                            fontWeight: 700,
+                            color: theme.colors.text.secondary,
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em',
                         }}
@@ -125,20 +126,20 @@ export default function LineageNode({ data, id }: LineageNodeProps) {
                             padding: '2px 8px',
                             borderRadius: '4px',
                             background: risk_score >= 70
-                                ? 'rgba(239, 68, 68, 0.1)'
+                                ? `${theme.colors.risk.critical}15`
                                 : risk_score >= 40
-                                    ? 'rgba(249, 115, 22, 0.1)'
-                                    : 'rgba(34, 197, 94, 0.1)',
+                                    ? `${theme.colors.risk.high}15`
+                                    : `${theme.colors.risk.low}15`,
                             color: risk_score >= 70
-                                ? '#ef4444'
+                                ? theme.colors.risk.critical
                                 : risk_score >= 40
-                                    ? '#f97316'
-                                    : '#22c55e',
+                                    ? theme.colors.risk.high
+                                    : theme.colors.risk.low,
                             border: `1px solid ${risk_score >= 70
-                                ? 'rgba(239, 68, 68, 0.2)'
+                                ? `${theme.colors.risk.critical}30`
                                 : risk_score >= 40
-                                    ? 'rgba(249, 115, 22, 0.2)'
-                                    : 'rgba(34, 197, 94, 0.2)'}`,
+                                    ? `${theme.colors.risk.high}30`
+                                    : `${theme.colors.risk.low}30`}`,
                         }}
                     >
                         {risk_score}
@@ -170,7 +171,7 @@ export default function LineageNode({ data, id }: LineageNodeProps) {
                     <div
                         style={{
                             fontSize: '12px',
-                            color: '#94a3b8',
+                            color: '#64748b',
                             marginTop: '8px',
                         }}
                     >
@@ -182,7 +183,7 @@ export default function LineageNode({ data, id }: LineageNodeProps) {
                     <div
                         style={{
                             fontSize: '11px',
-                            color: '#64748b',
+                            color: theme.colors.text.tertiary,
                             marginTop: '8px',
                         }}
                     >
@@ -196,10 +197,10 @@ export default function LineageNode({ data, id }: LineageNodeProps) {
                 position={Position.Right}
                 style={{
                     background: colors.border,
-                    width: 8,
-                    height: 8,
-                    border: '2px solid #1e293b',
-                    right: -5,
+                    width: 10,
+                    height: 10,
+                    border: '2px solid #ffffff',
+                    right: -6,
                 }}
             />
         </div>

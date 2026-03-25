@@ -37,6 +37,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
 
@@ -276,6 +277,11 @@ func main() {
 				return
 			}
 			// Allow anonymous access when AUTH_REQUIRED is false
+			// Inject anonymous tenant context natively into standard HTTP request context for DB layer
+			ctx := context.WithValue(c.Request.Context(), "tenant_id", uuid.Nil)
+			c.Request = c.Request.WithContext(ctx)
+			c.Set("tenant_id", uuid.Nil)
+			
 			c.Next()
 			return
 		}
@@ -301,6 +307,11 @@ func main() {
 		c.Set("user_role", claims.Role)
 		c.Set("tenant_id", claims.TenantID)
 		c.Set("authenticated", true)
+
+		// Inject real tenant context natively into standard HTTP request context for DB layer
+		ctx := context.WithValue(c.Request.Context(), "tenant_id", claims.TenantID)
+		c.Request = c.Request.WithContext(ctx)
+
 		c.Next()
 	}
 

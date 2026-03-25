@@ -110,7 +110,7 @@ export function EnhancedLeftNav() {
             {/* Footer */}
             <div className="p-4 border-t border-border">
                 <a
-                    href="https://digitalindia.gov.in/dpdpa"
+                    href="https://www.digitalindia.gov.in/press_release/dpdp-act-2023-upholds-privacy-while-preserving-transparency-under-rti/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-blue-500/5 border border-blue-500/10 text-blue-400 hover:bg-blue-500/10 transition-all"
