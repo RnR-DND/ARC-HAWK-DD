@@ -125,7 +125,7 @@ func (r *PostgresRepository) GetConnectionByProfile(ctx context.Context, sourceT
 // ListConnections retrieves all connections (without decrypted config)
 func (r *PostgresRepository) ListConnections(ctx context.Context) ([]*entity.Connection, error) {
 	query := `
-		SELECT id, source_type, profile_name, validation_status,
+		SELECT id, source_type, profile_name, config_encrypted, validation_status,
 		       last_validated_at, created_by, created_at, updated_at
 		FROM connections ORDER BY created_at DESC
 	`
@@ -138,7 +138,7 @@ func (r *PostgresRepository) ListConnections(ctx context.Context) ([]*entity.Con
 	var connections []*entity.Connection
 	for rows.Next() {
 		conn := &entity.Connection{}
-		err := rows.Scan(&conn.ID, &conn.SourceType, &conn.ProfileName,
+		err := rows.Scan(&conn.ID, &conn.SourceType, &conn.ProfileName, &conn.ConfigEncrypted,
 			&conn.ValidationStatus, &conn.LastValidatedAt, &conn.CreatedBy,
 			&conn.CreatedAt, &conn.UpdatedAt)
 		if err != nil {
@@ -325,13 +325,16 @@ func (r *PostgresRepository) GetTenantBySlug(ctx context.Context, slug string) (
 
 // CreateAuditLog creates an audit log entry
 func (r *PostgresRepository) CreateAuditLog(ctx context.Context, log *authentity.AuditLog) error {
+	if log.EventType == "" {
+		log.EventType = "SCAN_EVENT"
+	}
 	query := `
-		INSERT INTO audit_logs (id, tenant_id, user_id, action, resource_type, resource_id, ip_address, user_agent, metadata, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO audit_logs (id, event_type, tenant_id, user_id, action, resource_type, resource_id, ip_address, user_agent, metadata, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING created_at
 	`
 	return r.db.QueryRowContext(ctx, query,
-		log.ID, log.TenantID, log.UserID, log.Action, log.ResourceType,
+		log.ID, log.EventType, log.TenantID, log.UserID, log.Action, log.ResourceType,
 		log.ResourceID, log.IPAddress, log.UserAgent, log.Metadata, log.CreatedAt,
 	).Scan(&log.CreatedAt)
 }

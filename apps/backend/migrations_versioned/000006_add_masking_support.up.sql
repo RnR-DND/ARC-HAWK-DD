@@ -6,25 +6,29 @@
 -- ============================================================================
 
 ALTER TABLE assets
-ADD COLUMN is_masked BOOLEAN DEFAULT false NOT NULL,
-ADD COLUMN masked_at TIMESTAMP,
-ADD COLUMN masking_strategy VARCHAR(50);
+ADD COLUMN IF NOT EXISTS is_masked BOOLEAN DEFAULT false NOT NULL;
+
+ALTER TABLE assets
+ADD COLUMN IF NOT EXISTS masked_at TIMESTAMP;
+
+ALTER TABLE assets
+ADD COLUMN IF NOT EXISTS masking_strategy VARCHAR(50);
 
 -- Add index for filtering masked assets
-CREATE INDEX idx_assets_is_masked ON assets(is_masked);
+CREATE INDEX IF NOT EXISTS idx_assets_is_masked ON assets(is_masked);
 
 -- ============================================================================
 -- Add Masked Value Column to Findings Table
 -- ============================================================================
 
 ALTER TABLE findings
-ADD COLUMN masked_value TEXT;
+ADD COLUMN IF NOT EXISTS masked_value TEXT;
 
 -- ============================================================================
 -- Create Masking Audit Log Table
 -- ============================================================================
 
-CREATE TABLE masking_audit_log (
+CREATE TABLE IF NOT EXISTS masking_audit_log (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
     masked_by VARCHAR(255),
@@ -36,8 +40,8 @@ CREATE TABLE masking_audit_log (
 );
 
 -- Add indexes for audit log queries
-CREATE INDEX idx_masking_audit_asset ON masking_audit_log(asset_id);
-CREATE INDEX idx_masking_audit_masked_at ON masking_audit_log(masked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_masking_audit_asset ON masking_audit_log(asset_id);
+CREATE INDEX IF NOT EXISTS idx_masking_audit_masked_at ON masking_audit_log(masked_at DESC);
 
 -- ============================================================================
 -- Comments for Documentation

@@ -77,6 +77,7 @@ type Tenant struct {
 
 type AuditLog struct {
 	ID           uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
+	EventType    string    `json:"event_type"`
 	TenantID     uuid.UUID `json:"tenant_id" gorm:"type:uuid;index"`
 	UserID       uuid.UUID `json:"user_id" gorm:"type:uuid;index"`
 	Action       string    `json:"action" gorm:"size:100;index"`

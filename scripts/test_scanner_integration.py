@@ -24,11 +24,11 @@ def test_scanner_basic():
     """Test basic scanner functionality."""
     print("\n🧪 Testing Scanner Basic Functionality...")
 
-    scanner_dir = Path(__file__).parent.parent / "apps" / "scanner"
+    scanner_dir = Path("/app")
 
     # Test filesystem scan with proper Python path
     result = run_command(
-        "PYTHONPATH=/Users/prathameshyadav/ARC-Hawk/apps/scanner python3 hawk_scanner/main.py fs --help",
+	"PYTHONPATH=. python3 hawk_scanner/main.py fs --help",
         cwd=scanner_dir
     )
 
@@ -43,11 +43,11 @@ def test_all_command():
     """Test the new 'all' command."""
     print("\n🧪 Testing 'all' Command...")
 
-    scanner_dir = Path(__file__).parent.parent / "apps" / "scanner"
+    scanner_dir = Path("/app")
 
     # Test all command help with proper Python path
     result = run_command(
-        "PYTHONPATH=/Users/prathameshyadav/ARC-Hawk/apps/scanner python3 hawk_scanner/main.py all --help",
+	"PYTHONPATH=. python3 hawk_scanner/main.py all --help",
         cwd=scanner_dir
     )
 
@@ -62,11 +62,11 @@ def test_validation_pipeline():
     """Test the validation pipeline."""
     print("\n🧪 Testing Validation Pipeline...")
 
-    scanner_dir = Path(__file__).parent.parent / "apps" / "scanner"
+    scanner_dir = Path("/app")
 
     # Test the scanner integration example with proper Python path
     result = run_command(
-        "cd sdk && PYTHONPATH=/Users/prathameshyadav/ARC-Hawk/apps/scanner/sdk:/Users/prathameshyadav/ARC-Hawk/apps/scanner python3 scanner_integration_example.py",
+	"PYTHONPATH=. python3 sdk/scanner_integration_example.py",
         cwd=scanner_dir
     )
 
@@ -83,7 +83,7 @@ def test_backend_integration():
 
     try:
         # Check if backend is running
-        response = requests.get("http://localhost:8080/api/v1/health", timeout=5)
+        response = requests.get("http://172.29.0.20:8080/health", timeout=5)
 
         if response.status_code == 200:
             print("✅ Backend is running")
@@ -103,7 +103,7 @@ def test_backend_integration():
             }
 
             ingest_response = requests.post(
-                "http://localhost:8080/api/v1/scans/ingest",
+                "http://172.29.0.20:8080/api/v1/scans/ingest-verified",
                 json=test_data,
                 timeout=10
             )

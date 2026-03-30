@@ -66,24 +66,18 @@ func (s *ConnectionSyncService) SyncToYAML(ctx context.Context) error {
 	}
 
 	for _, conn := range connections {
+    		log.Printf("SYNC DEBUG → SourceType=%s Profile=%s", conn.SourceType, conn.ProfileName)
+
 		// Decrypt credentials
-		var config map[string]interface{}
-		if err := s.encryption.Decrypt(conn.ConfigEncrypted, &config); err != nil {
-			log.Printf("WARNING: Failed to decrypt connection %s: %v", conn.ProfileName, err)
-			continue
-		}
+    		var config map[string]interface{}
+    		err := s.encryption.Decrypt(conn.ConfigEncrypted, &config)
+		if err != nil {
+        		log.Printf("DECRYPT FAILED 	len=%d raw=%v err=%v", len(conn.ConfigEncrypted),conn.ConfigEncrypted, err)
+      			continue
+    		}
 
-		// Initialize source type map if not exists
-		if scannerConfig.Sources[conn.SourceType] == nil {
-			scannerConfig.Sources[conn.SourceType] = make(map[string]interface{})
-		}
-
-		// Add connection to scanner config
-		scannerConfig.Sources[conn.SourceType][conn.ProfileName] = config
-
-		log.Printf("INFO: Synced connection: %s/%s", conn.SourceType, conn.ProfileName)
+		log.Printf("DECRYPT SUCCESS → %+v", config)
 	}
-
 	// Marshal to YAML
 	yamlData, err := yaml.Marshal(&scannerConfig)
 	if err != nil {

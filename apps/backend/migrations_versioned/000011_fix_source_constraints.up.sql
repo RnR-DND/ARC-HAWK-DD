@@ -14,4 +14,15 @@ ALTER TABLE source_profiles DROP CONSTRAINT IF EXISTS source_profiles_name_key;
 -- Ideally we should backfill tenant_id. But without logic, we can't.
 -- Proceeding with constraint.
 
-ALTER TABLE source_profiles ADD CONSTRAINT unique_source_profile_name_per_tenant UNIQUE (name, tenant_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'unique_source_profile_name_per_tenant'
+    ) THEN
+        ALTER TABLE source_profiles
+        ADD CONSTRAINT unique_source_profile_name_per_tenant
+        UNIQUE (name, tenant_id);
+    END IF;
+END$$;

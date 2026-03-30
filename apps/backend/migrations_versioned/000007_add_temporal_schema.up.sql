@@ -32,8 +32,8 @@ CREATE TABLE IF NOT EXISTS scan_state_transitions (
     metadata JSONB
 );
 
-CREATE INDEX idx_scan_transitions_scan ON scan_state_transitions(scan_run_id);
-CREATE INDEX idx_scan_transitions_time ON scan_state_transitions(transitioned_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scan_transitions_scan ON scan_state_transitions(scan_run_id);
+CREATE INDEX IF NOT EXISTS idx_scan_transitions_time ON scan_state_transitions(transitioned_at DESC);
 
 -- ============================================================================
 -- Audit Logs
@@ -53,10 +53,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_audit_event_type ON audit_logs(event_type);
-CREATE INDEX idx_audit_user ON audit_logs(user_id);
-CREATE INDEX idx_audit_resource ON audit_logs(resource_type, resource_id);
-CREATE INDEX idx_audit_time ON audit_logs(event_time DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_logs(event_type);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_logs(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_logs(event_time DESC);
 
 -- ============================================================================
 -- Remediation Actions
@@ -76,10 +76,10 @@ CREATE TABLE IF NOT EXISTS remediation_actions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_remediation_finding ON remediation_actions(finding_id);
-CREATE INDEX idx_remediation_status ON remediation_actions(status);
-CREATE INDEX idx_remediation_executed_by ON remediation_actions(executed_by);
-CREATE INDEX idx_remediation_executed_at ON remediation_actions(executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_remediation_finding ON remediation_actions(finding_id);
+CREATE INDEX IF NOT EXISTS idx_remediation_status ON remediation_actions(status);
+CREATE INDEX IF NOT EXISTS idx_remediation_executed_by ON remediation_actions(executed_by);
+CREATE INDEX IF NOT EXISTS idx_remediation_executed_at ON remediation_actions(executed_at DESC);
 
 -- ============================================================================
 -- Views for Active Records (excluding soft-deleted)

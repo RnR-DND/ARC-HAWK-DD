@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"log"
 
 	"github.com/arc-platform/backend/modules/connections/service"
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,7 @@ func NewConnectionHandler(s *service.ConnectionService, syncService *service.Con
 
 // AddConnectionRequest represents the request body for adding a connection
 type AddConnectionRequest struct {
+	Name	    string                 `json:"name"`
 	SourceType  string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack"`
 	ProfileName string                 `json:"profile_name" binding:"required,min=1,max=50,alphanum"`
 	Config      map[string]interface{} `json:"config" binding:"required"`
@@ -38,7 +40,7 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
+        log.Printf("HANDLER DEBUG CONFIG: %+v", req.Config)
 	// TODO: Get user from auth context (Phase 2 - Authentication)
 	createdBy := "system"
 

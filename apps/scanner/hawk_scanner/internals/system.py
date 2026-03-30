@@ -1,4 +1,3 @@
-from hawk_scanner.internals.scanner_engine import ContextAwareScanner
 from rich.console import Console
 import json
 import requests
@@ -21,7 +20,6 @@ import PyPDF2
 import patoolib
 import tempfile
 import shutil
-import os
 import cv2
 import tarfile
 import pkg_resources
@@ -29,52 +27,35 @@ from concurrent.futures import ProcessPoolExecutor
 
 
 data_sources = ['s3', 'mysql', 'redis', 'firebase', 'gcs', 'fs', 'postgresql',
-                'mongodb', 'slack', 'couchdb', 'gdrive', 'gdrive_workspace', 'text']
+            'mongodb', 'slack', 'couchdb', 'gdrive', 'gdrive_workspace', 'text']
 data_sources_option = ['all'] + data_sources
 
 
 def parse_args(args=None):
-    version = pkg_resources.require("hawk_scanner")[0].version
-    parser = argparse.ArgumentParser(
-        description='🦅 A powerful scanner to scan your Filesystem, S3, MySQL, PostgreSQL, MongoDB, Redis, Google Cloud Storage and Firebase storage for PII and sensitive data.')
-    parser.add_argument('command', nargs='?',
-                        choices=data_sources_option, help='Command to execute')
-    parser.add_argument('--connection', action='store',
-                        help='YAML Connection file path')
-    parser.add_argument('--config', action='store',
-                        help='JSON Scan config file path (from Go backend)')
-    parser.add_argument('--connection-json', type=str,
-                        help='Connection details in JSON format, useful for passing connection info directly as CLI Input')
-    parser.add_argument('--fingerprint', action='store',
-                        help='Override YAML fingerprint file path')
-    parser.add_argument('--json', help='Save output to a json file')
-    parser.add_argument('--csv', help='Save output to a csv file')
-    parser.add_argument('--stdout', action='store_true',
-                        help='Print output to stdout in JSON format')
-    parser.add_argument('--quiet', action='store_true',
-                        help='Print only the results')
-    parser.add_argument('--debug', action='store_true',
-                        help='Enable debug mode')
-    parser.add_argument('--no-write', action='store_true',
-                        help='Do not write previous alerts to file, this may flood you with duplicate alerts')
-    parser.add_argument('--shutup', action='store_true',
-                        help='Suppress the Hawk Eye banner 🫣', default=False)
-    parser.add_argument('--version', action='version',
-                        version='%(prog)s v' + version)
-    parser.add_argument('--hawk-thuu', action='store_true',
-                        help="Delete all spitted files during testing phase forcefully")
-    # NEW: Auto-ingestion support
-    parser.add_argument('--ingest-url', type=str,
-                        help='Automatically POST scan results to backend API (e.g., http://localhost:8080/api/v1/ingest)')
-    parser.add_argument('--ingest-retry', type=int, default=3,
-                        help='Number of retries for ingestion (default: 3)')
-    parser.add_argument('--ingest-timeout', type=int, default=30,
-                        help='Timeout for ingestion request in seconds (default: 30)')
-    return parser.parse_args(args)
+	version = pkg_resources.require("hawk_scanner")[0].version
+	parser = argparse.ArgumentParser(description='🦅 A powerful scanner to scan your Filesystem, S3, MySQL, PostgreSQL, MongoDB, Redis, Google Cloud Storage and Firebase storage for PII and sensitive data.')
+	parser.add_argument('command', nargs='?', choices=data_sources_option, help='Command to execute')
+	parser.add_argument('--connection', action='store', help='YAML Connection file path')
+	parser.add_argument('--config', action='store', help='JSON Scan config file path (from Go backend)')
+	parser.add_argument('--connection-json', type=str, help='Connection details in JSON format, useful for passing connection info directly as CLI Input')
+	parser.add_argument('--fingerprint', action='store', help='Override YAML fingerprint file path')
+	parser.add_argument('--json', help='Save output to a json file')
+	parser.add_argument('--csv', help='Save output to a csv file')
+	parser.add_argument('--stdout', action='store_true', help='Print output to stdout in JSON format')
+	parser.add_argument('--quiet', action='store_true', help='Print only the results')
+	parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+	parser.add_argument('--no-write', action='store_true', help='Do not write previous alerts to file, this may flood you with duplicate alerts')
+	parser.add_argument('--shutup', action='store_true', help='Suppress the Hawk Eye banner 🫣', default=False)
+	parser.add_argument('--version', action='version', version='%(prog)s v' + version)
+	parser.add_argument('--hawk-thuu', action='store_true', help="Delete all spitted files during testing phase forcefully")
+	# NEW: Auto-ingestion support
+	parser.add_argument('--ingest-url', type=str, help='Automatically POST scan results to backend API (e.g., http://localhost:8080/api/v1/ingest)')
+	parser.add_argument('--ingest-retry', type=int, default=3, help='Number of retries for ingestion (default: 3)')
+	parser.add_argument('--ingest-timeout', type=int, default=30, help='Timeout for ingestion request in seconds (default: 30)')
+	return parser.parse_args(args)
 
 
 console = Console()
-
 
 def calculate_msg_hash(msg):
     return hashlib.sha256(msg.encode()).hexdigest()
@@ -328,6 +309,9 @@ def print_banner(args):
 
 
 def normalize_for_matching(text):
+
+# FIXED MATCH STRINGS FUNCTION
+
     """Normalize text for consistent pattern matching (removes formatting)"""
     if not text:
         return text
@@ -341,33 +325,6 @@ def normalize_for_matching(text):
     return normalized
 
 
-def match_strings(args, content, source='text'):
-    redacted = False
-    if args and 'connection' in args:
-        connections = get_connection(args)
-        if 'notify' in connections:
-            redacted: bool = connections.get(
-                'notify', {}).get('redacted', False)
-
-    patterns = get_fingerprint_file(args)
-
-    # Use New Context-Aware Scanner
-    scanner = ContextAwareScanner(debug=args.debug if args else False)
-    findings = scanner.scan(content, patterns, source)
-
-    # Process findings for compatibility with legacy format
-    matched_strings = []
-
-    for finding in findings:
-        # Normalize structure for older consumers if needed
-        # Or just pass through the enriched finding
-        matched_strings.append(finding)
-
-        if args:
-            print_debug(
-                args, f"Found pattern: {finding['pattern_name']} Score: {finding['confidence_score']}")
-
-    return matched_strings
 
 
 def should_exclude_file(args, file_name, exclude_patterns):
@@ -903,3 +860,52 @@ def create_jira_ticket(args, issue_data, message):
     else:
         print_debug(
             args, f"Failed to create Jira ticket: {response.status_code} - {response.text}")
+
+def match_strings(args, content, source='text'):
+    if args and hasattr(args, 'connection'):
+        connections = get_connection(args)
+        if 'notify' in connections:
+            redacted = connections.get('notify', {}).get('redacted', False)
+
+    patterns = get_fingerprint_file(args)
+
+    from sdk.engine import SharedAnalyzerEngine
+    wrapper = SharedAnalyzerEngine()
+    engine = wrapper.get_engine()
+
+    results = engine.analyze(text=content, entities=None, language="en")
+
+    findings = []
+
+    for r in results:
+        raw = content[r.start:r.end]
+        raw = raw.strip().upper()
+        matches = re.findall(r'[A-Z]{5}[0-9]{4}[A-Z]', raw)
+        if matches:
+            value = matches[0]
+        else:
+            continue  # skip invalid match completely
+
+        print("DEBUG VALUE:", repr(value))
+        pattern_name = r.entity_type
+        if pattern_name == "IN_PAN":
+            pattern_name = "PAN"
+        findings.append({
+            "pattern_name": pattern_name,
+            "confidence_score": r.score,
+            "matches": [value],
+            "start": r.start,
+            "end": r.end
+        })
+
+    matched_strings = []
+
+    for finding in findings:
+        matched_strings.append(finding)
+        if args:
+            print_debug(
+                args,
+                f"Found pattern: {finding['pattern_name']} Score: {finding['confidence_score']}"
+            )
+
+    return matched_strings

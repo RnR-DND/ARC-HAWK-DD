@@ -98,6 +98,7 @@ def validate_match(value: str, pattern_name: str) -> tuple[bool, str]:
     Returns:
         Tuple of (is_valid, validation_method)
     """
+    print("VALIDATOR DEBUG:", pattern_name, get_validator_for_pattern(pattern_name))
     # 1. SCOPE CHECK: Enforce strict PII locking
     normalized_name = get_normalized_name(pattern_name)
 

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
@@ -27,11 +28,12 @@ func NewConnectionService(pgRepo *persistence.PostgresRepository, enc *encryptio
 // AddConnection creates a new connection with encrypted credentials
 func (s *ConnectionService) AddConnection(ctx context.Context, sourceType, profileName string, config map[string]interface{}, createdBy string) (*entity.Connection, error) {
 	// 1. Encrypt config
-	configEncrypted, err := s.encryption.Encrypt(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt config: %w", err)
-	}
+	log.Printf("DEBUG CONFIG INPUT: %+v", config)
 
+	configEncrypted, err := s.encryption.Encrypt(config)
+        if err != nil {
+                return nil, fmt.Errorf("failed to serialize config: %w", err)
+        }
 	// 2. Create connection entity
 	conn := &entity.Connection{
 		ID:              uuid.New(),

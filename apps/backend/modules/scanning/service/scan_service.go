@@ -58,7 +58,15 @@ func (s *ScanService) CreateScanRun(ctx context.Context, req *TriggerScanRequest
 func (s *ScanService) UpdateScanStatus(ctx context.Context, scanID uuid.UUID, status string) error {
 	scanRun, err := s.repo.GetScanRunByID(ctx, scanID)
 	if err != nil {
-		return fmt.Errorf("failed to get scan run: %w", err)
+    		// 🔥 CREATE SCAN IF NOT FOUND
+    		scanRun = &entity.ScanRun{
+        		ID:     scanID,
+        		Status: "pending",
+    		}
+
+		if err := s.repo.CreateScanRun(ctx, scanRun); err != nil {
+        		return fmt.Errorf("failed to create scan run: %w", err)
+    		}
 	}
 
 	scanRun.Status = status

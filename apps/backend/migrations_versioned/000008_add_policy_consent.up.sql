@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS policies (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_policies_type ON policies(policy_type);
-CREATE INDEX idx_policies_active ON policies(is_active);
-CREATE INDEX idx_policies_created_by ON policies(created_by);
+CREATE INDEX IF NOT EXISTS idx_policies_type ON policies(policy_type);
+CREATE INDEX IF NOT EXISTS idx_policies_active ON policies(is_active);
+CREATE INDEX IF NOT EXISTS idx_policies_created_by ON policies(created_by);
 
 -- ============================================================================
 -- Policy Executions Table (audit trail)
@@ -36,9 +36,9 @@ CREATE TABLE IF NOT EXISTS policy_executions (
     metadata JSONB
 );
 
-CREATE INDEX idx_policy_exec_policy ON policy_executions(policy_id);
-CREATE INDEX idx_policy_exec_finding ON policy_executions(finding_id);
-CREATE INDEX idx_policy_exec_time ON policy_executions(executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_policy_exec_policy ON policy_executions(policy_id);
+CREATE INDEX IF NOT EXISTS idx_policy_exec_finding ON policy_executions(finding_id);
+CREATE INDEX IF NOT EXISTS idx_policy_exec_time ON policy_executions(executed_at DESC);
 
 -- ============================================================================
 -- Consent Records Table
@@ -57,14 +57,16 @@ CREATE TABLE IF NOT EXISTS consent_records (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_consent_subject ON consent_records(data_subject_id);
-CREATE INDEX idx_consent_type ON consent_records(pii_type);
-CREATE INDEX idx_consent_expiry ON consent_records(consent_expires_at);
-CREATE INDEX idx_consent_withdrawn ON consent_records(consent_withdrawn_at);
+CREATE INDEX IF NOT EXISTS idx_consent_subject ON consent_records(data_subject_id);
+CREATE INDEX IF NOT EXISTS idx_consent_type ON consent_records(pii_type);
+CREATE INDEX IF NOT EXISTS idx_consent_expiry ON consent_records(consent_expires_at);
+CREATE INDEX IF NOT EXISTS idx_consent_withdrawn ON consent_records(consent_withdrawn_at);
 
 -- ============================================================================
 -- Trigger for policy updated_at
 -- ============================================================================
 
+DROP TRIGGER IF EXISTS update_policies_updated_at ON policies;
 CREATE TRIGGER update_policies_updated_at BEFORE UPDATE ON policies
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+

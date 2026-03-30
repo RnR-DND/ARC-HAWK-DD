@@ -1,7 +1,7 @@
 -- Migration: Add connections table for database-backed connection management
 -- Replaces YAML file storage with encrypted PostgreSQL storage
 
-CREATE TABLE connections (
+CREATE TABLE IF NOT EXISTS connections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_type VARCHAR(50) NOT NULL,
     profile_name VARCHAR(255) NOT NULL,
@@ -16,9 +16,9 @@ CREATE TABLE connections (
 );
 
 -- Indexes for efficient querying
-CREATE INDEX idx_connections_source_type ON connections(source_type);
-CREATE INDEX idx_connections_validation_status ON connections(validation_status);
-CREATE INDEX idx_connections_created_at ON connections(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_connections_source_type ON connections(source_type);
+CREATE INDEX IF NOT EXISTS idx_connections_validation_status ON connections(validation_status);
+CREATE INDEX IF NOT EXISTS idx_connections_created_at ON connections(created_at DESC);
 
 -- Trigger for automatic updated_at timestamp
 CREATE OR REPLACE FUNCTION update_connections_updated_at()
@@ -29,6 +29,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_connections_updated_at ON connections;
 CREATE TRIGGER trigger_connections_updated_at
     BEFORE UPDATE ON connections
     FOR EACH ROW
