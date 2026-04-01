@@ -2,12 +2,16 @@ package api
 
 import (
 	"context"
+	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/arc-platform/backend/modules/connections/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+var profileNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // ConnectionHandler handles HTTP requests for connection management
 type ConnectionHandler struct {
@@ -29,7 +33,7 @@ func NewConnectionHandler(s *service.ConnectionService, syncService *service.Con
 type AddConnectionRequest struct {
 	Name	    string                 `json:"name"`
 	SourceType  string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack"`
-	ProfileName string                 `json:"profile_name" binding:"required,min=1,max=50,alphanum"`
+	ProfileName string                 `json:"profile_name" binding:"required,min=1,max=50"`
 	Config      map[string]interface{} `json:"config" binding:"required"`
 }
 
@@ -38,6 +42,10 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 	var req AddConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if !profileNameRegex.MatchString(req.ProfileName) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "profile_name must contain only letters, digits, underscores, or hyphens"})
 		return
 	}
 	// TODO: Get user from auth context (Phase 2 - Authentication)
@@ -58,8 +66,7 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 	// Auto-sync to scanner YAML in background
 	go func() {
 		if err := h.syncService.SyncToYAML(context.Background()); err != nil {
-			// Log error but don't fail the request
-			println("WARNING: Failed to sync connection to scanner:", err.Error())
+			log.Printf("failed to sync connection to scanner: %v", err)
 		}
 	}()
 }
@@ -99,8 +106,7 @@ func (h *ConnectionHandler) DeleteConnection(c *gin.Context) {
 	// Auto-sync to scanner YAML in background
 	go func() {
 		if err := h.syncService.SyncToYAML(context.Background()); err != nil {
-			// Log error but don't fail the request
-			println("WARNING: Failed to sync after deletion:", err.Error())
+			log.Printf("failed to sync after deletion: %v", err)
 		}
 	}()
 }

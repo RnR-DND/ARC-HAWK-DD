@@ -83,28 +83,10 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                                 >
                                     <FileText className="w-4 h-4" />
                                 </Link>
-
-                                <Link
-                                    href="/settings"
-                                    className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                    title="Settings"
-                                >
-                                    <Settings className="w-4 h-4" />
-                                </Link>
                             </div>
 
                             {/* User Menu */}
                             <div className="flex items-center gap-3 pl-2">
-                                <Button variant="ghost" size="icon" className="relative text-slate-500 hover:text-blue-600 hover:bg-blue-50">
-                                    <Bell className="h-5 w-5" />
-                                    <Badge
-                                        variant="destructive"
-                                        className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px] shadow-sm"
-                                    >
-                                        3
-                                    </Badge>
-                                </Button>
-
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" className="gap-3 h-auto pl-2 pr-4 hover:bg-slate-50 rounded-full border border-transparent hover:border-slate-200">
@@ -123,16 +105,20 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                                     <DropdownMenuContent align="end" className="w-56 mt-2">
                                         <DropdownMenuLabel>My Account</DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem>
-                                            <User className="mr-2 h-4 w-4" />
-                                            <span>Profile</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                            <Settings className="mr-2 h-4 w-4" />
-                                            <span>Settings</span>
-                                        </DropdownMenuItem>
+                                        <Link href="/profile">
+                                            <DropdownMenuItem className="cursor-pointer">
+                                                <User className="mr-2 h-4 w-4" />
+                                                <span>Profile</span>
+                                            </DropdownMenuItem>
+                                        </Link>
+                                        <Link href="/settings">
+                                            <DropdownMenuItem className="cursor-pointer">
+                                                <Settings className="mr-2 h-4 w-4" />
+                                                <span>Settings</span>
+                                            </DropdownMenuItem>
+                                        </Link>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
                                             <span>Log out</span>
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>

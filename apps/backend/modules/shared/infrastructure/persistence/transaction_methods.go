@@ -236,8 +236,10 @@ func (t *PostgresTransaction) UpdateScanRun(ctx context.Context, scanRun *entity
 		    total_assets = $2,
 		    metadata = $3,
 		    status = $4,
+		    scan_started_at = $5,
+		    scan_completed_at = $6,
 		    updated_at = NOW()
-		WHERE id = $5
+		WHERE id = $7
 	`
 
 	_, err = t.tx.ExecContext(ctx, query,
@@ -245,6 +247,8 @@ func (t *PostgresTransaction) UpdateScanRun(ctx context.Context, scanRun *entity
 		scanRun.TotalAssets,
 		metadataJSON,
 		scanRun.Status,
+		scanRun.ScanStartedAt,
+		scanRun.ScanCompletedAt,
 		scanRun.ID,
 	)
 

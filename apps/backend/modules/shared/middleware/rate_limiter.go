@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -66,23 +66,13 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 			return
 		}
 
-		// Robust IP extraction for proxy compatibility
-		clientIP := c.GetHeader("X-Forwarded-For")
-		if clientIP == "" {
-			clientIP = c.GetHeader("X-Real-IP")
-		}
-		if clientIP == "" {
-			clientIP = c.ClientIP()
-		}
-
-		// If there are multiple IPs in X-Forwarded-For, take the first one
-		if commaIdx := strings.Index(clientIP, ","); commaIdx != -1 {
-			clientIP = strings.TrimSpace(clientIP[:commaIdx])
-		}
+		// Use Gin's built-in ClientIP which respects trusted proxy config.
+		// Do NOT blindly trust X-Forwarded-For — it can be spoofed by clients.
+		clientIP := c.ClientIP()
 
 		if !rl.allow(clientIP) {
 			c.Header("Retry-After", "60")
-			c.Header("X-RateLimit-Limit", string(rune(rl.requestsRate)))
+			c.Header("X-RateLimit-Limit", strconv.Itoa(rl.requestsRate))
 			c.Header("X-RateLimit-Remaining", "0")
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":   "rate_limit_exceeded",

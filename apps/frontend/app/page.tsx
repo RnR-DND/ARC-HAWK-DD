@@ -47,7 +47,7 @@ export default function Home() {
     const [isScanConfigOpen, setIsScanConfigOpen] = useState(false);
 
     // WebSocket for real-time updates
-    const { lastMessage, isConnected: wsConnected } = useWebSocket({ url: 'ws://localhost:8000/ws' });
+    const { lastMessage, isConnected: wsConnected } = useWebSocket({ url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws' });
     const [liveFindings, setLiveFindings] = useState<any[]>([]);
 
     useEffect(() => {

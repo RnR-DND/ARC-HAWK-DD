@@ -29,11 +29,12 @@ type PostgreSQLConnector struct {
 
 // Connect establishes connection to PostgreSQL
 func (c *PostgreSQLConnector) Connect(ctx context.Context, config map[string]interface{}) error {
-	host := config["host"].(string)
-	port := config["port"].(int)
-	user := config["user"].(string)
-	password := config["password"].(string)
-	database := config["database"].(string)
+	host, _ := config["host"].(string)
+	portF, _ := config["port"].(float64)
+	port := int(portF)
+	user, _ := config["user"].(string)
+	password, _ := config["password"].(string)
+	database, _ := config["database"].(string)
 
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, database)

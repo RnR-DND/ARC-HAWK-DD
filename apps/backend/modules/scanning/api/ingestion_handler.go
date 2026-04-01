@@ -41,9 +41,9 @@ func (h *IngestionHandler) IngestScan(c *gin.Context) {
 	// Process ingestion
 	result, err := h.service.IngestScan(c.Request.Context(), &input)
 	if err != nil {
+		// Do not expose internal error details to the client
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to ingest scan",
-			"details": err.Error(),
+			"error": "Failed to ingest scan",
 		})
 		return
 	}
@@ -73,8 +73,9 @@ func (h *IngestionHandler) GetLatestScan(c *gin.Context) {
 	}
 
 	if scanRun == nil {
-		c.JSON(http.StatusNotFound, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"message": "No scans found",
+			"data":    nil,
 		})
 		return
 	}
@@ -90,13 +91,22 @@ func (h *IngestionHandler) MarshalJSON() ([]byte, error) {
 }
 
 // ClearScanData handles DELETE /api/v1/scans/clear
-// Clears all previous scan data for clean scan-replace workflow
+// Clears all previous scan data for clean scan-replace workflow.
+// Requires admin role to prevent accidental or unauthorized data loss.
 func (h *IngestionHandler) ClearScanData(c *gin.Context) {
+	role, _ := c.Get("user_role")
+	if role != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "Admin role required to clear scan data",
+		})
+		return
+	}
+
 	err := h.service.ClearAllScanData(c.Request.Context())
 	if err != nil {
+		// Do not expose internal error details to the client
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to clear scan data",
-			"details": err.Error(),
+			"error": "Failed to clear scan data",
 		})
 		return
 	}

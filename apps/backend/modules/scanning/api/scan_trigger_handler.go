@@ -1,14 +1,14 @@
 package api
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"time"
 
 	"github.com/arc-platform/backend/modules/scanning/service"
@@ -107,7 +107,7 @@ func (h *ScanTriggerHandler) TriggerScan(c *gin.Context) {
 	}
 
 	// Record successful trigger
-	scanTriggerCounter.WithLabelValues(req.ExecutionMode, fmt.Sprintf("%v", req.PIITypes)).Inc()
+	scanTriggerCounter.WithLabelValues("all_sources", fmt.Sprintf("%v", req.PIITypes), req.ExecutionMode).Inc()
 
 	// Trigger background scan
 	go h.executeScan(scanRun.ID, &req)
@@ -136,45 +136,82 @@ func (h *ScanTriggerHandler) validateRequest(req *service.TriggerScanRequest) er
 }
 
 func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerScanRequest) {
-	// Log scan start
 	log.Printf("Starting scan execution: %s", scanID.String())
 
-	// Create scanner config directory
-	configDir := filepath.Join("/tmp", "scan_configs", scanID.String())
-	os.MkdirAll(configDir, 0755)
-
-	// Write configuration to file
-	configFile := filepath.Join(configDir, "config.yml")
-	configData := map[string]interface{}{
-		"sources": map[string]interface{}{
-			"fs": map[string]interface{}{
-				"real_file_system": map[string]interface{}{
-					"path":            "/Users/prathameshyadav/ARC-Hawk/apps/scanner/real_test_data",
-					"recursive":       true,
-					"file_extensions": []string{".txt", ".csv", ".json", ".xml", ".log"},
-				},
-			},
-		},
+	// Build the HTTP payload expected by the python scanner API
+	payload := map[string]interface{}{
+		"scan_id":        scanID.String(),
+		"scan_name":      req.Name,
+		"sources":        req.Sources,
 		"pii_types":      req.PIITypes,
 		"execution_mode": req.ExecutionMode,
 	}
 
-	configBytes, _ := json.Marshal(configData)
-	err := ioutil.WriteFile(configFile, configBytes, 0644)
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("ERROR: Failed to write scanner config: %v", err)
+		log.Printf("ERROR: Failed to serialize scanner payload: %v", err)
+		h.markScanFailed(scanID, "payload_serialization_error")
 		return
 	}
 
-	// Trigger the actual scanner
-	cmd := exec.Command("python", "-m", "hawk_scanner.main", "fs", "--connection", configFile)
-	cmd.Dir = "../scanner" // Run from the scanner directory
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		log.Printf("ERROR: Scanner execution failed: %v", err)
+	// Use SCANNER_URL from environment directly — no guessing
+	scannerURL := os.Getenv("SCANNER_URL")
+	if scannerURL == "" {
+		scannerURL = "http://scanner:5002"
+	}
+	url := fmt.Sprintf("%s/scan", scannerURL)
+
+	// Retry with exponential backoff (3 attempts: 2s, 4s, 8s)
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		log.Printf("Dispatching scan to %s (attempt %d/3)", url, attempt)
+
+		reqHttp, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+		if err != nil {
+			lastErr = fmt.Errorf("failed to create request: %w", err)
+			log.Printf("ERROR: %v", lastErr)
+			break // No point retrying a request construction error
+		}
+		reqHttp.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Do(reqHttp)
+		if err != nil {
+			lastErr = fmt.Errorf("scanner API unreachable: %w", err)
+			log.Printf("ERROR: %v (attempt %d/3)", lastErr, attempt)
+			if attempt < 3 {
+				backoff := time.Duration(1<<uint(attempt)) * time.Second // 2s, 4s
+				log.Printf("Retrying in %v...", backoff)
+				time.Sleep(backoff)
+			}
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode >= 400 {
+			body, _ := ioutil.ReadAll(resp.Body)
+			lastErr = fmt.Errorf("scanner rejected request (%d): %s", resp.StatusCode, string(body))
+			log.Printf("ERROR: %v", lastErr)
+			break // Scanner explicitly rejected — no point retrying
+		}
+
+		// Success
+		log.Printf("Scan dispatched successfully: %s", scanID.String())
+		return
 	}
 
-	log.Printf("Scan execution completed: %s", scanID.String())
+	// All retries exhausted — mark scan as failed so the UI stops spinning
+	log.Printf("ERROR: All dispatch attempts failed for scan %s: %v", scanID.String(), lastErr)
+	h.markScanFailed(scanID, "scanner_dispatch_failed")
+}
+
+// markScanFailed updates the scan status to "failed" in PostgreSQL
+// so the frontend correctly shows a failure badge instead of spinning forever.
+func (h *ScanTriggerHandler) markScanFailed(scanID uuid.UUID, reason string) {
+	ctx := context.Background()
+	if err := h.scanService.UpdateScanStatus(ctx, scanID, "failed"); err != nil {
+		log.Printf("ERROR: Failed to mark scan %s as failed: %v", scanID.String(), err)
+	} else {
+		log.Printf("Scan %s marked as failed (reason: %s)", scanID.String(), reason)
+	}
 }

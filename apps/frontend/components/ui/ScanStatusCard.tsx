@@ -74,8 +74,8 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
                 scanData?.status === 'cancelled' ? 'failed' :
                     'idle';
 
-    const startTime = scanData?.created_at ? new Date(scanData.created_at) : null;
-    const endTime = scanData?.completed_at ? new Date(scanData.completed_at) : null;
+    const startTime = scanData?.created_at && !scanData.created_at.startsWith('0001-01-01') ? new Date(scanData.created_at) : null;
+    const endTime = scanData?.completed_at && !scanData.completed_at.startsWith('0001-01-01') ? new Date(scanData.completed_at) : null;
     const progress = scanData?.progress !== undefined ? scanData.progress : (status === 'completed' ? 100 : 0);
 
     const StatusIcon = scanStatuses[status as keyof typeof scanStatuses].icon;
@@ -203,7 +203,11 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
                     <div>
                         <div className="text-slate-500 mb-1">Duration</div>
                         <div className="text-slate-700 font-medium">
-                            {endTime && startTime ? `${Math.floor((endTime.getTime() - startTime.getTime()) / 1000 / 60)}m total` : 'N/A'}
+                            {endTime && startTime ? (
+                                (endTime.getTime() - startTime.getTime()) / 1000 < 60 
+                                    ? `${Math.floor((endTime.getTime() - startTime.getTime()) / 1000)}s total`
+                                    : `${Math.floor((endTime.getTime() - startTime.getTime()) / 1000 / 60)}m ${Math.floor(((endTime.getTime() - startTime.getTime()) / 1000) % 60)}s total`
+                            ) : 'N/A'}
                         </div>
                     </div>
                 )}

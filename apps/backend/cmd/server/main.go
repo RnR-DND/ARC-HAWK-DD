@@ -97,10 +97,13 @@ func main() {
 		log.Printf("✅ Database migrated to version %d (dirty: %v)", version, dirty)
 	}
 
-	// Connect to Neo4j
+	// Connect to Neo4j — password must be set explicitly, no insecure default
 	neo4jURI := getEnv("NEO4J_URI", "bolt://127.0.0.1:7687")
 	neo4jUsername := getEnv("NEO4J_USERNAME", "neo4j")
-	neo4jPassword := getEnv("NEO4J_PASSWORD", "password123")
+	neo4jPassword := os.Getenv("NEO4J_PASSWORD")
+	if neo4jPassword == "" {
+		log.Fatal("FATAL: NEO4J_PASSWORD environment variable is required")
+	}
 
 	log.Printf("🔗 Connecting to Neo4j at %s...", neo4jURI)
 
@@ -118,7 +121,6 @@ func main() {
 	registry := interfaces.NewModuleRegistry()
 
 	// Initialize Audit Logger (Shared Infrastructure)
-	// We create a dedicated repository instance for audit logging
 	auditRepo := persistence.NewPostgresRepository(db)
 	auditLogger := audit.NewPostgresAuditLogger(auditRepo)
 
@@ -149,7 +151,6 @@ func main() {
 		log.Fatalf("Failed to register Lineage module: %v", err)
 	}
 
-	// Inject FindingsProvider from Assets Module
 	baseDeps.FindingsProvider = assetsModule.GetFindingsService()
 
 	if err := lineageModule.Initialize(baseDeps); err != nil {
@@ -165,7 +166,6 @@ func main() {
 	// Phase 4: Initialize remaining modules with full dependencies
 	log.Println("📦 Phase 4: Initializing remaining modules...")
 
-	// Initialize WebSocket module first to get the service
 	websocketModule := websocket.NewWebSocketModule()
 	baseDeps.WebSocketService = websocketModule.GetWebSocketService()
 
@@ -225,7 +225,7 @@ func main() {
 	// CORS middleware
 	allowedOrigins := getEnv("ALLOWED_ORIGINS", "http://localhost:3000")
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{allowedOrigins},
+		AllowOrigins:     strings.Split(strings.TrimSpace(allowedOrigins), ","),
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -243,15 +243,14 @@ func main() {
 		log.Println("🛡️  Rate limiting enabled (100 req/min per IP)")
 	}
 
-	// Security Headers middleware (Audit Phase 2)
+	// Security Headers middleware
 	router.Use(middleware.SecurityHeaders())
 	log.Println("🔒 Security Headers enabled (HSTS, CSP, X-Frame-Options)")
 
 	// Initialize JWT service
 	jwtService := service.NewJWTService()
 
-	// Auth middleware with enforcement
-	// Define paths that allow anonymous access
+	// Public paths that do not require authentication
 	publicPaths := map[string]bool{
 		"/api/v1/auth/login":    true,
 		"/api/v1/auth/register": true,
@@ -262,7 +261,6 @@ func main() {
 	authMiddleware := func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		// Check if this is a public path
 		if publicPaths[path] {
 			c.Next()
 			return
@@ -270,18 +268,18 @@ func main() {
 
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			// Check if AUTH_REQUIRED is enabled (default: false for backward compatibility)
-			if getEnv("AUTH_REQUIRED", "false") == "true" {
+			// AUTH_REQUIRED defaults to true in all environments.
+			// Set AUTH_REQUIRED=false only for local development — never in production.
+			if getEnv("AUTH_REQUIRED", "true") != "false" {
 				c.JSON(401, gin.H{"error": "Authorization required", "message": "Please provide a valid Bearer token"})
 				c.Abort()
 				return
 			}
-			// Allow anonymous access when AUTH_REQUIRED is false
-			// Inject anonymous tenant context natively into standard HTTP request context for DB layer
+			// Anonymous access: inject nil tenant context for dev/test use only
+			// Use bare string key so persistence.GetTenantID can retrieve it
 			ctx := context.WithValue(c.Request.Context(), "tenant_id", uuid.Nil)
 			c.Request = c.Request.WithContext(ctx)
 			c.Set("tenant_id", uuid.Nil)
-			
 			c.Next()
 			return
 		}
@@ -308,7 +306,8 @@ func main() {
 		c.Set("tenant_id", claims.TenantID)
 		c.Set("authenticated", true)
 
-		// Inject real tenant context natively into standard HTTP request context for DB layer
+		// Inject tenant ID into the standard request context for the DB layer
+		// Use bare string key so persistence.GetTenantID can retrieve it
 		ctx := context.WithValue(c.Request.Context(), "tenant_id", claims.TenantID)
 		c.Request = c.Request.WithContext(ctx)
 
@@ -339,13 +338,11 @@ func main() {
 
 	// Health check with detailed status
 	router.GET("/health", func(c *gin.Context) {
-		// Check database connectivity
 		dbHealthy := true
 		if err := db.Ping(); err != nil {
 			dbHealthy = false
 		}
 
-		// Check Neo4j connectivity
 		neo4jHealthy := true
 		if err := neo4jRepo.GetDriver().VerifyConnectivity(c.Request.Context()); err != nil {
 			neo4jHealthy = false
@@ -376,7 +373,6 @@ func main() {
 		module.RegisterRoutes(apiV1)
 	}
 
-	// Register health components endpoint
 	healthHandler := api.NewHealthHandler(db, neo4jRepo)
 	apiV1.GET("/health/components", healthHandler.GetComponentsHealth)
 
@@ -413,13 +409,11 @@ func main() {
 
 	log.Println("\n🛑 Shutting down server...")
 
-	// Shutdown Temporal worker if running
 	if temporalWorker != nil {
 		log.Println("⏰ Stopping Temporal Worker...")
 		temporalWorker.Stop()
 	}
 
-	// Shutdown all modules
 	if err := registry.ShutdownAll(); err != nil {
 		log.Printf("Error during module shutdown: %v", err)
 	}

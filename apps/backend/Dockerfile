@@ -17,19 +17,25 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server
 # Final stage
 FROM alpine:latest
 
-WORKDIR /root/
+# Run as non-root user — principle of least privilege
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Install migration tools if needed, or just standard libs
+WORKDIR /app
+
 RUN apk --no-cache add ca-certificates
 
-# Copy the binary from the builder stage
+# Copy the binary and migrations from the builder stage
 COPY --from=builder /app/main .
-
-# Copy migrations (assuming they are needed at runtime for auto-migration)
 COPY --from=builder /app/migrations_versioned ./migrations_versioned
 
-# Expose the API port
+# Set ownership before switching user
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
 EXPOSE 8080
 
-# Run the binary
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:8080/health || exit 1
+
 CMD ["./main"]

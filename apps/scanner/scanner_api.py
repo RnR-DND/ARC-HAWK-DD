@@ -217,6 +217,10 @@ def ingest_results(scan_id, results):
                 pattern_name = f.get('pattern_name', 'Unknown')
                 pii_type = map_pattern_to_pii_type(pattern_name)
 
+                # Skip types the backend rejects (not in India-specific locked PII whitelist)
+                if pii_type is None:
+                    continue
+
                 # Extract flexible metadata across different database types
                 path = f.get('file_path', '') or f.get('file_name', '') or f.get('channel_name', '')
                 column = f.get('column', '') or f.get('field', '') or f.get('key', '')
@@ -235,7 +239,7 @@ def ingest_results(scan_id, results):
                     },
                     "validators_passed": ["pattern_match"],
                     "validation_method": "regex",
-                    "ml_confidence": 0.95,
+                    "ml_confidence": f.get('confidence_score', 0.5),
                     "ml_entity_type": pii_type,
                     "context_excerpt": f.get('sample_text', ''),
                     "context_keywords": [],
@@ -287,8 +291,8 @@ def map_pattern_to_pii_type(pattern_name):
     if 'bank' in name or 'account' in name: return 'IN_BANK_ACCOUNT'
     if 'voter' in name: return 'IN_VOTER_ID'
     if 'driving' in name or 'license' in name or 'licence' in name: return 'IN_DRIVING_LICENSE'
-    # Pass through the pattern name instead of UNKNOWN for better diagnostics
-    return pattern_name.upper().replace(' ', '_').replace('-', '_')
+    # Return None for types not in the backend's locked PII whitelist — caller must skip them
+    return None
 
 
 if __name__ == '__main__':

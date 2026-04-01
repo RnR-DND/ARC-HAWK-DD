@@ -1,4 +1,4 @@
-VERSION = "0.3.39"
+from hawk_scanner.__version__ import VERSION
 
 from setuptools import setup, find_packages
 

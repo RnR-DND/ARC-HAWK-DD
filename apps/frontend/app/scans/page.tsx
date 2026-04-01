@@ -36,12 +36,23 @@ export default function ScansPage() {
         }
     };
 
-    const getDuration = (start: string, end?: string) => {
-        if (!start) return '-';
+    const getDuration = (start: string, end?: string, status?: string) => {
+        if (!start || start.startsWith('0001-01-01')) return '-';
+        
         const startTime = new Date(start).getTime();
-        const endTime = end ? new Date(end).getTime() : new Date().getTime();
-        const minutes = Math.floor((endTime - startTime) / 60000);
-        return `${minutes}m`;
+        let endTime = new Date().getTime();
+        
+        if (end && !end.startsWith('0001-01-01')) {
+            endTime = new Date(end).getTime();
+        } else if (status === 'completed' || status === 'failed') {
+            return 'Unknown'; // Old scan missing end time
+        }
+        
+        const diffSeconds = Math.floor((endTime - startTime) / 1000);
+        if (diffSeconds < 60) return `${diffSeconds}s`;
+        const minutes = Math.floor(diffSeconds / 60);
+        const seconds = diffSeconds % 60;
+        return `${minutes}m ${seconds}s`;
     };
 
     return (
@@ -139,7 +150,7 @@ export default function ScansPage() {
                                         <Link href={`/scans/${scan.id}`} className="block">
                                             <div className="flex items-center gap-2">
                                                 <Clock className="w-4 h-4 text-slate-400" />
-                                                {getDuration(scan.scan_started_at, scan.scan_completed_at)}
+                                                {getDuration(scan.scan_started_at, scan.scan_completed_at, scan.status)}
                                             </div>
                                         </Link>
                                     </td>

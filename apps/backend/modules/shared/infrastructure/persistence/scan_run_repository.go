@@ -120,11 +120,13 @@ func (r *PostgresRepository) UpdateScanRun(ctx context.Context, scanRun *entity.
 
 	query := `
 		UPDATE scan_runs 
-		SET total_findings = $1, total_assets = $2, status = $3, metadata = $4, updated_at = NOW()
-		WHERE id = $5`
+		SET total_findings = $1, total_assets = $2, status = $3, metadata = $4, 
+		    scan_started_at = $5, scan_completed_at = $6, updated_at = NOW()
+		WHERE id = $7`
 
 	_, err = r.db.ExecContext(ctx, query,
-		scanRun.TotalFindings, scanRun.TotalAssets, scanRun.Status, metadataJSON, scanRun.ID,
+		scanRun.TotalFindings, scanRun.TotalAssets, scanRun.Status, metadataJSON,
+		scanRun.ScanStartedAt, scanRun.ScanCompletedAt, scanRun.ID,
 	)
 	return err
 }

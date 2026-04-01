@@ -45,8 +45,9 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 		return nil, fmt.Errorf("failed to get classification summary: %w", err)
 	}
 
-	total := rawSummary["total"].(int)
-	byTypeRaw := rawSummary["by_type"].(map[string]interface{})
+	totalRaw, _ := rawSummary["total"].(int64)
+	total := int(totalRaw)
+	byTypeRaw, _ := rawSummary["by_type"].(map[string]interface{})
 
 	byType := make(map[string]TypeBreakdown)
 	highConfidence := 0
@@ -54,9 +55,13 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 	dpdpaCategories := make(map[string]int)
 
 	for typeName, data := range byTypeRaw {
-		dataMap := data.(map[string]interface{})
-		count := dataMap["count"].(int)
-		avgConf := dataMap["avg_confidence"].(float64)
+		dataMap, _ := data.(map[string]interface{})
+		if dataMap == nil {
+			continue
+		}
+		countRaw, _ := dataMap["count"].(int64)
+		count := int(countRaw)
+		avgConf, _ := dataMap["avg_confidence"].(float64)
 
 		breakdown := TypeBreakdown{
 			Count:         count,
@@ -91,13 +96,18 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 	}
 
 	// Parse optional counts (default to 0 if missing)
+	// GORM returns int64 for SQL COUNT results — accept both int and int64
 	verifiedCount := 0
-	if val, ok := rawSummary["verified_count"].(int); ok {
+	if val, ok := rawSummary["verified_count"].(int64); ok {
+		verifiedCount = int(val)
+	} else if val, ok := rawSummary["verified_count"].(int); ok {
 		verifiedCount = val
 	}
 
 	falsePositiveCount := 0
-	if val, ok := rawSummary["false_positive_count"].(int); ok {
+	if val, ok := rawSummary["false_positive_count"].(int64); ok {
+		falsePositiveCount = int(val)
+	} else if val, ok := rawSummary["false_positive_count"].(int); ok {
 		falsePositiveCount = val
 	}
 

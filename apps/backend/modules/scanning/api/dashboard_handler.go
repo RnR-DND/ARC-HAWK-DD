@@ -45,11 +45,8 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 		SystemHealth: "healthy",
 	}
 
-	// Extract environment filter (default to PROD)
+	// Extract environment filter — empty means all environments (avoids dev data being hidden)
 	envFilter := c.Query("env")
-	if envFilter == "" {
-		envFilter = "PROD"
-	}
 
 	// Get total PII count (excluding false positives)
 	var findings []*entity.Finding
@@ -65,9 +62,10 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 
 	if tenantID == uuid.Nil {
 		// Use Global list for system/anonymous view to match ClassificationSummary behavior
-		findings, err = h.pgRepo.ListGlobalFindings(ctx, 100000, 0)
+		// Limit to 1000 to avoid OOM on large deployments — aggregate counts should use SQL COUNT instead
+		findings, err = h.pgRepo.ListGlobalFindings(ctx, 1000, 0)
 	} else {
-		findings, err = h.pgRepo.ListFindings(ctx, repository.FindingFilters{}, 100000, 0)
+		findings, err = h.pgRepo.ListFindings(ctx, repository.FindingFilters{}, 1000, 0)
 	}
 
 	if err != nil {
@@ -84,8 +82,8 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 	actionsRequired := 0
 
 	for _, finding := range findings {
-		// Strict Isolation: Filter by requested environment
-		if finding.Environment != envFilter {
+		// Filter by environment when specified; empty envFilter means all environments
+		if envFilter != "" && finding.Environment != envFilter {
 			continue
 		}
 
@@ -111,16 +109,21 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 	metrics.AssetsHit = len(assetsMap)
 	metrics.ActionsRequired = actionsRequired
 
-	// Get last scan time
+	// Get last scan time — scoped to tenant when available
 	var lastScanTime time.Time
-	err = h.pgRepo.GetDB().QueryRow(`
-		SELECT MAX(created_at) FROM scan_runs WHERE status = 'completed'
-	`).Scan(&lastScanTime)
+	if tenantID != uuid.Nil {
+		err = h.pgRepo.GetDB().QueryRow(
+			`SELECT MAX(created_at) FROM scan_runs WHERE status = 'completed' AND tenant_id = $1`,
+			tenantID,
+		).Scan(&lastScanTime)
+	} else {
+		err = h.pgRepo.GetDB().QueryRow(
+			`SELECT MAX(created_at) FROM scan_runs WHERE status = 'completed'`,
+		).Scan(&lastScanTime)
+	}
 	if err == nil {
 		metrics.LastScanTime = lastScanTime
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": metrics,
-	})
+	c.JSON(http.StatusOK, metrics)
 }

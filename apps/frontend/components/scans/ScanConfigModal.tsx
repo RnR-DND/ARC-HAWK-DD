@@ -109,11 +109,11 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
 
     const handleRunScan = async () => {
         try {
-            const config: ScanConfig = {
+            const config: any = {
                 name: scanName || `Scan_${new Date().toISOString().split('T')[0]}`,
                 sources: selectedSources,
-                piiTypes: selectedPiiTypes,
-                executionMode
+                pii_types: selectedPiiTypes,
+                execution_mode: executionMode
             };
 
             // Call API and get scan ID

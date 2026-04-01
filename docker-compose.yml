@@ -22,12 +22,9 @@ services:
       arc-platform-internal:
         ipv4_address: 172.29.0.10
     environment:
-      #POSTGRES_USER: ${POSTGRES_USER}
-      #POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      #POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: arc_platform
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     # Restrict to localhost to prevent external access
     ports:
       - "127.0.0.1:5432:5432"
@@ -67,7 +64,7 @@ services:
         limits:
           memory: 1G
     healthcheck:
-      test: [ "CMD-SHELL", "cypher-shell -u neo4j -p password123 'RETURN 1'" ]
+      test: [ "CMD-SHELL", "cypher-shell -u ${NEO4J_USERNAME} -p ${NEO4J_PASSWORD} 'RETURN 1'" ]
       interval: 10s
       timeout: 20s
       retries: 10
@@ -146,7 +143,7 @@ services:
       arc-platform-internal:
         ipv4_address: 172.29.0.20
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
@@ -162,6 +159,7 @@ services:
       - SCANNER_URL=${SCANNER_URL}
       - ARC_HAWK_ROOT=/app
       - SCANNER_CONFIG_PATH=/app/config/connection.yml
+      - PORT=8080
     env_file:
       - .env
     depends_on:
@@ -198,7 +196,7 @@ services:
       arc-platform-internal:
         ipv4_address: 172.29.0.40
     ports:
-      - "5002:8080"
+      - "5002:5002"
     environment:
       - BACKEND_URL=${BACKEND_URL}
       - PORT=${PORT}
@@ -206,12 +204,14 @@ services:
     volumes:
       - ./scripts:/app/scripts
       - /tmp:/tmp
-      - ./apps/scanner:/app
+      - ./apps/scanner/scanner_api.py:/app/scanner_api.py
+      - ./apps/scanner/hawk_scanner:/app/hawk_scanner
+      - ./apps/scanner/config:/app/config
       - ./testdata:/app/testdata
     depends_on:
       - backend
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:5002/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -236,6 +236,6 @@ services:
     ports:
       - "127.0.0.1:3002:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     depends_on:
       - prometheus

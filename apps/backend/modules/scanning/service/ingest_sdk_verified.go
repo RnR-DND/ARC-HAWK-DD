@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
@@ -34,18 +35,27 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 		scanRunID = uuid.New()
 	}
 
-	// Create scan run
-	scanRun := &entity.ScanRun{
-		ID:     scanRunID,
-		Status: "completed",
-		Metadata: map[string]interface{}{
-			"sdk_scan":    true,
-			"sdk_version": "2.0",
-		},
-	}
-
-	if err := tx.CreateScanRun(ctx, scanRun); err != nil {
-		return fmt.Errorf("failed to create scan run: %w", err)
+	// Look up existing ScanRun first (orchestrator creates it before the scanner runs)
+	var scanRun *entity.ScanRun
+	if existing, lookupErr := s.repo.GetScanRunByID(ctx, scanRunID); lookupErr == nil {
+		existing.Status = "completed"
+		if updateErr := tx.UpdateScanRun(ctx, existing); updateErr != nil {
+			return fmt.Errorf("failed to update scan run: %w", updateErr)
+		}
+		scanRun = existing
+	} else {
+		// ScanRun not found — create a new one
+		scanRun = &entity.ScanRun{
+			ID:     scanRunID,
+			Status: "completed",
+			Metadata: map[string]interface{}{
+				"sdk_scan":    true,
+				"sdk_version": "2.0",
+			},
+		}
+		if err := tx.CreateScanRun(ctx, scanRun); err != nil {
+			return fmt.Errorf("failed to create scan run: %w", err)
+		}
 	}
 
 	// Track assets and stats
@@ -54,22 +64,17 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 
 	// Process each finding
 	for _, vf := range input.Findings {
-		fmt.Printf("🔍 Processing finding: PII type = '%s'\n", vf.PIIType)
-
 		// CRITICAL: Validate PII type against locked scope (LAW 3)
 		// Backend MUST reject findings with PII types not in the locked 11 India types
 		if !IsLockedPIIType(vf.PIIType) {
-			fmt.Printf("⚠️  REJECTED finding: PII type '%s' not in locked scope (11 India PIIs only)\n", vf.PIIType)
 			continue // Skip this finding - do not ingest
 		}
 
-		fmt.Printf("✅ Accepted finding: PII type '%s' is valid\n", vf.PIIType)
 		acceptedFindingsCount++
 
 		assetID, err := s.processSingleSDKFinding(ctx, tx, adapter, scanRun.ID, &vf)
 		if err != nil {
-			// Log error but continue processing other findings
-			fmt.Printf("Error processing finding: %v\n", err)
+			log.Printf("error processing finding (pii_type=%s): %v", vf.PIIType, err)
 			continue
 		}
 
@@ -79,7 +84,7 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 	// Update asset stats (TotalFindings, RiskScore)
 	for assetID := range assetMap {
 		if err := s.recalculateAssetRisk(ctx, assetID); err != nil {
-			fmt.Printf("⚠️ Failed to recalculate risk for asset %s: %v\n", assetID, err)
+			log.Printf("failed to recalculate risk for asset %s: %v", assetID, err)
 			// Continue - don't fail the whole ingestion for a stats update failure
 		}
 	}

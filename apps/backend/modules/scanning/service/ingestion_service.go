@@ -78,7 +78,7 @@ type IngestScanResult struct {
 }
 
 // IngestScan processes Hawk-eye scan output and normalizes it into the database
-func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInput) (*IngestScanResult, error) {
+func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInput) (retResult *IngestScanResult, retErr error) {
 	if len(input.FS) == 0 && len(input.PostgreSQL) == 0 &&
 		len(input.MySQL) == 0 && len(input.MongoDB) == 0 &&
 		len(input.S3) == 0 && len(input.Redis) == 0 &&
@@ -92,18 +92,21 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	// Ensure rollback on panic or error
+	// Ensure rollback on panic — use named returns so recover can propagate the error
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 			log.Printf("PANIC during ingestion, transaction rolled back: %v", r)
-			// Don't re-panic - log and return error instead
-			// The panic value is logged above
+			retErr = fmt.Errorf("panic during ingestion: %v", r)
 		}
 	}()
 
-	// Combine findings from all data sources
-	allFindings := append(input.FS, input.PostgreSQL...)
+	// Combine findings from all data sources — use fresh slice to avoid mutating caller's backing array
+	totalLen := len(input.FS) + len(input.PostgreSQL) + len(input.MySQL) +
+		len(input.MongoDB) + len(input.S3) + len(input.Redis) + len(input.Slack) + len(input.GCS)
+	allFindings := make([]HawkeyeFinding, 0, totalLen)
+	allFindings = append(allFindings, input.FS...)
+	allFindings = append(allFindings, input.PostgreSQL...)
 	allFindings = append(allFindings, input.MySQL...)
 	allFindings = append(allFindings, input.MongoDB...)
 	allFindings = append(allFindings, input.S3...)

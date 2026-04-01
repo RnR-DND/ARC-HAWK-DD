@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -391,6 +392,13 @@ func getString(config map[string]interface{}, key string) string {
 			return s
 		}
 	}
+	if key == "user" {
+		if val, ok := config["username"]; ok {
+			if s, ok := val.(string); ok {
+				return s
+			}
+		}
+	}
 	return ""
 }
 
@@ -403,6 +411,10 @@ func getInt(config map[string]interface{}, key string, defaultVal int) int {
 			return int(v)
 		case float64:
 			return int(v)
+		case string:
+			if i, err := strconv.Atoi(v); err == nil {
+				return i
+			}
 		}
 	}
 	return defaultVal

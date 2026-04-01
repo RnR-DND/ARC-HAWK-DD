@@ -1,14 +1,14 @@
 <overview>
 Plans execute autonomously. Checkpoints formalize interaction points where human verification or decisions are needed.
 
-**Core principle:** Claude automates everything with CLI/API. Checkpoints are for verification and decisions, not manual work.
+**Core principle:** the agent automates everything with CLI/API. Checkpoints are for verification and decisions, not manual work.
 
 **Golden rules:**
-1. **If Claude can run it, Claude runs it** - Never ask user to execute CLI commands, start servers, or run builds
-2. **Claude sets up the verification environment** - Start dev servers, seed databases, configure env vars
+1. **If the agent can run it, the agent runs it** - Never ask user to execute CLI commands, start servers, or run builds
+2. **the agent sets up the verification environment** - Start dev servers, seed databases, configure env vars
 3. **User only does what requires human judgment** - Visual checks, UX evaluation, "does this feel right?"
-4. **Secrets come from user, automation comes from Claude** - Ask for API keys, then Claude uses them via CLI
-5. **Auto-mode bypasses verification/decision checkpoints** — When `workflow.auto_advance` is true in config: human-verify auto-approves, decision auto-selects first option, human-action still stops (auth gates cannot be automated)
+4. **Secrets come from user, automation comes from the agent** - Ask for API keys, then the agent uses them via CLI
+5. **Auto-mode bypasses verification/decision checkpoints** — When `workflow._auto_chain_active` or `workflow.auto_advance` is true in config: human-verify auto-approves, decision auto-selects first option, human-action still stops (auth gates cannot be automated)
 </overview>
 
 <checkpoint_types>
@@ -16,7 +16,7 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
 <type name="human-verify">
 ## checkpoint:human-verify (Most Common - 90%)
 
-**When:** Claude completed automated work, human confirms it works correctly.
+**When:** the agent completed automated work, human confirms it works correctly.
 
 **Use for:**
 - Visual UI checks (layout, styling, responsiveness)
@@ -29,7 +29,7 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
 **Structure:**
 ```xml
 <task type="checkpoint:human-verify" gate="blocking">
-  <what-built>[What Claude automated and deployed/built]</what-built>
+  <what-built>[What the agent automated and deployed/built]</what-built>
   <how-to-verify>
     [Exact steps to test - URLs, commands, expected behavior]
   </how-to-verify>
@@ -37,7 +37,7 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
 </task>
 ```
 
-**Example: UI Component (shows key pattern: Claude starts server BEFORE checkpoint)**
+**Example: UI Component (shows key pattern: the agent starts server BEFORE checkpoint)**
 ```xml
 <task type="auto">
   <name>Build responsive dashboard layout</name>
@@ -50,7 +50,7 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
 <task type="auto">
   <name>Start dev server for verification</name>
   <action>Run `npm run dev` in background, wait for "ready" message, capture port</action>
-  <verify>curl http://localhost:3000 returns 200</verify>
+  <verify>fetch http://localhost:3000 returns 200</verify>
   <done>Dev server running at http://localhost:3000</done>
 </task>
 
@@ -185,10 +185,10 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
 <type name="human-action">
 ## checkpoint:human-action (1% - Rare)
 
-**When:** Action has NO CLI/API and requires human-only interaction, OR Claude hit an authentication gate during automation.
+**When:** Action has NO CLI/API and requires human-only interaction, OR the agent hit an authentication gate during automation.
 
 **Use ONLY for:**
-- **Authentication gates** - Claude tried CLI/API but needs credentials (this is NOT a failure)
+- **Authentication gates** - the agent tried CLI/API but needs credentials (this is NOT a failure)
 - Email verification links (clicking email)
 - SMS 2FA codes (phone verification)
 - Manual account approvals (platform requires human review)
@@ -204,12 +204,12 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
 **Structure:**
 ```xml
 <task type="checkpoint:human-action" gate="blocking">
-  <action>[What human must do - Claude already did everything automatable]</action>
+  <action>[What human must do - the agent already did everything automatable]</action>
   <instructions>
-    [What Claude already automated]
+    [What the agent already automated]
     [The ONE thing requiring human action]
   </instructions>
-  <verification>[What Claude can check afterward]</verification>
+  <verification>[What the agent can check afterward]</verification>
   <resume-signal>[How to continue]</resume-signal>
 </task>
 ```
@@ -240,10 +240,10 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
   <name>Deploy to Vercel</name>
   <files>.vercel/, vercel.json</files>
   <action>Run `vercel --yes` to deploy</action>
-  <verify>vercel ls shows deployment, curl returns 200</verify>
+  <verify>vercel ls shows deployment, fetch returns 200</verify>
 </task>
 
-<!-- If vercel returns "Error: Not authenticated", Claude creates checkpoint on the fly -->
+<!-- If vercel returns "Error: Not authenticated", the agent creates checkpoint on the fly -->
 
 <task type="checkpoint:human-action" gate="blocking">
   <action>Authenticate Vercel CLI so I can continue deployment</action>
@@ -256,22 +256,22 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
   <resume-signal>Type "done" when authenticated</resume-signal>
 </task>
 
-<!-- After authentication, Claude retries the deployment -->
+<!-- After authentication, the agent retries the deployment -->
 
 <task type="auto">
   <name>Retry Vercel deployment</name>
   <action>Run `vercel --yes` (now authenticated)</action>
-  <verify>vercel ls shows deployment, curl returns 200</verify>
+  <verify>vercel ls shows deployment, fetch returns 200</verify>
 </task>
 ```
 
-**Key distinction:** Auth gates are created dynamically when Claude encounters auth errors. NOT pre-planned — Claude automates first, asks for credentials only when blocked.
+**Key distinction:** Auth gates are created dynamically when the agent encounters auth errors. NOT pre-planned — the agent automates first, asks for credentials only when blocked.
 </type>
 </checkpoint_types>
 
 <execution_protocol>
 
-When Claude encounters `type="checkpoint:*"`:
+When the agent encounters `type="checkpoint:*"`:
 
 1. **Stop immediately** - do not proceed to next task
 2. **Display checkpoint clearly** using the format below
@@ -359,9 +359,9 @@ I'll verify: vercel whoami returns your account
 
 <authentication_gates>
 
-**Auth gate = Claude tried CLI/API, got auth error.** Not a failure — a gate requiring human input to unblock.
+**Auth gate = the agent tried CLI/API, got auth error.** Not a failure — a gate requiring human input to unblock.
 
-**Pattern:** Claude tries automation → auth error → creates checkpoint:human-action → user authenticates → Claude retries → continues
+**Pattern:** the agent tries automation → auth error → creates checkpoint:human-action → user authenticates → the agent retries → continues
 
 **Gate protocol:**
 1. Recognize it's not a failure - missing auth is expected
@@ -373,14 +373,14 @@ I'll verify: vercel whoami returns your account
 7. Continue normally
 
 **Key distinction:**
-- Pre-planned checkpoint: "I need you to do X" (wrong - Claude should automate)
+- Pre-planned checkpoint: "I need you to do X" (wrong - the agent should automate)
 - Auth gate: "I tried to automate X but need credentials" (correct - unblocks automation)
 
 </authentication_gates>
 
 <automation_reference>
 
-**The rule:** If it has CLI/API, Claude does it. Never ask human to perform automatable work.
+**The rule:** If it has CLI/API, the agent does it. Never ask human to perform automatable work.
 
 ## Service CLI Reference
 
@@ -420,7 +420,7 @@ I'll verify: vercel whoami returns your account
   <instructions>Go to dashboard.convex.dev → Settings → Environment Variables → Add</instructions>
 </task>
 
-<!-- RIGHT: Claude asks for value, then adds via CLI -->
+<!-- RIGHT: the agent asks for value, then adds via CLI -->
 <task type="checkpoint:human-action">
   <action>Provide your OpenAI API key</action>
   <instructions>
@@ -455,8 +455,8 @@ I'll verify: vercel whoami returns your account
 npm run dev &
 DEV_SERVER_PID=$!
 
-# Wait for ready (max 30s)
-timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; done'
+# Wait for ready (max 30s) — uses fetch() for cross-platform compatibility
+timeout 30 bash -c 'until node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null; do sleep 1; done'
 ```
 
 **Port conflicts:** Kill stale process (`lsof -ti:3000 | xargs kill`) or use alternate port (`--port 3001`).
@@ -489,7 +489,9 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 | Auth error | Create auth gate checkpoint |
 | Network timeout | Retry with backoff, then checkpoint if persistent |
 
-**Never present a checkpoint with broken verification environment.** If `curl localhost:3000` fails, don't ask user to "visit localhost:3000".
+**Never present a checkpoint with broken verification environment.** If the local server isn't responding, don't ask user to "visit localhost:3000".
+
+> **Cross-platform note:** Use `node -e "fetch('http://localhost:3000').then(r=>console.log(r.status))"` instead of `curl` for health checks. `curl` is broken on Windows MSYS/Git Bash due to SSL/path mangling issues.
 
 ```xml
 <!-- WRONG: Checkpoint with broken environment -->
@@ -502,7 +504,7 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 <task type="auto">
   <name>Fix server startup issue</name>
   <action>Investigate error, fix root cause, restart server</action>
-  <verify>curl http://localhost:3000 returns 200</verify>
+  <verify>fetch http://localhost:3000 returns 200</verify>
 </task>
 
 <task type="checkpoint:human-verify">
@@ -513,7 +515,7 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 
 ## Automatable Quick Reference
 
-| Action | Automatable? | Claude does it? |
+| Action | Automatable? | the agent does it? |
 |--------|--------------|-----------------|
 | Deploy to Vercel | Yes (`vercel`) | YES |
 | Create Stripe webhook | Yes (API) | YES |
@@ -542,13 +544,13 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 - Provide context: why this checkpoint exists
 
 **DON'T:**
-- Ask human to do work Claude can automate ❌
+- Ask human to do work the agent can automate ❌
 - Assume knowledge: "Configure the usual settings" ❌
 - Skip steps: "Set up database" (too vague) ❌
 - Mix multiple verifications in one checkpoint ❌
 
 **Placement:**
-- **After automation completes** - not before Claude does the work
+- **After automation completes** - not before the agent does the work
 - **After UI buildout** - before declaring phase complete
 - **Before dependent work** - decisions before implementation
 - **At integration points** - after configuring external services
@@ -578,7 +580,7 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
   <done>Redis database created and configured</done>
 </task>
 
-<!-- NO CHECKPOINT NEEDED - Claude automated everything and verified programmatically -->
+<!-- NO CHECKPOINT NEEDED - the agent automated everything and verified programmatically -->
 ```
 
 ### Example 2: Full Auth Flow (Single checkpoint at end)
@@ -608,7 +610,7 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 <task type="auto">
   <name>Start dev server for auth testing</name>
   <action>Run `npm run dev` in background, wait for ready signal</action>
-  <verify>curl http://localhost:3000 returns 200</verify>
+  <verify>fetch http://localhost:3000 returns 200</verify>
   <done>Dev server running at http://localhost:3000</done>
 </task>
 
@@ -643,15 +645,15 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 </task>
 ```
 
-**Why bad:** Claude can run `npm run dev`. User should only visit URLs, not execute commands.
+**Why bad:** the agent can run `npm run dev`. User should only visit URLs, not execute commands.
 
-### ✅ GOOD: Claude starts server, user visits
+### ✅ GOOD: the agent starts server, user visits
 
 ```xml
 <task type="auto">
   <name>Start dev server</name>
   <action>Run `npm run dev` in background</action>
-  <verify>curl localhost:3000 returns 200</verify>
+  <verify>fetch http://localhost:3000 returns 200</verify>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
@@ -664,7 +666,7 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 </task>
 ```
 
-### ❌ BAD: Asking human to deploy / ✅ GOOD: Claude automates
+### ❌ BAD: Asking human to deploy / ✅ GOOD: the agent automates
 
 ```xml
 <!-- BAD: Asking user to deploy via dashboard -->
@@ -673,11 +675,11 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
   <instructions>Visit vercel.com/new → Import repo → Click Deploy → Copy URL</instructions>
 </task>
 
-<!-- GOOD: Claude deploys, user verifies -->
+<!-- GOOD: the agent deploys, user verifies -->
 <task type="auto">
   <name>Deploy to Vercel</name>
   <action>Run `vercel --yes`. Capture URL.</action>
-  <verify>vercel ls shows deployment, curl returns 200</verify>
+  <verify>vercel ls shows deployment, fetch returns 200</verify>
 </task>
 
 <task type="checkpoint:human-verify">
@@ -742,7 +744,7 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 </task>
 ```
 
-**Why bad:** Claude can run these commands. User should never execute CLI commands.
+**Why bad:** the agent can run these commands. User should never execute CLI commands.
 
 ### ❌ BAD: Asking user to copy values between services
 
@@ -753,7 +755,7 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 </task>
 ```
 
-**Why bad:** Stripe has an API. Claude should create the webhook via API and write to .env directly.
+**Why bad:** Stripe has an API. the agent should create the webhook via API and write to .env directly.
 
 </anti_patterns>
 
@@ -761,16 +763,16 @@ timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; d
 
 Checkpoints formalize human-in-the-loop points for verification and decisions, not manual work.
 
-**The golden rule:** If Claude CAN automate it, Claude MUST automate it.
+**The golden rule:** If the agent CAN automate it, the agent MUST automate it.
 
 **Checkpoint priority:**
-1. **checkpoint:human-verify** (90%) - Claude automated everything, human confirms visual/functional correctness
+1. **checkpoint:human-verify** (90%) - the agent automated everything, human confirms visual/functional correctness
 2. **checkpoint:decision** (9%) - Human makes architectural/technology choices
 3. **checkpoint:human-action** (1%) - Truly unavoidable manual steps with no API/CLI
 
 **When NOT to use checkpoints:**
-- Things Claude can verify programmatically (tests, builds)
-- File operations (Claude can read files)
+- Things the agent can verify programmatically (tests, builds)
+- File operations (the agent can read files)
 - Code correctness (tests and static analysis)
 - Anything automatable via CLI/API
 </summary>

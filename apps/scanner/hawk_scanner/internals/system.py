@@ -198,7 +198,17 @@ def get_fingerprint_file(args=None):
         _fingerprint_cache = args['fingerprint']
         return _fingerprint_cache
     else:
-        # Check if fingerprint.yml exists locally
+        # Check config/fingerprint.yml first (enhanced version with 90+ patterns)
+        if os.path.exists('config/fingerprint.yml'):
+            try:
+                with open('config/fingerprint.yml', 'r') as file:
+                    _fingerprint_cache = yaml.safe_load(file)
+                    _validate_fingerprint_patterns(args, _fingerprint_cache)
+                    return _fingerprint_cache
+            except Exception:
+                pass
+
+        # Fall back to fingerprint.yml in CWD
         if os.path.exists('fingerprint.yml'):
             try:
                 with open('fingerprint.yml', 'r') as file:
@@ -313,24 +323,6 @@ def print_banner(args):
         args.shutup = True
     if not args.shutup:
         console.print(banner)
-
-
-def normalize_for_matching(text):
-
-# FIXED MATCH STRINGS FUNCTION
-
-    """Normalize text for consistent pattern matching (removes formatting)"""
-    if not text:
-        return text
-    normalized = str(text)
-    # Remove common formatting that might prevent regex matches
-    # normalized = normalized.replace('-', '')
-    # normalized = normalized.replace(' ', '')
-    # normalized = normalized.replace('(', '')
-    # normalized = normalized.replace(')', '')
-    # normalized = normalized.replace('.', '')
-    return normalized
-
 
 
 
@@ -539,7 +531,8 @@ def read_office_document(args, file_path):
                 sheet = workbook[sheet_name]
                 for row in sheet.iter_rows():
                     for cell in row:
-                        content += str(cell.value) + '\n'
+                        if cell.value is not None:
+                            content += str(cell.value) + '\n'
         elif file_path.lower().endswith('.pptx'):
             # Read content from PowerPoint presentation
             # You can add specific logic for PowerPoint if needed
@@ -560,10 +553,16 @@ def find_pii_in_archive(args, file_path, source):
             patoolib.extract_archive(file_path, outdir=tmp_dir)
         elif file_path.lower().endswith('.tar'):
             with tarfile.open(file_path, 'r') as tar:
-                tar.extractall(tmp_dir)
+                try:
+                    tar.extractall(tmp_dir, filter='data')
+                except TypeError:
+                    tar.extractall(tmp_dir)
         elif file_path.lower().endswith('.tar.gz'):
             with tarfile.open(file_path, 'r:gz') as tar:
-                tar.extractall(tmp_dir)
+                try:
+                    tar.extractall(tmp_dir, filter='data')
+                except TypeError:
+                    tar.extractall(tmp_dir)
         # Iterate over all files in the temporary directory
         for root, dirs, files in os.walk(tmp_dir):
             for file in files:
@@ -571,30 +570,31 @@ def find_pii_in_archive(args, file_path, source):
                 data = read_match_strings(args, file_path, source)
                 for d in data:
                     content.append(d)
-        # Clean up the temporary directory
-        shutil.rmtree(tmp_dir)
+        # TemporaryDirectory context manager handles cleanup — no manual rmtree needed
     return content
 
 
 def getFileData(file_path):
     try:
-        import pwd
-        import grp
-
         # Get file metadata
         file_stat = os.stat(file_path)
 
-        # Get the username of the file's creator/owner
+        # Get the username of the file's creator/owner (Unix only)
+        creator_name = ''
+        group_name = ''
         try:
-            creator_name = pwd.getpwuid(file_stat.st_uid).pw_name
-        except KeyError:
-            creator_name = str(file_stat.st_uid)
-
-        # Get Group name
-        try:
-            group_name = grp.getgrgid(file_stat.st_gid).gr_name
-        except KeyError:
-            group_name = str(file_stat.st_gid)
+            import pwd
+            import grp
+            try:
+                creator_name = pwd.getpwuid(file_stat.st_uid).pw_name
+            except KeyError:
+                creator_name = str(file_stat.st_uid)
+            try:
+                group_name = grp.getgrgid(file_stat.st_gid).gr_name
+            except KeyError:
+                group_name = str(file_stat.st_gid)
+        except ImportError:
+            pass  # Windows — pwd/grp not available
 
         # Convert timestamps to human-readable format
         created_time = datetime.datetime.fromtimestamp(
@@ -675,19 +675,19 @@ def evaluate_severity(json_data, rules):
     # TYPE-BASED SEVERITY (not volume-based)
     # Sensitive government IDs and financial data
     if any(kw in pattern_name for kw in ['ssn', 'aadhaar', 'aadhar', 'pan', 'pancard', 'credit_card', 'debit_card', 'passport']):
-        severity = 'CRITICAL'
+        severity = 'Critical'
         description = 'Sensitive PII detected (government ID or financial data)'
     # Credentials and secrets
     elif any(kw in pattern_name for kw in ['aws_key', 'api_key', 'secret', 'password', 'token', 'private_key', 'access_key']):
-        severity = 'CRITICAL'
+        severity = 'Critical'
         description = 'Credentials or secrets detected'
     # Personal contact information
     elif any(kw in pattern_name for kw in ['email', 'phone', 'mobile']):
-        severity = 'HIGH'
+        severity = 'High'
         description = 'Personal contact information detected'
     # Other potential PII
     else:
-        severity = 'MEDIUM'
+        severity = 'Medium'
         description = 'Potentially sensitive data detected'
 
     json_data['severity'] = severity
@@ -702,13 +702,15 @@ def enhance_and_ocr(image_path):
     # Enhance the image (you can adjust enhancement factors as needed)
     enhanced_image = enhance_image(original_image)
 
-    # Save the enhanced image for reference
-    enhanced_image.save("enhanced_image.png")
+    # Save the enhanced image to a unique temp file to avoid concurrent scan conflicts
+    tmp_img = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+    tmp_img.close()
+    enhanced_image.save(tmp_img.name)
 
     # Perform OCR on the enhanced image
     ocr_text = perform_ocr(enhanced_image)
     # delete the enhanced image
-    os.remove("enhanced_image.png")
+    os.remove(tmp_img.name)
 
     return ocr_text
 
@@ -876,39 +878,64 @@ def match_strings(args, content, source='text'):
 
     patterns = get_fingerprint_file(args)
 
-    from sdk.engine import SharedAnalyzerEngine
-    wrapper = SharedAnalyzerEngine()
-    engine = wrapper.get_engine()
+    all_findings = []
+    seen = set()
 
-    results = engine.analyze(text=content, entities=None, language="en")
+    # Run ContextAwareScanner with fingerprint patterns (regex + entropy + context)
+    if patterns:
+        try:
+            from hawk_scanner.internals.scanner_engine import ContextAwareScanner
+            ctx_scanner = ContextAwareScanner()
+            regex_results = ctx_scanner.scan(content, patterns, source)
+            for f in regex_results:
+                raw = f['matches'][0] if f.get('matches') else ''
+                key = (f['pattern_name'], raw)
+                if key not in seen:
+                    seen.add(key)
+                    all_findings.append({
+                        'pattern_name': f['pattern_name'],
+                        'confidence_score': f.get('confidence_score', 50) / 100.0,
+                        'matches': f.get('matches', []),
+                        'sample_text': f.get('sample_text', ''),
+                    })
+        except Exception as e:
+            if args:
+                print_debug(args, f"ContextAwareScanner error: {e}")
 
-    findings = []
+    # Run Presidio for AI-powered detection
+    try:
+        from sdk.engine import SharedAnalyzerEngine
+        wrapper = SharedAnalyzerEngine()
+        engine = wrapper.get_engine()
+        presidio_results = engine.analyze(text=content, entities=None, language="en")
 
-    for r in results:
-        raw = content[r.start:r.end].strip()
-        if not raw:
-            continue
+        for r in presidio_results:
+            raw = content[r.start:r.end].strip()
+            if not raw:
+                continue
+            pattern_name = r.entity_type
+            if pattern_name == "IN_PAN":
+                pattern_name = "PAN"
+            key = (pattern_name, raw)
+            if key not in seen:
+                seen.add(key)
+                all_findings.append({
+                    'pattern_name': pattern_name,
+                    'confidence_score': r.score,
+                    'matches': [raw],
+                    'sample_text': raw,
+                    'start': r.start,
+                    'end': r.end,
+                })
+    except Exception as e:
+        if args:
+            print_debug(args, f"Presidio analysis error: {e}")
 
-        pattern_name = r.entity_type
-        if pattern_name == "IN_PAN":
-            pattern_name = "PAN"
-        findings.append({
-            "pattern_name": pattern_name,
-            "confidence_score": r.score,
-            "matches": [raw],
-            "sample_text": raw,
-            "start": r.start,
-            "end": r.end
-        })
-
-    matched_strings = []
-
-    for finding in findings:
-        matched_strings.append(finding)
+    for finding in all_findings:
         if args:
             print_debug(
                 args,
                 f"Found pattern: {finding['pattern_name']} Score: {finding['confidence_score']}"
             )
 
-    return matched_strings
+    return all_findings

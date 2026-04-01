@@ -100,6 +100,23 @@ Users who want a slightly modified version of an option can select "Other" and r
 
 </using_askuserquestion>
 
+<freeform_rule>
+
+**When the user wants to explain freely, STOP using question.**
+
+If a user selects "Other" and their response signals they want to describe something in their own words (e.g., "let me describe it", "I'll explain", "something else", or any open-ended reply that isn't choosing/modifying an existing option), you MUST:
+
+1. **Ask your follow-up as plain text** — NOT via question
+2. **Wait for them to type at the normal prompt**
+3. **Resume question** only after processing their freeform response
+
+The same applies if YOU include a freeform-indicating option (like "Let me explain" or "Describe in detail") and the user selects it.
+
+**Wrong:** User says "let me describe it" → question("What feature?", ["Feature A", "Feature B", "Describe in detail"])
+**Right:** User says "let me describe it" → "Go ahead — what are you thinking?"
+
+</freeform_rule>
+
 <context_checklist>
 
 Use this as a **background checklist**, not a conversation structure. Check these mentally as you go. If gaps remain, weave questions naturally.
@@ -138,7 +155,7 @@ Loop until "Create PROJECT.md" selected.
 - **Rushing** — Minimizing questions to get to "the work"
 - **Shallow acceptance** — Taking vague answers without probing
 - **Premature constraints** — Asking about tech stack before understanding the idea
-- **User skills** — NEVER ask about user's technical experience. Claude builds.
+- **User skills** — NEVER ask about user's technical experience. the agent builds.
 
 </anti_patterns>
 

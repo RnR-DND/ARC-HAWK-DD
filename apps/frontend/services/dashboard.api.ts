@@ -42,7 +42,7 @@ async function getMetricsFromSummary(summary: ClassificationSummary | null): Pro
     return {
         totalPII: summary.total || 0,
         highRiskFindings: highRiskCount,
-        assetsHit: Object.keys(summary.by_type || {}).length,
+        assetsHit: (summary as any).assets_hit || (summary as any).total_assets || 0,
         actionsRequired: summary.total - (summary.verified_count || 0) - (summary.false_positive_count || 0)
     };
 }
@@ -63,7 +63,7 @@ async function getRecentFindings(): Promise<DashboardFinding[]> {
             assetPath: f.asset_path || f.asset?.path || f.field_name || '',
             field: f.field_name || f.matches?.[0] || '',
             piiType: f.pattern_name || f.classifications?.[0]?.classification_type || 'Unknown',
-            confidence: f.confidence_score || f.confidence || 0.85,
+            confidence: f.confidence_score || f.confidence || 0,
             risk: mapSeverityToRisk(f.severity || f.risk),
             sourceType: mapSourceType(f.source_type || f.asset?.asset_type || f.data_source)
         }));
@@ -123,7 +123,7 @@ async function getRiskDistribution(): Promise<{
             const assetName = f.asset_name || f.asset?.name || 'Unknown';
             byAsset[assetName] = (byAsset[assetName] || 0) + 1;
 
-            const conf = f.confidence_score || f.confidence || 0.85;
+            const conf = f.confidence_score || f.confidence || 0;
             if (conf > 0.9) byConfidence['> 90% (High)']++;
             else if (conf >= 0.7) byConfidence['70-90% (Med)']++;
             else byConfidence['< 70% (Low)']++;

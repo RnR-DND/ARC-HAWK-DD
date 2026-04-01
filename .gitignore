@@ -197,6 +197,8 @@ node_modules/
 apps/scanner/config/*.yml
 !apps/scanner/config/config.example.yml
 connection.yml
+.env.production
+**/.env.production
 
 # Compiled Binaries
 apps/backend/main
