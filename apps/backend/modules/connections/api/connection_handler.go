@@ -1,8 +1,8 @@
 package api
 
 import (
+	"context"
 	"net/http"
-	"log"
 
 	"github.com/arc-platform/backend/modules/connections/service"
 	"github.com/gin-gonic/gin"
@@ -40,7 +40,6 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-        log.Printf("HANDLER DEBUG CONFIG: %+v", req.Config)
 	// TODO: Get user from auth context (Phase 2 - Authentication)
 	createdBy := "system"
 
@@ -58,7 +57,7 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 
 	// Auto-sync to scanner YAML in background
 	go func() {
-		if err := h.syncService.SyncToYAML(c.Request.Context()); err != nil {
+		if err := h.syncService.SyncToYAML(context.Background()); err != nil {
 			// Log error but don't fail the request
 			println("WARNING: Failed to sync connection to scanner:", err.Error())
 		}
@@ -99,7 +98,7 @@ func (h *ConnectionHandler) DeleteConnection(c *gin.Context) {
 
 	// Auto-sync to scanner YAML in background
 	go func() {
-		if err := h.syncService.SyncToYAML(c.Request.Context()); err != nil {
+		if err := h.syncService.SyncToYAML(context.Background()); err != nil {
 			// Log error but don't fail the request
 			println("WARNING: Failed to sync after deletion:", err.Error())
 		}

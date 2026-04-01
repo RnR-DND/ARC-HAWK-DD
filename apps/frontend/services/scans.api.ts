@@ -23,7 +23,7 @@ export const scansApi = {
     getLastScanRun: async (): Promise<any> => {
         try {
             const response = await get<any>('/scans/latest');
-            return response.data;
+            return response;
         } catch (error) {
             console.error('Failed to fetch last scan:', error);
             return null;
@@ -34,7 +34,7 @@ export const scansApi = {
         try {
             // The backend returns { data: [...] } structure
             const response = await get<any>('/scans');
-            return response.data || [];
+            return response || [];
         } catch (error) {
             console.error('Failed to fetch scans:', error);
             return [];

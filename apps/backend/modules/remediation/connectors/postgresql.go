@@ -99,8 +99,11 @@ func (c *PostgreSQLConnector) Encrypt(ctx context.Context, location string, fiel
 		return err
 	}
 
-	// Encrypt value (simplified - in production use proper encryption)
-	encryptedValue := fmt.Sprintf("ENC:%s", originalValue) // Placeholder
+	// Encrypt value with AES-GCM
+	encryptedValue, err := encryptAESGCM(encryptionKey, originalValue)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt value: %w", err)
+	}
 
 	safeTable, err := sanitizePgIdentifier(location)
 	if err != nil {

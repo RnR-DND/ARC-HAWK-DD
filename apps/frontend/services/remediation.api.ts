@@ -15,7 +15,7 @@ export interface ExecuteRemediationResponse {
 
 export interface RemediationEvent {
     id: string;
-    action: 'MASK' | 'DELETE' | 'ANONYMIZE';
+    action: 'MASK' | 'DELETE' | 'ENCRYPT';
     target: string;
     executed_by: string;
     executed_at: string;
@@ -39,11 +39,13 @@ export const remediationApi = {
         limit?: number;
         offset?: number;
         action?: string;
+        assetId?: string;
     }): Promise<RemediationHistoryResponse> => {
         const queryParams = new URLSearchParams();
         if (params?.limit) queryParams.append('limit', params.limit.toString());
         if (params?.offset) queryParams.append('offset', params.offset.toString());
         if (params?.action) queryParams.append('action', params.action);
+        if (params?.assetId) queryParams.append('asset_id', params.assetId);
 
         const query = queryParams.toString();
         return await get<RemediationHistoryResponse>(

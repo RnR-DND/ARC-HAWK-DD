@@ -28,13 +28,18 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 	}
 	defer tx.Rollback()
 
+	// Use scan_id from request to link back to the orchestrated scan run
+	scanRunID, err := uuid.Parse(input.ScanID)
+	if err != nil {
+		scanRunID = uuid.New()
+	}
+
 	// Create scan run
 	scanRun := &entity.ScanRun{
-		ID:     uuid.New(),
+		ID:     scanRunID,
 		Status: "completed",
 		Metadata: map[string]interface{}{
 			"sdk_scan":    true,
-			"scan_id":     input.ScanID,
 			"sdk_version": "2.0",
 		},
 	}

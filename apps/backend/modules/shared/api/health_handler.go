@@ -153,8 +153,8 @@ func (h *HealthHandler) checkScanner(ctx context.Context) ComponentHealth {
 	// Check if scans table is accessible and has recent activity
 	var lastScanTime *time.Time
 	err := h.db.QueryRow(`
-		SELECT MAX(created_at) 
-		FROM scans 
+		SELECT MAX(created_at)
+		FROM scan_runs
 		WHERE created_at > NOW() - INTERVAL '1 hour'
 	`).Scan(&lastScanTime)
 

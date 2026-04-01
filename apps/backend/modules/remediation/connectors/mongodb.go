@@ -3,6 +3,7 @@ package connectors
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -28,7 +29,7 @@ func (c *MongoDBConnector) Connect(ctx context.Context, config map[string]interf
 
 	// Add authentication database if specified
 	if authDB := getString(config, "auth_database", ""); authDB != "" {
-		uri += "?authSource=" + authDB
+		uri += "?authSource=" + url.QueryEscape(authDB)
 	}
 
 	// Connect to MongoDB
@@ -119,8 +120,11 @@ func (c *MongoDBConnector) Encrypt(ctx context.Context, location string, fieldNa
 		return err
 	}
 
-	// Simple encryption placeholder - in production use proper encryption
-	encryptedValue := fmt.Sprintf("ENC[%s]", originalValue)
+	// Encrypt with AES-GCM
+	encryptedValue, err := encryptAESGCM(encryptionKey, originalValue)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt value: %w", err)
+	}
 
 	db := c.client.Database(getString(c.config, "database", "admin"))
 	collection := db.Collection(location)

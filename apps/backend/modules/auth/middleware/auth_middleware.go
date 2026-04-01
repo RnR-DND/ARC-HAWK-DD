@@ -271,9 +271,12 @@ func GetUserFromContext(ctx context.Context) (*UserContext, bool) {
 		role = ""
 	}
 
-	tenantID, ok := ctx.Value("tenant_id").(string)
-	if !ok {
-		tenantID = ""
+	var tenantID string
+	switch v := ctx.Value("tenant_id").(type) {
+	case string:
+		tenantID = v
+	case uuid.UUID:
+		tenantID = v.String()
 	}
 
 	sessionID, ok := ctx.Value("session_id").(string)

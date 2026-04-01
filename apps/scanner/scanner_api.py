@@ -287,8 +287,8 @@ def map_pattern_to_pii_type(pattern_name):
     if 'bank' in name or 'account' in name: return 'IN_BANK_ACCOUNT'
     if 'voter' in name: return 'IN_VOTER_ID'
     if 'driving' in name or 'license' in name or 'licence' in name: return 'IN_DRIVING_LICENSE'
-    logger.warning(f"Unmapped pattern '{pattern_name}' — finding will be rejected by backend (not in locked PII scope)")
-    return 'UNKNOWN'
+    # Pass through the pattern name instead of UNKNOWN for better diagnostics
+    return pattern_name.upper().replace(' ', '_').replace('-', '_')
 
 
 if __name__ == '__main__':

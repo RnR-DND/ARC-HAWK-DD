@@ -44,8 +44,8 @@ func (s *ScanCleanupService) cleanupStaleScans(ctx context.Context) {
 
 	// Find scans that have been running for more than 30 minutes
 	query := `
-		UPDATE scans 
-		SET status = 'timeout', 
+		UPDATE scan_runs
+		SET status = 'timeout',
 		    scan_completed_at = NOW(),
 		    updated_at = NOW()
 		WHERE status = 'running' 
@@ -87,8 +87,8 @@ func (s *ScanCleanupService) CleanupStaleScanOnce(ctx context.Context) int {
 	// Return count of cleaned scans
 	var count int
 	query := `
-		SELECT COUNT(*) FROM scans 
-		WHERE status = 'timeout' 
+		SELECT COUNT(*) FROM scan_runs
+		WHERE status = 'timeout'
 		  AND updated_at > NOW() - INTERVAL '1 minute'
 	`
 	s.repo.GetDB().QueryRowContext(ctx, query).Scan(&count)

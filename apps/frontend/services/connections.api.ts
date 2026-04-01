@@ -1,27 +1,15 @@
-
-const isServer = typeof window === 'undefined';
-let API_BASE = '';
-
-if (isServer) {
-    // Server-side: Use full Docker URL
-    const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-    // Remove /api/v1 suffix if present because calls append it
-    API_BASE = envUrl.replace(/\/api\/v1\/?$/, '');
-} else {
-    // Client-side: Use empty string to allow relative paths (/api/v1/...)
-    API_BASE = '';
-}
+import { get, post, del } from '@/utils/api-client';
 
 export interface ConnectionConfig {
     source_type: string;
     profile_name: string;
     config: {
         host?: string;
-        username?: string;
+        user?: string;
         password?: string;
         database?: string;
         environment?: string;
-        [key: string]: any;
+        [key: string]: unknown;
     };
 }
 
@@ -34,89 +22,47 @@ export interface Connection {
     updated_at: string;
 }
 
-export async function addConnection(data: ConnectionConfig) {
-    const response = await fetch(`${API_BASE}/api/v1/connections`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || error.message || `Failed to add connection: ${response.statusText}`);
+/** Normalize config keys: rename username → user for backend compatibility */
+function normalizeConfig(data: ConnectionConfig): ConnectionConfig {
+    const { config } = data;
+    if ('username' in config) {
+        const { username, ...rest } = config as { username?: string; [key: string]: unknown };
+        return { ...data, config: { ...rest, user: username } };
     }
+    return data;
+}
 
-    return response.json();
+export async function addConnection(data: ConnectionConfig): Promise<unknown> {
+    return post<unknown>('/connections', normalizeConfig(data));
 }
 
 export async function getConnections(): Promise<{ connections: Connection[] }> {
-    const response = await fetch(`${API_BASE}/api/v1/connections`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch connections: ${response.statusText}`);
-    }
-
-    return response.json();
+    return get<{ connections: Connection[] }>('/connections');
 }
 
-export async function syncConnections() {
-    const response = await fetch(`${API_BASE}/api/v1/connections/sync`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to sync connections: ${response.statusText}`);
-    }
-
-    return response.json();
+export async function deleteConnection(id: string): Promise<unknown> {
+    return del<unknown>(`/connections/${id}`);
 }
 
-export async function validateSync() {
-    const response = await fetch(`${API_BASE}/api/v1/connections/sync/validate`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to validate sync: ${response.statusText}`);
-    }
-
-    return response.json();
+export async function syncConnections(): Promise<unknown> {
+    return post<unknown>('/connections/sync', {});
 }
 
-export async function testConnection(data: ConnectionConfig) {
-    const response = await fetch(`${API_BASE}/api/v1/connections/test`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    });
+export async function validateSync(): Promise<unknown> {
+    return get<unknown>('/connections/sync/validate');
+}
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || error.message || `Connection test failed: ${response.statusText}`);
-    }
-
-    return response.json();
+export async function testConnection(data: ConnectionConfig): Promise<unknown> {
+    return post<unknown>('/connections/test', normalizeConfig(data));
 }
 
 export const connectionsApi = {
     addConnection,
     getConnections,
+    deleteConnection,
     syncConnections,
     validateSync,
     testConnection,
 };
+
+export default connectionsApi;

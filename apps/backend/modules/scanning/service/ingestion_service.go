@@ -46,6 +46,12 @@ type HawkeyeScanInput struct {
 	ScanID     string           `json:"scan_id"` // Added for correlation
 	FS         []HawkeyeFinding `json:"fs"`
 	PostgreSQL []HawkeyeFinding `json:"postgresql"`
+	MySQL      []HawkeyeFinding `json:"mysql"`
+	MongoDB    []HawkeyeFinding `json:"mongodb"`
+	S3         []HawkeyeFinding `json:"s3"`
+	Redis      []HawkeyeFinding `json:"redis"`
+	Slack      []HawkeyeFinding `json:"slack"`
+	GCS        []HawkeyeFinding `json:"gcs"`
 }
 
 // HawkeyeFinding represents a single finding from Hawk-eye
@@ -73,7 +79,10 @@ type IngestScanResult struct {
 
 // IngestScan processes Hawk-eye scan output and normalizes it into the database
 func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInput) (*IngestScanResult, error) {
-	if len(input.FS) == 0 && len(input.PostgreSQL) == 0 {
+	if len(input.FS) == 0 && len(input.PostgreSQL) == 0 &&
+		len(input.MySQL) == 0 && len(input.MongoDB) == 0 &&
+		len(input.S3) == 0 && len(input.Redis) == 0 &&
+		len(input.Slack) == 0 && len(input.GCS) == 0 {
 		return nil, fmt.Errorf("no findings in scan input")
 	}
 
@@ -93,8 +102,14 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		}
 	}()
 
-	// Combine findings
+	// Combine findings from all data sources
 	allFindings := append(input.FS, input.PostgreSQL...)
+	allFindings = append(allFindings, input.MySQL...)
+	allFindings = append(allFindings, input.MongoDB...)
+	allFindings = append(allFindings, input.S3...)
+	allFindings = append(allFindings, input.Redis...)
+	allFindings = append(allFindings, input.Slack...)
+	allFindings = append(allFindings, input.GCS...)
 
 	// Try to link to existing ScanRun if ScanID is provided in input
 	// (Check first finding's custom field or top-level metadata if available)

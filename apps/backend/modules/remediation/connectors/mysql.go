@@ -96,7 +96,10 @@ func (c *MySQLConnector) Encrypt(ctx context.Context, location string, fieldName
 		return err
 	}
 
-	encryptedValue := fmt.Sprintf("ENC:%s", originalValue) // Placeholder
+	encryptedValue, err := encryptAESGCM(encryptionKey, originalValue)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt value: %w", err)
+	}
 
 	safeTable, err := sanitizeMySQLIdentifier(location)
 	if err != nil {

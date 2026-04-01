@@ -137,10 +137,16 @@ func (s *ScanOrchestrationService) processJobs() {
 
 	fmt.Println("🦅 Launching Hawk Scanner SDK...")
 
+	// Resolve python binary: prefer python3, fall back to python
+	pythonBin := "python3"
+	if _, err := exec.LookPath("python3"); err != nil {
+		if _, err2 := exec.LookPath("python"); err2 == nil {
+			pythonBin = "python"
+		}
+	}
 	// Construct command to run scanner
-	// We run python3 from the scanner directory to ensure imports work
 	// NOTE: Removed --json to allow auto-ingest to run (--json causes early exit)
-	cmd := exec.Command("python3", "hawk_scanner/main.py", "all",
+	cmd := exec.Command(pythonBin, "hawk_scanner/main.py", "all",
 		"--connection", "config/connection.yml",
 		"--fingerprint", "../../fingerprint.yml",
 		"--ingest-url", "http://localhost:8080/api/v1/scans/ingest-verified",

@@ -2,8 +2,12 @@ package connectors
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +17,47 @@ import (
 // FilesystemConnector implements remediation for filesystem
 type FilesystemConnector struct {
 	basePath string
+}
+
+// safeJoinPath joins basePath and location, rejecting any path traversal attempts.
+func safeJoinPath(basePath, location string) (string, error) {
+	joined := filepath.Join(basePath, location)
+	rel, err := filepath.Rel(basePath, joined)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("path traversal attempt detected: %q", location)
+	}
+	return joined, nil
+}
+
+// encryptAESGCM encrypts plaintext with AES-GCM.
+// keyStr must be either a 32-byte raw string or a 64-character hex-encoded string.
+func encryptAESGCM(keyStr, plaintext string) (string, error) {
+	var key []byte
+	if len(keyStr) == 64 {
+		var err error
+		key, err = hex.DecodeString(keyStr)
+		if err != nil {
+			return "", fmt.Errorf("invalid hex encryption key: %w", err)
+		}
+	} else if len(keyStr) == 32 {
+		key = []byte(keyStr)
+	} else {
+		return "", fmt.Errorf("invalid encryption key: must be 32 bytes or 64-char hex string")
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", fmt.Errorf("failed to generate nonce: %w", err)
+	}
+	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
+	return hex.EncodeToString(ciphertext), nil
 }
 
 // Connect establishes connection to filesystem
@@ -41,17 +86,20 @@ func (c *FilesystemConnector) Close() error {
 // fieldName: pattern to match (e.g., "email", "phone")
 // recordID: line number or unique identifier
 func (c *FilesystemConnector) Mask(ctx context.Context, location string, fieldName string, recordID string) error {
-	filePath := filepath.Join(c.basePath, location)
+	filePath, err := safeJoinPath(c.basePath, location)
+	if err != nil {
+		return err
+	}
 
 	// Read file content
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
 	// Create backup
 	backupPath := filePath + ".backup"
-	if err := ioutil.WriteFile(backupPath, content, 0644); err != nil {
+	if err := os.WriteFile(backupPath, content, 0644); err != nil {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}
 
@@ -59,7 +107,7 @@ func (c *FilesystemConnector) Mask(ctx context.Context, location string, fieldNa
 	maskedContent := c.maskPIIInContent(string(content), fieldName)
 
 	// Write masked content
-	if err := ioutil.WriteFile(filePath, []byte(maskedContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(maskedContent), 0644); err != nil {
 		return fmt.Errorf("failed to write masked file: %w", err)
 	}
 
@@ -68,16 +116,19 @@ func (c *FilesystemConnector) Mask(ctx context.Context, location string, fieldNa
 
 // Delete removes file
 func (c *FilesystemConnector) Delete(ctx context.Context, location string, recordID string) error {
-	filePath := filepath.Join(c.basePath, location)
+	filePath, err := safeJoinPath(c.basePath, location)
+	if err != nil {
+		return err
+	}
 
 	// Create backup before deletion
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file for backup: %w", err)
 	}
 
 	backupPath := filePath + ".deleted.backup"
-	if err := ioutil.WriteFile(backupPath, content, 0644); err != nil {
+	if err := os.WriteFile(backupPath, content, 0644); err != nil {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}
 
@@ -89,27 +140,33 @@ func (c *FilesystemConnector) Delete(ctx context.Context, location string, recor
 	return nil
 }
 
-// Encrypt encrypts file
+// Encrypt encrypts file content with AES-GCM
 func (c *FilesystemConnector) Encrypt(ctx context.Context, location string, fieldName string, recordID string, encryptionKey string) error {
-	filePath := filepath.Join(c.basePath, location)
+	filePath, err := safeJoinPath(c.basePath, location)
+	if err != nil {
+		return err
+	}
 
 	// Read file content
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
 	// Create backup
 	backupPath := filePath + ".backup"
-	if err := ioutil.WriteFile(backupPath, content, 0644); err != nil {
+	if err := os.WriteFile(backupPath, content, 0644); err != nil {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}
 
-	// Simple encryption (placeholder - use proper encryption in production)
-	encryptedContent := fmt.Sprintf("ENCRYPTED:%s", string(content))
+	// Encrypt with AES-GCM
+	encryptedContent, err := encryptAESGCM(encryptionKey, string(content))
+	if err != nil {
+		return fmt.Errorf("failed to encrypt file: %w", err)
+	}
 
 	// Write encrypted content
-	if err := ioutil.WriteFile(filePath, []byte(encryptedContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(encryptedContent), 0644); err != nil {
 		return fmt.Errorf("failed to write encrypted file: %w", err)
 	}
 
@@ -118,9 +175,12 @@ func (c *FilesystemConnector) Encrypt(ctx context.Context, location string, fiel
 
 // GetOriginalValue retrieves original file content
 func (c *FilesystemConnector) GetOriginalValue(ctx context.Context, location string, fieldName string, recordID string) (string, error) {
-	filePath := filepath.Join(c.basePath, location)
+	filePath, err := safeJoinPath(c.basePath, location)
+	if err != nil {
+		return "", err
+	}
 
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
@@ -130,10 +190,13 @@ func (c *FilesystemConnector) GetOriginalValue(ctx context.Context, location str
 
 // RestoreValue restores original file content
 func (c *FilesystemConnector) RestoreValue(ctx context.Context, location string, fieldName string, recordID string, originalValue string) error {
-	filePath := filepath.Join(c.basePath, location)
+	filePath, err := safeJoinPath(c.basePath, location)
+	if err != nil {
+		return err
+	}
 
 	// Write original content back
-	if err := ioutil.WriteFile(filePath, []byte(originalValue), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(originalValue), 0644); err != nil {
 		return fmt.Errorf("failed to restore file: %w", err)
 	}
 

@@ -114,7 +114,7 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 	// Get last scan time
 	var lastScanTime time.Time
 	err = h.pgRepo.GetDB().QueryRow(`
-		SELECT MAX(created_at) FROM scans WHERE status = 'completed'
+		SELECT MAX(created_at) FROM scan_runs WHERE status = 'completed'
 	`).Scan(&lastScanTime)
 	if err == nil {
 		metrics.LastScanTime = lastScanTime

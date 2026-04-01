@@ -25,7 +25,6 @@ func NewRemediationHandler(svc *service.RemediationService) *RemediationHandler 
 type ExecuteRemediationRequest struct {
 	FindingIDs []string `json:"finding_ids" binding:"required"`
 	ActionType string   `json:"action_type" binding:"required,oneof=MASK DELETE ENCRYPT"`
-	UserID     string   `json:"user_id" binding:"required"`
 }
 
 // ExecuteRemediationResponse represents a remediation execution response
@@ -44,13 +43,17 @@ func (h *RemediationHandler) ExecuteRemediation(c *gin.Context) {
 		return
 	}
 
+	// Extract user ID from JWT context (prevents IDOR - never trust body-supplied user_id)
+	userID, _ := c.Get("user_id")
+	userIDStr, _ := userID.(string)
+
 	var actionIDs []string
 	var errors []string
 	success := 0
 	failed := 0
 
 	for _, findingID := range req.FindingIDs {
-		actionID, err := h.service.ExecuteRemediation(c.Request.Context(), findingID, req.ActionType, req.UserID)
+		actionID, err := h.service.ExecuteRemediation(c.Request.Context(), findingID, req.ActionType, userIDStr)
 		if err != nil {
 			errors = append(errors, fmt.Sprintf("Finding %s: %s", findingID, err.Error()))
 			failed++

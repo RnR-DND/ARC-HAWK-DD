@@ -32,7 +32,14 @@ data_sources_option = ['all'] + data_sources
 
 
 def parse_args(args=None):
-	version = pkg_resources.require("hawk_scanner")[0].version
+	try:
+		from hawk_scanner.__version__ import VERSION
+		version = VERSION
+	except ImportError:
+		try:
+			version = pkg_resources.require("hawk_scanner")[0].version
+		except Exception:
+			version = "0.3.39"
 	parser = argparse.ArgumentParser(description='🦅 A powerful scanner to scan your Filesystem, S3, MySQL, PostgreSQL, MongoDB, Redis, Google Cloud Storage and Firebase storage for PII and sensitive data.')
 	parser.add_argument('command', nargs='?', choices=data_sources_option, help='Command to execute')
 	parser.add_argument('--connection', action='store', help='YAML Connection file path')
@@ -878,22 +885,18 @@ def match_strings(args, content, source='text'):
     findings = []
 
     for r in results:
-        raw = content[r.start:r.end]
-        raw = raw.strip().upper()
-        matches = re.findall(r'[A-Z]{5}[0-9]{4}[A-Z]', raw)
-        if matches:
-            value = matches[0]
-        else:
-            continue  # skip invalid match completely
+        raw = content[r.start:r.end].strip()
+        if not raw:
+            continue
 
-        print("DEBUG VALUE:", repr(value))
         pattern_name = r.entity_type
         if pattern_name == "IN_PAN":
             pattern_name = "PAN"
         findings.append({
             "pattern_name": pattern_name,
             "confidence_score": r.score,
-            "matches": [value],
+            "matches": [raw],
+            "sample_text": raw,
             "start": r.start,
             "end": r.end
         })

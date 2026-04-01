@@ -11,6 +11,17 @@ export interface ScanRun {
     status: string;
     created_at: string;
     updated_at: string;
+    metadata?: Record<string, unknown>;
+    tenant_id?: string;
+}
+
+export interface Connection {
+    id: string;
+    source_type: string;
+    profile_name: string;
+    validation_status: string;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Asset {
@@ -47,6 +58,12 @@ export interface Finding {
     confidence_score?: number;
     created_at: string;
     updated_at: string;
+    tenant_id?: string;
+    masked_value?: string;
+    context?: string;
+    enrichment_signals?: Record<string, unknown>;
+    enrichment_score?: number;
+    enrichment_failed?: boolean;
 }
 
 // Multi-Signal Classification Types

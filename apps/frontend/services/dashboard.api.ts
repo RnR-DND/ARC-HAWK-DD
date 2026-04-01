@@ -49,13 +49,13 @@ async function getMetricsFromSummary(summary: ClassificationSummary | null): Pro
 
 async function getRecentFindings(): Promise<DashboardFinding[]> {
     try {
-        const response = await get<{ data: { findings: any[], total: number } }>('/findings', {
+        const response = await get<{ findings: any[], total: number }>('/findings', {
             page: 1,
             page_size: 10,
             severity: 'High,Medium'
         });
 
-        const findings = response.data?.findings || [];
+        const findings = response?.findings || [];
 
         return findings.slice(0, 5).map((f: any) => ({
             id: f.id || f.finding_id,
@@ -95,8 +95,8 @@ async function getRiskDistribution(): Promise<{
     byConfidence: Record<string, number>;
 }> {
     try {
-        const summaryRes = await get<{ data: ClassificationSummary }>('/classification/summary');
-        const summary = summaryRes.data;
+        const summaryRes = await get<ClassificationSummary>('/classification/summary');
+        const summary = summaryRes;
 
         const byPiiType: Record<string, number> = {};
         const byAsset: Record<string, number> = {};
@@ -112,12 +112,12 @@ async function getRiskDistribution(): Promise<{
             }
         }
 
-        const findingsRes = await get<{ data: { findings: any[] } }>('/findings', {
+        const findingsRes = await get<{ findings: any[] }>('/findings', {
             page: 1,
-            page_size: 1000
+            page_size: 50
         });
 
-        const findings = findingsRes.data?.findings || [];
+        const findings = findingsRes?.findings || [];
 
         for (const f of findings) {
             const assetName = f.asset_name || f.asset?.name || 'Unknown';
@@ -140,23 +140,19 @@ async function getRiskDistribution(): Promise<{
     }
 }
 
-function getFallbackFindings(): DashboardFinding[] {
-    return [];
-}
-
 export const dashboardApi = {
     async getDashboardData(): Promise<DashboardData> {
         try {
             // Try new dashboard metrics endpoint first (more accurate)
             let metrics: DashboardMetrics;
             try {
-                const metricsRes = await get<{ data: any }>('/dashboard/metrics');
-                if (metricsRes?.data) {
+                const metricsRes = await get<any>('/dashboard/metrics');
+                if (metricsRes) {
                     metrics = {
-                        totalPII: metricsRes.data.total_pii || 0,
-                        highRiskFindings: metricsRes.data.high_risk_findings || 0,
-                        assetsHit: metricsRes.data.assets_hit || 0,
-                        actionsRequired: metricsRes.data.actions_required || 0
+                        totalPII: metricsRes.total_pii || 0,
+                        highRiskFindings: metricsRes.high_risk_findings || 0,
+                        assetsHit: metricsRes.assets_hit || 0,
+                        actionsRequired: metricsRes.actions_required || 0
                     };
                 } else {
                     throw new Error('No metrics data');
@@ -165,8 +161,7 @@ export const dashboardApi = {
                 throw new Error('Failed to fetch metrics data');
             }
 
-            const latestScanRes = await get<{ data: any }>('/scans/latest').catch(() => ({ data: null }));
-            const latestScan = latestScanRes.data;
+            const latestScan = await get<any>('/scans/latest').catch(() => null);
 
             const [recentFindings, riskDist] = await Promise.all([
                 getRecentFindings(),

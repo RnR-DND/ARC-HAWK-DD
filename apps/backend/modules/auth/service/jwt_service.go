@@ -4,8 +4,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/arc-platform/backend/modules/auth/entity"
@@ -32,6 +34,7 @@ type JWTService struct {
 	secretKey     []byte
 	tokenExpiry   time.Duration
 	refreshExpiry time.Duration
+	blacklist     sync.Map
 }
 
 func NewJWTService() *JWTService {
@@ -109,6 +112,11 @@ func (s *JWTService) GenerateToken(user *entity.User, sessionID uuid.UUID) (stri
 }
 
 func (s *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
+	// Reject blacklisted tokens
+	if _, revoked := s.blacklist.Load(tokenString); revoked {
+		return nil, ErrInvalidToken
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
@@ -164,7 +172,7 @@ func GenerateSecureToken(length int) (string, error) {
 
 func HashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
-	return string(hash[:])
+	return hex.EncodeToString(hash[:])
 }
 
 func (s *JWTService) GenerateResetToken(userID uuid.UUID) (string, time.Time, error) {
@@ -203,8 +211,6 @@ func (s *JWTService) ValidateResetToken(tokenString string) (uuid.UUID, error) {
 }
 
 func (s *JWTService) InvalidateToken(tokenString string) error {
-	// In a production system, you would add the token to a blacklist
-	// For now, just validate it exists
-	_, err := s.ValidateToken(tokenString)
-	return err
+	s.blacklist.Store(tokenString, struct{}{})
+	return nil
 }
