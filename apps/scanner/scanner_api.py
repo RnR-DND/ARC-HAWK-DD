@@ -5,14 +5,21 @@ Provides REST API for triggering scans and ingesting results into the backend.
 import uuid
 import os
 import json
+import logging
 import subprocess
 import threading
-import tempfile
 import requests
 from flask import Flask, request, jsonify
 from datetime import datetime
 
 app = Flask(__name__)
+
+# Use structured logging instead of print()
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+)
+logger = logging.getLogger('arc-hawk-scanner')
 
 # Global state for tracking scans
 active_scans = {}
@@ -22,9 +29,7 @@ BACKEND_URL = os.getenv('BACKEND_URL', 'http://backend:8080')
 @app.before_request
 def log_request_info():
     """Log incoming request details for auditability."""
-    app.logger.info(f"[{datetime.now().isoformat()}] {request.method} {request.path} from {request.remote_addr}")
-    if request.path == '/scan':
-        app.logger.info(f"Scan request data: {request.get_data(as_text=True)}")
+    app.logger.info(f"{request.method} {request.path} from {request.remote_addr}")
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -96,43 +101,56 @@ def execute_scan(scan_id, config):
         # Create a temporary connection config for this scan
         connection_config_path = f'/tmp/connection_{scan_id}.yml'
         
-        # Build connection config structure
-        # We assume all sources are filesystem paths for now, or we need source type in request
-        # The current request format assumes everything is a path (fs)
+        import yaml
         
-        fs_profiles = {}
-        for idx, source in enumerate(sources):
-            profile_name = f"scan_{scan_id}_source_{idx}"
-            fs_profiles[profile_name] = {
-                "path": source
-            }
+        # Load the global connection config synced from the backend
+        global_config_path = 'config/connection.yml'
+        global_data = {}
+        if os.path.exists(global_config_path):
+            with open(global_config_path, 'r') as f:
+                global_data = yaml.safe_load(f) or {}
+                
+        # Build the filtered sources block for this scan run
+        filtered_sources = {}
+        global_sources = global_data.get('sources', {})
+        
+        for source in sources:
+            found = False
+            for src_type, profiles in global_sources.items():
+                if profiles and source in profiles:
+                    if src_type not in filtered_sources:
+                        filtered_sources[src_type] = {}
+                    filtered_sources[src_type][source] = profiles[source]
+                    found = True
+                    break
             
-        connection_data = {
-            "sources": {
-                "fs": fs_profiles
-            },
-            "notify": {
-                "slack": {
-                    "webhook_url": "",
-                    "mention": ""
+            # Fallback if the profile wasn't found (treat as fs path)
+            if not found:
+                if 'fs' not in filtered_sources:
+                    filtered_sources['fs'] = {}
+                filtered_sources['fs'][f"scan_{scan_id}_{source}"] = {
+                    "path": source
                 }
-            }
+                
+        connection_data = {
+            "sources": filtered_sources,
+            "notify": global_data.get('notify', {})
         }
         
-        import yaml
         with open(connection_config_path, 'w') as f:
             yaml.dump(connection_data, f)
             
-        # Build scan command - we use 'fs' as the command since we mapped sources to fs profiles
+        # Build scan command using the native CLI entrypoint. 
+        # 'all' tells the CLI to execute the pipeline over every data source type found in the YAML.
         cmd = [
             'hawk_scanner',
-            'fs',
+            'all',
             '--json', output_file,
             '--connection', connection_config_path
         ]
             
-        print(f"[Scanner] Executing: {' '.join(cmd)}")
-        
+        logger.info(f"Executing: {' '.join(cmd)}")
+
         try:
             result = subprocess.run(
                 cmd,
@@ -140,16 +158,16 @@ def execute_scan(scan_id, config):
                 text=True,
                 timeout=600  # 10 minute timeout
             )
-            
-            print(f"[Scanner] stdout: {result.stdout[:500] if result.stdout else 'empty'}")
+
+            logger.info(f"stdout: {result.stdout[:500] if result.stdout else 'empty'}")
             if result.stderr:
-                print(f"[Scanner] stderr: {result.stderr[:500]}")
-                
+                logger.warning(f"stderr: {result.stderr[:500]}")
+
         except subprocess.TimeoutExpired:
-            print(f"[Scanner] Scan timed out")
+            logger.error("Scan timed out after 600s")
             raise
         except Exception as e:
-            print(f"[Scanner] Error scanning: {e}")
+            logger.error(f"Error running scanner: {e}")
             raise
         
         # Read and ingest results
@@ -175,10 +193,10 @@ def execute_scan(scan_id, config):
                 timeout=10
             )
         except Exception as e:
-            print(f"[Scanner] Failed to notify backend: {e}")
-        
+            logger.warning(f"Failed to notify backend of completion: {e}")
+
     except Exception as e:
-        print(f"[Scanner] Scan failed: {e}")
+        logger.error(f"Scan {scan_id} failed: {e}")
         active_scans[scan_id]['status'] = 'failed'
         active_scans[scan_id]['error'] = str(e)
 
@@ -186,98 +204,77 @@ def execute_scan(scan_id, config):
 def ingest_results(scan_id, results):
     """Send scan results to backend for ingestion."""
     try:
-        print(f"[Scanner] Raw results keys: {results.keys()}")
-        
+        logger.info(f"Raw results keys: {list(results.keys())}")
+
         # Transform results to VerifiedScanInput format
         verified_findings = []
-        
-        # Process 'fs' (filesystem) results
-        fs_findings = results.get('fs', [])
-        print(f"[Scanner] Found {len(fs_findings)} filesystem findings")
-        
-        for f in fs_findings:
-            # Map pattern name to PII Type (using simple heuristic for now)
-            pattern_name = f.get('pattern_name', 'Unknown')
-            pii_type = map_pattern_to_pii_type(pattern_name)
-            
-            # Create VerifiedFinding
-            vf = {
-                "pii_type": pii_type,
-                "value_hash": "", # Optional
-                "source": {
-                    "path": f.get('file_path', ''),
-                    "line": 0,
-                    "column": "",
-                    "table": "",
-                    "data_source": "fs",
-                    "host": f.get('host', 'localhost')
-                },
-                "validators_passed": ["pattern_match"],
-                "validation_method": "regex",
-                "ml_confidence": 0.95, # Mock high confidence for now
-                "ml_entity_type": pii_type,
-                "context_excerpt": f.get('sample_text', ''),
-                "context_keywords": [],
-                "pattern_name": pattern_name,
-                "detected_at": datetime.now().isoformat(),
-                "scanner_version": "0.3.39",
-                "metadata": f.get('file_data', {})
-            }
-            verified_findings.append(vf)
-            
-        # 🚨 Fallback: ensure at least one finding for pipeline validation
-        if len(verified_findings) == 0:
-            print("[Scanner] No findings detected → adding test finding")
-            verified_findings.append({
-                "pii_type": "IN_PAN",
-                "value_hash": "",
-                "source": {
-                    "path": "/app/test_file.txt",
-                        "line": 1,
-                        "column": "",
-                        "table": "",
-                        "data_source": "fs",
-                        "host": "localhost"
+        # Process all sources
+        for source_type, findings in results.items():
+            logger.info(f"Found {len(findings)} {source_type} findings")
+
+            for f in findings:
+                # Map pattern name to PII Type
+                pattern_name = f.get('pattern_name', 'Unknown')
+                pii_type = map_pattern_to_pii_type(pattern_name)
+
+                # Extract flexible metadata across different database types
+                path = f.get('file_path', '') or f.get('file_name', '') or f.get('channel_name', '')
+                column = f.get('column', '') or f.get('field', '') or f.get('key', '')
+                table = f.get('table', '') or f.get('collection', '') or f.get('bucket', '')
+
+                vf = {
+                    "pii_type": pii_type,
+                    "value_hash": "",
+                    "source": {
+                        "path": path,
+                        "line": 0,
+                        "column": column,
+                        "table": table,
+                        "data_source": source_type,
+                        "host": f.get('host', 'localhost')
                     },
-                "validators_passed": ["test_injection"],
-                "validation_method": "manual",
-                "ml_confidence": 0.99,
-                "ml_entity_type": "IN_PAN",
-                "context_excerpt": "ABCDE1234F",
-                "context_keywords": ["test"],
-                "pattern_name": "PAN_PATTERN",
-                "detected_at": datetime.now().isoformat(),
-                "scanner_version": "0.3.39",
-                "metadata": {}
-            })
+                    "validators_passed": ["pattern_match"],
+                    "validation_method": "regex",
+                    "ml_confidence": 0.95,
+                    "ml_entity_type": pii_type,
+                    "context_excerpt": f.get('sample_text', ''),
+                    "context_keywords": [],
+                    "pattern_name": pattern_name,
+                    "detected_at": datetime.utcnow().isoformat() + "Z",
+                    "scanner_version": "0.3.39",
+                    "metadata": f.get('file_data', {})
+                }
+                verified_findings.append(vf)
+
+        if len(verified_findings) == 0:
+            logger.info(f"Scan {scan_id} completed with zero findings — nothing to ingest")
+            return
 
         payload = {
             "scan_id": scan_id,
             "findings": verified_findings,
             "metadata": {}
         }
-        
-        print(f"[Scanner] Sending {len(verified_findings)} verified findings to backend")
-        
+
+        logger.info(f"Sending {len(verified_findings)} verified findings to backend")
+
         response = requests.post(
             f'{BACKEND_URL}/api/v1/scans/ingest-verified',
             json=payload,
             headers={'Content-Type': 'application/json'},
             timeout=60
         )
-        
+
         if response.ok:
-            print(f"[Scanner] Successfully ingested findings")
+            logger.info(f"Successfully ingested {len(verified_findings)} findings")
         else:
-            print(f"[Scanner] Ingestion failed: {response.status_code} - {response.text}")
-            
+            logger.error(f"Ingestion failed: {response.status_code} - {response.text}")
+
     except Exception as e:
-        print(f"[Scanner] Ingestion error: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Ingestion error: {e}", exc_info=True)
 
 def map_pattern_to_pii_type(pattern_name):
-    """Map hawk_scanner pattern names to backend PII types."""
+    """Map hawk_scanner pattern names to backend PII types (all 11 India locked types)."""
     name = pattern_name.lower()
     if 'pan' in name: return 'IN_PAN'
     if 'aadhaar' in name: return 'IN_AADHAAR'
@@ -285,6 +282,12 @@ def map_pattern_to_pii_type(pattern_name):
     if 'email' in name: return 'EMAIL_ADDRESS'
     if 'phone' in name: return 'IN_PHONE'
     if 'passport' in name: return 'IN_PASSPORT'
+    if 'upi' in name: return 'IN_UPI'
+    if 'ifsc' in name: return 'IN_IFSC'
+    if 'bank' in name or 'account' in name: return 'IN_BANK_ACCOUNT'
+    if 'voter' in name: return 'IN_VOTER_ID'
+    if 'driving' in name or 'license' in name or 'licence' in name: return 'IN_DRIVING_LICENSE'
+    logger.warning(f"Unmapped pattern '{pattern_name}' — finding will be rejected by backend (not in locked PII scope)")
     return 'UNKNOWN'
 
 

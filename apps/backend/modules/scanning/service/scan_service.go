@@ -36,7 +36,7 @@ func (s *ScanService) CreateScanRun(ctx context.Context, req *TriggerScanRequest
 		ID:            uuid.New(),
 		ProfileName:   req.Name,
 		Status:        "pending",
-		ScanStartedAt: time.Now(),
+		ScanStartedAt: time.Now().UTC(),
 		Metadata: map[string]interface{}{
 			"sources":         req.Sources,
 			"pii_types":       req.PIITypes,
@@ -58,23 +58,15 @@ func (s *ScanService) CreateScanRun(ctx context.Context, req *TriggerScanRequest
 func (s *ScanService) UpdateScanStatus(ctx context.Context, scanID uuid.UUID, status string) error {
 	scanRun, err := s.repo.GetScanRunByID(ctx, scanID)
 	if err != nil {
-    		// 🔥 CREATE SCAN IF NOT FOUND
-    		scanRun = &entity.ScanRun{
-        		ID:     scanID,
-        		Status: "pending",
-    		}
-
-		if err := s.repo.CreateScanRun(ctx, scanRun); err != nil {
-        		return fmt.Errorf("failed to create scan run: %w", err)
-    		}
+		return fmt.Errorf("scan run not found: %w", err)
 	}
 
 	scanRun.Status = status
 	if status == "running" && scanRun.ScanStartedAt.IsZero() {
-		scanRun.ScanStartedAt = time.Now()
+		scanRun.ScanStartedAt = time.Now().UTC()
 	}
 	if status == "completed" || status == "failed" || status == "cancelled" || status == "timeout" {
-		scanRun.ScanCompletedAt = time.Now()
+		scanRun.ScanCompletedAt = time.Now().UTC()
 	}
 
 	if err := s.repo.UpdateScanRun(ctx, scanRun); err != nil {

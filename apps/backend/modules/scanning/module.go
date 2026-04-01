@@ -47,7 +47,7 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	repo := persistence.NewPostgresRepository(deps.DB)
 
 	// Initialize services
-	m.enrichmentService = service.NewEnrichmentService(repo, nil)
+	m.enrichmentService = service.NewEnrichmentService(repo, deps.LineageSync)
 	m.classificationService = service.NewClassificationService(repo, deps.Config)
 	m.classificationSummaryService = service.NewClassificationSummaryService(repo)
 
