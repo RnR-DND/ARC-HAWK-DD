@@ -37,7 +37,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
 
@@ -56,6 +55,15 @@ func main() {
 		ginMode = "debug"
 	}
 	gin.SetMode(ginMode)
+
+	// C-4: Refuse to start with AUTH_REQUIRED=false in production
+	authRequired := getEnv("AUTH_REQUIRED", "true")
+	if ginMode == "release" && authRequired == "false" {
+		log.Fatal("FATAL: AUTH_REQUIRED must be true in production (GIN_MODE=release)")
+	}
+	if authRequired == "false" {
+		log.Println("⚠️  WARNING: AUTH_REQUIRED=false — authentication disabled (dev mode only)")
+	}
 
 	log.Println("🚀 Starting ARC-Hawk Backend (Modular Monolith Architecture)")
 	log.Println(strings.Repeat("=", 70))
@@ -222,6 +230,9 @@ func main() {
 	// Setup HTTP server
 	router := gin.Default()
 
+	// H-5: Request body size limit (10MB)
+	router.MaxMultipartMemory = 10 << 20
+
 	// CORS middleware
 	allowedOrigins := getEnv("ALLOWED_ORIGINS", "http://localhost:3000")
 	router.Use(cors.New(cors.Config{
@@ -248,7 +259,7 @@ func main() {
 	log.Println("🔒 Security Headers enabled (HSTS, CSP, X-Frame-Options)")
 
 	// Initialize JWT service
-	jwtService := service.NewJWTService()
+	jwtService := service.NewJWTService(db)
 
 	// Public paths that do not require authentication
 	publicPaths := map[string]bool{
@@ -268,18 +279,16 @@ func main() {
 
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			// AUTH_REQUIRED defaults to true in all environments.
-			// Set AUTH_REQUIRED=false only for local development — never in production.
 			if getEnv("AUTH_REQUIRED", "true") != "false" {
 				c.JSON(401, gin.H{"error": "Authorization required", "message": "Please provide a valid Bearer token"})
 				c.Abort()
 				return
 			}
-			// Anonymous access: inject nil tenant context for dev/test use only
-			// Use bare string key so persistence.GetTenantID can retrieve it
-			ctx := context.WithValue(c.Request.Context(), "tenant_id", uuid.Nil)
+			// Dev-only: use dedicated system tenant UUID (never uuid.Nil — C-1)
+			devTenant := persistence.DevSystemTenantID
+			ctx := context.WithValue(c.Request.Context(), persistence.TenantIDKey, devTenant)
 			c.Request = c.Request.WithContext(ctx)
-			c.Set("tenant_id", uuid.Nil)
+			c.Set("tenant_id", devTenant.String())
 			c.Next()
 			return
 		}
@@ -294,7 +303,7 @@ func main() {
 		token := authHeader[7:]
 		claims, err := jwtService.ValidateToken(token)
 		if err != nil {
-			c.JSON(401, gin.H{"error": "Invalid token", "details": err.Error()})
+			c.JSON(401, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
 			return
 		}
@@ -306,16 +315,15 @@ func main() {
 		c.Set("tenant_id", claims.TenantID)
 		c.Set("authenticated", true)
 
-		// Inject tenant ID into the standard request context for the DB layer
-		// Use bare string key so persistence.GetTenantID can retrieve it
-		ctx := context.WithValue(c.Request.Context(), "tenant_id", claims.TenantID)
+		// Inject tenant ID into request context using typed key (H-1)
+		ctx := context.WithValue(c.Request.Context(), persistence.TenantIDKey, claims.TenantID)
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
 	}
 
-	// Prometheus Metrics endpoint
-	router.GET("/metrics", func(c *gin.Context) {
+	// Prometheus Metrics endpoint (behind auth middleware)
+	router.GET("/metrics", authMiddleware, func(c *gin.Context) {
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
 
@@ -336,7 +344,7 @@ func main() {
 		fmt.Fprintf(c.Writer, "arc_hawk_modules_count %d\n", len(registry.GetAll()))
 	})
 
-	// Health check with detailed status
+	// Health check — minimal response to avoid leaking architecture details
 	router.GET("/health", func(c *gin.Context) {
 		dbHealthy := true
 		if err := db.Ping(); err != nil {
@@ -354,13 +362,8 @@ func main() {
 		}
 
 		c.JSON(200, gin.H{
-			"status":           status,
-			"service":          "arc-platform-backend",
-			"architecture":     "modular-monolith",
-			"modules":          len(registry.GetAll()),
-			"database":         gin.H{"healthy": dbHealthy},
-			"neo4j":            gin.H{"healthy": neo4jHealthy},
-			"temporal_enabled": false,
+			"status":  status,
+			"service": "arc-platform-backend",
 		})
 	})
 

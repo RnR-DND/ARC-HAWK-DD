@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/arc-platform/backend/modules/scanning/service"
@@ -23,10 +24,16 @@ func (h *SDKIngestHandler) IngestVerified(c *gin.Context) {
 	var input service.VerifiedScanInput
 
 	if err := c.ShouldBindJSON(&input); err != nil {
+		log.Printf("ERROR: Invalid ingest request body: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request body",
-			"details": err.Error(),
+			"error": "Invalid request body",
 		})
+		return
+	}
+
+	// H-5: Batch size limit
+	if len(input.Findings) > 10000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Batch size exceeds maximum of 10,000 findings"})
 		return
 	}
 
@@ -41,9 +48,9 @@ func (h *SDKIngestHandler) IngestVerified(c *gin.Context) {
 	// Process findings
 	ctx := c.Request.Context()
 	if err := h.ingestionService.IngestSDKVerified(ctx, input); err != nil {
+		log.Printf("ERROR: Failed to ingest findings: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to ingest findings",
-			"details": err.Error(),
+			"error": "Failed to ingest findings",
 		})
 		return
 	}

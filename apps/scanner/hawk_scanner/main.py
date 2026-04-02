@@ -9,15 +9,12 @@ from rich.panel import Panel
 from rich.text import Text
 from collections import defaultdict
 from hawk_scanner.internals import system
-from rich import print
+from rich import print as rprint
 # SSL verification is enabled by default
 
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
-
-
-clear_screen()
 
 console = Console()
 
@@ -27,7 +24,7 @@ def load_command_module(command):
         module = importlib.import_module(f"hawk_scanner.commands.{command}")
         return module
     except Exception as e:
-        print(f"Command '{command}' is not supported. {e}")
+        rprint(f"Command '{command}' is not supported. {e}")
         sys.exit(1)
 
 
@@ -229,16 +226,16 @@ def main():
                     pass  # Use command line value
                 elif 'ingest_url' in scan_config:
                     args.ingest_url = scan_config['ingest_url']
-                    print(
+                    rprint(
                         f"[INFO] Using ingest_url from config: {args.ingest_url}")
 
                 # Extract scan_id if present
                 if 'scan_id' in scan_config:
                     args.scan_id = scan_config['scan_id']
-                    print(f"[INFO] Using Scan ID from config: {args.scan_id}")
+                    rprint(f"[INFO] Using Scan ID from config: {args.scan_id}")
 
         except Exception as e:
-            print(f"[WARNING] Failed to read scan config: {e}")
+            rprint(f"[WARNING] Failed to read scan config: {e}")
 
     system.print_banner(args)
     results = []
@@ -260,7 +257,7 @@ def main():
                 file.write(json.dumps(grouped_results, indent=4))
             system.print_success(args, f"Results saved to {args.json}")
         else:
-            print(json.dumps(grouped_results, indent=4))
+            rprint(json.dumps(grouped_results, indent=4))
         sys.exit(0)
 
     if args.csv:
@@ -314,7 +311,7 @@ def main():
         sys.exit(0)
 
     if args.stdout:
-        print(json.dumps(grouped_results, indent=4))
+        rprint(json.dumps(grouped_results, indent=4))
         sys.exit(0)
 
     # Display results in the table format
@@ -409,7 +406,7 @@ def main():
     # Measure and print the total execution time
     end_time = time.time()
     execution_time = end_time - start_time
-    print(
+    rprint(
         f"[bold green]Execution completed in {execution_time:.2f} seconds.[/bold green]")
 
 

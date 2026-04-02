@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // ScanTriggerHandler handles scan trigger requests
@@ -25,7 +26,7 @@ type ScanTriggerHandler struct {
 
 // Prometheus metrics
 var (
-	scanTriggerCounter = prometheus.NewCounterVec(
+	scanTriggerCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "scan_trigger_total",
 			Help: "Total number of scan triggers",
@@ -33,7 +34,7 @@ var (
 		[]string{"source_type", "pii_types", "execution_mode"},
 	)
 
-	scanTriggerFailureCounter = prometheus.NewCounterVec(
+	scanTriggerFailureCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "scan_trigger_failures_total",
 			Help: "Total number of scan trigger failures",
@@ -41,7 +42,7 @@ var (
 		[]string{"source_type", "error_type"},
 	)
 
-	scanTriggerDuration = prometheus.NewHistogramVec(
+	scanTriggerDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: "scan_trigger_duration_seconds",
 			Help: "Time spent processing scan trigger requests",
@@ -68,9 +69,9 @@ func (h *ScanTriggerHandler) TriggerScan(c *gin.Context) {
 	var req service.TriggerScanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		scanTriggerFailureCounter.WithLabelValues("unknown", "validation_error").Inc()
+		log.Printf("ERROR: Invalid request body: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Invalid request body",
-			"details": err.Error(),
+			"error": "Invalid request body",
 		})
 		return
 	}
@@ -86,9 +87,9 @@ func (h *ScanTriggerHandler) TriggerScan(c *gin.Context) {
 	// Validate request
 	if err := h.validateRequest(&req); err != nil {
 		scanTriggerFailureCounter.WithLabelValues("unknown", "validation_error").Inc()
+		log.Printf("ERROR: Scan request validation failed: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Validation failed",
-			"details": err.Error(),
+			"error": "Validation failed",
 		})
 		return
 	}
@@ -100,8 +101,7 @@ func (h *ScanTriggerHandler) TriggerScan(c *gin.Context) {
 		scanTriggerFailureCounter.WithLabelValues("unknown", "creation_error").Inc()
 		log.Printf("ERROR: Failed to create scan run: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to create scan run",
-			"details": err.Error(),
+			"error": "Failed to create scan run",
 		})
 		return
 	}
@@ -162,6 +162,7 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 	url := fmt.Sprintf("%s/scan", scannerURL)
 
 	// Retry with exponential backoff (3 attempts: 2s, 4s, 8s)
+	client := &http.Client{Timeout: 30 * time.Second}
 	var lastErr error
 	for attempt := 1; attempt <= 3; attempt++ {
 		log.Printf("Dispatching scan to %s (attempt %d/3)", url, attempt)
@@ -174,7 +175,6 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		}
 		reqHttp.Header.Set("Content-Type", "application/json")
 
-		client := &http.Client{Timeout: 30 * time.Second}
 		resp, err := client.Do(reqHttp)
 		if err != nil {
 			lastErr = fmt.Errorf("scanner API unreachable: %w", err)
@@ -186,10 +186,11 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 			}
 			continue
 		}
-		defer resp.Body.Close()
+
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
-			body, _ := ioutil.ReadAll(resp.Body)
 			lastErr = fmt.Errorf("scanner rejected request (%d): %s", resp.StatusCode, string(body))
 			log.Printf("ERROR: %v", lastErr)
 			break // Scanner explicitly rejected — no point retrying

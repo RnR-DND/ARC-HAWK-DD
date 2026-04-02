@@ -28,8 +28,8 @@ func (m *AuthModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	log.Printf("📡 Initializing Auth Module...")
 
 	m.pgRepo = persistence.NewPostgresRepository(deps.DB)
-	m.handler = api.NewAuthHandler(m.pgRepo)
-	m.middleware = middleware.NewAuthMiddleware(m.pgRepo)
+	m.handler = api.NewAuthHandler(m.pgRepo, deps.DB)
+	m.middleware = middleware.NewAuthMiddleware(m.pgRepo, deps.DB)
 
 	log.Printf("✅ Auth Module initialized")
 	return nil

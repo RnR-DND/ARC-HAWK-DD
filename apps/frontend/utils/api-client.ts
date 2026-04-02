@@ -27,9 +27,13 @@ export const apiClient: AxiosInstance = axios.create({
 // Request Interceptor
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // You can add auth tokens here if needed
-        // const token = localStorage.getItem('token');
-        // if (token) config.headers.Authorization = `Bearer ${token}`;
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('arc_hawk_token');
+            if (token) {
+                config.headers = config.headers || {};
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+        }
         return config;
     },
     (error) => Promise.reject(error)

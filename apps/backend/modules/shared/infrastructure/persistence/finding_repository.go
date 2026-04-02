@@ -168,8 +168,8 @@ func (r *PostgresRepository) ListFindings(ctx context.Context, filters repositor
 }
 
 // ListGlobalFindings retrieves findings across all tenants (for system dashboard)
+// WARNING: Bypasses tenant isolation. Callers MUST verify system-admin role before invoking.
 func (r *PostgresRepository) ListGlobalFindings(ctx context.Context, limit, offset int) ([]*entity.Finding, error) {
-	// Bypass tenant check
 	query := `
 		SELECT DISTINCT f.id, f.tenant_id, f.scan_run_id, f.asset_id, f.pattern_id, f.pattern_name, f.matches, f.sample_text, 
 			f.severity, f.severity_description, f.confidence_score, f.environment, f.context, f.created_at, f.updated_at
@@ -284,6 +284,7 @@ func (r *PostgresRepository) GetFeedbackForDataset(ctx context.Context) ([]entit
 		FROM finding_feedback fb
 		JOIN findings f ON fb.finding_id = f.id
 		WHERE fb.feedback_type IN ('CONFIRMED', 'FALSE_POSITIVE')
+		LIMIT 1000
 		ORDER BY fb.created_at DESC`
 
 	rows, err := r.db.QueryContext(ctx, query)

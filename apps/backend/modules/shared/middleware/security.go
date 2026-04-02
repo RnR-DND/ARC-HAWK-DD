@@ -21,7 +21,7 @@ func SecurityHeaders() gin.HandlerFunc {
 
 		// Content Security Policy - Restrict resources to same origin by default
 		// This is a strict default; might need adjustment if using CDNs or external fonts/scripts
-		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:;")
+		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:;")
 
 		// Referrer Policy - Don't leak full URLs to external sites
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")

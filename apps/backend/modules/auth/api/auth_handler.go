@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 
@@ -17,10 +18,10 @@ type AuthHandler struct {
 	repo        *persistence.PostgresRepository
 }
 
-func NewAuthHandler(repo *persistence.PostgresRepository) *AuthHandler {
+func NewAuthHandler(repo *persistence.PostgresRepository, db *sql.DB) *AuthHandler {
 	return &AuthHandler{
-		userService: service.NewUserService(repo),
-		jwtService:  service.NewJWTService(),
+		userService: service.NewUserService(repo, db),
+		jwtService:  service.NewJWTService(db),
 		repo:        repo,
 	}
 }

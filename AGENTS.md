@@ -7,7 +7,7 @@ This file provides essential information for AI agents working on the ARC-Hawk c
 ARC-Hawk is an enterprise-grade PII (Personally Identifiable Information) discovery, classification, and lineage tracking platform built with a microservices architecture.
 
 **Technology Stack:**
-- **Backend**: Go 1.21+ (Gin framework), PostgreSQL 15, Neo4j 5.15, Temporal workflow engine
+- **Backend**: Go 1.24+ (Gin framework), PostgreSQL 15, Neo4j 5.15, Temporal workflow engine
 - **Frontend**: Next.js 14.0.4, TypeScript 5.3.3, ReactFlow, Cytoscape, Tailwind CSS
 - **Scanner**: Python 3.9+, spaCy NLP, custom validation algorithms (Verhoeff, Luhn)
 - **Infrastructure**: Docker, Docker Compose, Kubernetes

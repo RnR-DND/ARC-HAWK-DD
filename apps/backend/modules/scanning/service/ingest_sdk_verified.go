@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/utils"
 	"github.com/google/uuid"
 )
 
@@ -122,8 +125,9 @@ func (s *IngestionService) processSingleSDKFinding(
 	}
 	asset.ID = assetID
 
-	// 2. Create finding
+	// 2. Create finding — enforce PII_STORE_MODE (C-3)
 	finding := adapter.MapToFinding(vf, scanRunID, asset.ID)
+	applyPIIStoreMode(finding)
 	if err := tx.CreateFinding(ctx, finding); err != nil {
 		return assetID, fmt.Errorf("failed to create finding: %w", err)
 	}
@@ -135,7 +139,32 @@ func (s *IngestionService) processSingleSDKFinding(
 	}
 
 	// Note: Lineage sync is now handled automatically by AssetService
-	// No need to call it here - loose coupling achieved!
 
 	return assetID, nil
+}
+
+// applyPIIStoreMode enforces PII_STORE_MODE on findings before persistence (C-3).
+// Modes: "full" (default, store raw), "mask" (store masked), "none" (store hash only).
+func applyPIIStoreMode(finding *entity.Finding) {
+	mode := strings.ToLower(os.Getenv("PII_STORE_MODE"))
+	if mode == "" || mode == "full" {
+		return // store raw values (current behavior)
+	}
+
+	masker := utils.NewPIIMasker()
+
+	switch mode {
+	case "mask":
+		for i, match := range finding.Matches {
+			finding.Matches[i] = masker.MaskCreditCard(match) // generic mask
+		}
+		if finding.SampleText != "" {
+			finding.SampleText = "[MASKED]"
+		}
+	case "none":
+		for i, match := range finding.Matches {
+			finding.Matches[i] = masker.HashValue(match)
+		}
+		finding.SampleText = ""
+	}
 }

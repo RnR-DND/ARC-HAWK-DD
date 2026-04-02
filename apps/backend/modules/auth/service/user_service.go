@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -26,10 +27,10 @@ type UserService struct {
 	jwtService *JWTService
 }
 
-func NewUserService(repo *persistence.PostgresRepository) *UserService {
+func NewUserService(repo *persistence.PostgresRepository, db *sql.DB) *UserService {
 	return &UserService{
 		repo:       repo,
-		jwtService: NewJWTService(),
+		jwtService: NewJWTService(db),
 	}
 }
 

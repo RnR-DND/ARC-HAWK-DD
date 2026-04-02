@@ -1,13 +1,15 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"log"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/arc-platform/backend/modules/auth/entity"
@@ -34,33 +36,39 @@ type JWTService struct {
 	secretKey     []byte
 	tokenExpiry   time.Duration
 	refreshExpiry time.Duration
-	blacklist     sync.Map
+	db            *sql.DB // C-2: persistent blacklist storage
 }
 
-func NewJWTService() *JWTService {
+// NewJWTService creates a JWT service. Pass db for persistent token blacklist (C-2).
+// If db is nil, blacklist operations are no-ops (for tests).
+func NewJWTService(db *sql.DB) *JWTService {
 	secretKey := os.Getenv("JWT_SECRET")
 	if secretKey == "" {
-		// SECURITY: In production, JWT_SECRET must be set
-		// Generate a random key for development only
 		if os.Getenv("GIN_MODE") == "release" {
-			// In production mode, fail if no secret is set
-			panic("FATAL: JWT_SECRET environment variable is required in production mode")
+			// H-7: use log.Fatal instead of panic for cleaner shutdown
+			log.Fatal("FATAL: JWT_SECRET environment variable is required in production mode")
 		}
-		// Development mode: generate a random secret and warn
 		randomBytes := make([]byte, 32)
 		if _, err := rand.Read(randomBytes); err != nil {
-			panic("Failed to generate random JWT secret: " + err.Error())
+			log.Fatalf("Failed to generate random JWT secret: %v", err)
 		}
 		secretKey = base64.StdEncoding.EncodeToString(randomBytes)
-		// Log warning - this secret is ephemeral and will change on restart
-		println("⚠️  WARNING: Using auto-generated JWT secret. Set JWT_SECRET env var for persistent sessions.")
+		log.Println("⚠️  WARNING: Using auto-generated JWT secret. Set JWT_SECRET env var for persistent sessions.")
 	}
 
-	return &JWTService{
+	svc := &JWTService{
 		secretKey:     []byte(secretKey),
 		tokenExpiry:   24 * time.Hour,
 		refreshExpiry: 7 * 24 * time.Hour,
+		db:            db,
 	}
+
+	// Start background cleanup of expired blacklist entries
+	if db != nil {
+		go svc.cleanupExpiredTokens()
+	}
+
+	return svc
 }
 
 func (s *JWTService) GenerateToken(user *entity.User, sessionID uuid.UUID) (string, string, error) {
@@ -112,8 +120,8 @@ func (s *JWTService) GenerateToken(user *entity.User, sessionID uuid.UUID) (stri
 }
 
 func (s *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
-	// Reject blacklisted tokens
-	if _, revoked := s.blacklist.Load(tokenString); revoked {
+	// C-2: Check persistent blacklist
+	if s.isTokenBlacklisted(tokenString) {
 		return nil, ErrInvalidToken
 	}
 
@@ -211,6 +219,43 @@ func (s *JWTService) ValidateResetToken(tokenString string) (uuid.UUID, error) {
 }
 
 func (s *JWTService) InvalidateToken(tokenString string) error {
-	s.blacklist.Store(tokenString, struct{}{})
-	return nil
+	if s.db == nil {
+		return nil
+	}
+	hash := HashToken(tokenString)
+	// Store with TTL matching the longest token expiry (refresh = 7 days)
+	expiresAt := time.Now().Add(s.refreshExpiry)
+	_, err := s.db.ExecContext(context.Background(),
+		`INSERT INTO token_blacklist (token_hash, expires_at) VALUES ($1, $2) ON CONFLICT (token_hash) DO NOTHING`,
+		hash, expiresAt)
+	return err
+}
+
+// isTokenBlacklisted checks the persistent blacklist
+func (s *JWTService) isTokenBlacklisted(tokenString string) bool {
+	if s.db == nil {
+		return false
+	}
+	hash := HashToken(tokenString)
+	var exists bool
+	err := s.db.QueryRowContext(context.Background(),
+		`SELECT EXISTS(SELECT 1 FROM token_blacklist WHERE token_hash = $1 AND expires_at > NOW())`,
+		hash).Scan(&exists)
+	if err != nil {
+		log.Printf("WARN: blacklist check failed: %v", err)
+		return false
+	}
+	return exists
+}
+
+// cleanupExpiredTokens periodically removes expired entries from the blacklist
+func (s *JWTService) cleanupExpiredTokens() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		if s.db != nil {
+			_, _ = s.db.ExecContext(context.Background(),
+				`DELETE FROM token_blacklist WHERE expires_at < NOW()`)
+		}
+	}
 }

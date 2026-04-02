@@ -171,16 +171,22 @@ def execute_scan(scan_id, config):
             raise
         
         # Read and ingest results
-        if os.path.exists(output_file):
-            with open(output_file, 'r') as f:
-                scan_results = json.load(f)
-            
-            # Ingest into backend
-            ingest_results(scan_id, scan_results)
-            
-            # Cleanup
-            os.remove(output_file)
-        
+        try:
+            if os.path.exists(output_file):
+                with open(output_file, 'r') as f:
+                    scan_results = json.load(f)
+
+                # Ingest into backend
+                ingest_results(scan_id, scan_results)
+        finally:
+            # Cleanup temp files regardless of success/failure
+            for tmp in (output_file, connection_config_path):
+                try:
+                    if os.path.exists(tmp):
+                        os.remove(tmp)
+                except OSError as cleanup_err:
+                    logger.warning(f"Failed to remove temp file {tmp}: {cleanup_err}")
+
         # Update scan status
         active_scans[scan_id]['status'] = 'completed'
         active_scans[scan_id]['completed_at'] = datetime.now().isoformat()

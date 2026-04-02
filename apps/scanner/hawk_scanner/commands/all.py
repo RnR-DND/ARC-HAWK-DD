@@ -59,6 +59,8 @@ def execute_single_command(command: str, args) -> List[Dict[str, Any]]:
 
     except Exception as e:
         system.print_error(args, f"Failed to execute {command}: {str(e)}")
+        import traceback
+        system.print_error(args, traceback.format_exc())
         return []
 
 

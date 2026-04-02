@@ -35,5 +35,9 @@ EXPOSE 5002
 ENV PORT=5002
 ENV BACKEND_URL=http://backend:8080
 
+# H-6: Run as non-root user
+RUN useradd -m scanner
+USER scanner
+
 # Run the HTTP API server
 CMD ["python3", "scanner_api.py"]

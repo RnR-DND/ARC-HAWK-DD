@@ -220,3 +220,10 @@ apps/frontend/e2e/
 .claude/
 .gemini/
 .codex/
+
+# Stale scan/test outputs
+*.patch
+detection_quality_report.json
+scan_output_test.json
+test_scan_output.json
+real_scan_results*.json

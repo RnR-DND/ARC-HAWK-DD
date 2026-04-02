@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"os"
 	"strings"
@@ -21,10 +22,10 @@ type AuthMiddleware struct {
 	publicPaths   map[string]bool
 }
 
-func NewAuthMiddleware(repo *persistence.PostgresRepository) *AuthMiddleware {
+func NewAuthMiddleware(repo *persistence.PostgresRepository, db *sql.DB) *AuthMiddleware {
 	return &AuthMiddleware{
-		jwtService:   service.NewJWTService(),
-		userService:  service.NewUserService(repo),
+		jwtService:   service.NewJWTService(db),
+		userService:  service.NewUserService(repo, db),
 		postgresRepo: repo,
 		skipAuthPaths: map[string]bool{
 			"/health":               true,

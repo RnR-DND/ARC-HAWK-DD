@@ -47,7 +47,7 @@ func (m *RemediationModule) Initialize(deps *interfaces.ModuleDependencies) erro
 
 	// Initialize Auth Middleware for permission checks
 	repo := persistence.NewPostgresRepository(m.db)
-	m.authMiddleware = middleware.NewAuthMiddleware(repo)
+	m.authMiddleware = middleware.NewAuthMiddleware(repo, m.db)
 
 	log.Println("✅ Remediation module initialized")
 	return nil

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # Add scanner to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "scanner"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "apps" / "scanner"))
 
 from sdk.engine import SharedAnalyzerEngine
 from sdk.recognizers import AadhaarRecognizer, PANRecognizer, CreditCardRecognizer

@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { apiClient } from '@/utils/api-client';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-
 export interface HealthStatus {
     status: 'healthy' | 'unhealthy' | 'degraded';
     service: string;
@@ -12,13 +10,14 @@ export interface HealthStatus {
 
 /**
  * Check backend health status
- * Uses a shorter timeout to fail fast
+ * Uses a shorter timeout to fail fast.
+ * Derives the base URL from the shared apiClient to avoid independent definitions.
  */
 export async function checkBackendHealth(): Promise<HealthStatus> {
     try {
-        // Health endpoint is typically at root /health or /api/health not /api/v1/health
-        // Adjusting path to match typical backend setup: http://localhost:8080/health
-        const healthUrl = API_BASE_URL.replace('/api/v1', '') + '/health';
+        // Health endpoint is at root /health, outside the /api/v1 prefix
+        const baseURL = (apiClient.defaults.baseURL || '').replace(/\/api\/v1\/?$/, '');
+        const healthUrl = `${baseURL}/health`;
 
         const response = await axios.get(healthUrl, { timeout: 2000 });
         return response.data;

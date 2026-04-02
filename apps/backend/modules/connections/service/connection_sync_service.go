@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -28,7 +27,7 @@ func NewConnectionSyncService(repo *persistence.PostgresRepository, enc *encrypt
 		// Default to scanner config directory
 		workDir := os.Getenv("ARC_HAWK_ROOT")
 		if workDir == "" {
-			workDir = "/Users/prathameshyadav/ARC-Hawk"
+			workDir = "."
 		}
 		yamlPath = filepath.Join(workDir, "apps/scanner/config/connection.yml")
 	}
@@ -66,17 +65,30 @@ func (s *ConnectionSyncService) SyncToYAML(ctx context.Context) error {
 	}
 
 	for _, conn := range connections {
-    		log.Printf("SYNC DEBUG → SourceType=%s Profile=%s", conn.SourceType, conn.ProfileName)
+		log.Printf("INFO: Syncing connection SourceType=%s Profile=%s", conn.SourceType, conn.ProfileName)
 
-		// Decrypt credentials
-    		var config map[string]interface{}
-    		err := s.encryption.Decrypt(conn.ConfigEncrypted, &config)
+		var config map[string]interface{}
+		err := s.encryption.Decrypt(conn.ConfigEncrypted, &config)
 		if err != nil {
-        		log.Printf("DECRYPT FAILED 	len=%d raw=%v err=%v", len(conn.ConfigEncrypted),conn.ConfigEncrypted, err)
-      			continue
-    		}
+			log.Printf("WARN: Decrypt failed for %s/%s: %v", conn.SourceType, conn.ProfileName, err)
+			continue
+		}
 
-		log.Printf("DECRYPT SUCCESS → %+v", config)
+		// C-6: Write only non-secret metadata to YAML; passwords are NOT written to disk
+		safeConfig := make(map[string]interface{})
+		for k, v := range config {
+			switch k {
+			case "password", "secret", "access_key", "secret_key", "token", "api_key":
+				continue
+			default:
+				safeConfig[k] = v
+			}
+		}
+
+		if scannerConfig.Sources[conn.SourceType] == nil {
+			scannerConfig.Sources[conn.SourceType] = make(map[string]interface{})
+		}
+		scannerConfig.Sources[conn.SourceType][conn.ProfileName] = safeConfig
 	}
 	// Marshal to YAML
 	yamlData, err := yaml.Marshal(&scannerConfig)
@@ -91,7 +103,7 @@ func (s *ConnectionSyncService) SyncToYAML(ctx context.Context) error {
 	}
 
 	// Write to file with restricted permissions
-	if err := ioutil.WriteFile(s.yamlPath, yamlData, 0600); err != nil {
+	if err := os.WriteFile(s.yamlPath, yamlData, 0600); err != nil {
 		return fmt.Errorf("failed to write YAML file: %w", err)
 	}
 
@@ -110,7 +122,7 @@ func (s *ConnectionSyncService) SyncSingleConnection(ctx context.Context, source
 // ValidateSync verifies that YAML file matches database state
 func (s *ConnectionSyncService) ValidateSync(ctx context.Context) (bool, error) {
 	// Read current YAML
-	yamlData, err := ioutil.ReadFile(s.yamlPath)
+	yamlData, err := os.ReadFile(s.yamlPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// File doesn't exist, needs sync

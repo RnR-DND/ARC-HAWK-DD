@@ -3,6 +3,7 @@ package websocket
 import (
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -143,6 +144,13 @@ func NewWebSocketService() *WebSocketService {
 
 // HandleWebSocket upgrades HTTP connection to WebSocket and manages the client
 func (ws *WebSocketService) HandleWebSocket(c *gin.Context) {
+	// H-3: Reject unauthenticated connections when auth is required
+	userID := c.GetString("user_id")
+	if os.Getenv("AUTH_REQUIRED") != "false" && userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required for WebSocket connection"})
+		return
+	}
+
 	conn, err := ws.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("Failed to upgrade connection: %v", err)
@@ -150,7 +158,7 @@ func (ws *WebSocketService) HandleWebSocket(c *gin.Context) {
 	}
 
 	client := &Client{
-		ID:   c.GetString("user_id"), // Get from auth middleware
+		ID:   userID, // Get from auth middleware
 		Conn: conn,
 		Send: make(chan WebSocketMessage, 256),
 		Hub:  ws.hub,

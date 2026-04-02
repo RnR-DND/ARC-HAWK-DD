@@ -22,6 +22,7 @@ def connect_postgresql(args, host, port, user, password, database):
     except Exception as e:
         system.print_error(
             args, f"Failed to connect to PostgreSQL database at {host} with error: {e}")
+        return None
 
 
 def check_data_patterns(args, conn, patterns, profile_name, database_name, limit_start=0, limit_end=None, whitelisted_tables=None, schemas=None):
@@ -174,6 +175,9 @@ def execute(args):
 
                     conn = connect_postgresql(
                         args, host, port, user, password, database)
+                    if conn is None:
+                        system.print_error(args, f"Skipping profile {key}: connection failed")
+                        continue
                     if conn:
                         results += check_data_patterns(
                             args, conn, patterns, key, database,
