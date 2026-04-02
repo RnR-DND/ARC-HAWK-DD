@@ -30,7 +30,6 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./apps/backend/migrations_versioned:/docker-entrypoint-initdb.d
     deploy:
       resources:
         limits:
@@ -145,18 +144,18 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
+      - DB_HOST=postgres
+      - DB_PORT=5432
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
       - DB_NAME=${POSTGRES_DB}
-      - NEO4J_URI=${NEO4J_URI}
+      - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=${NEO4J_USERNAME}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
-      - PRESIDIO_ADDR=${PRESIDIO_ADDR}
-      - TEMPORAL_HOST_PORT=${TEMPORAL_HOST_PORT}
+      - PRESIDIO_ADDR=http://presidio-analyzer:3000
+      - TEMPORAL_HOST_PORT=temporal:7233
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - SCANNER_URL=${SCANNER_URL}
+      - SCANNER_URL=http://scanner:5002
       - ARC_HAWK_ROOT=/app
       - SCANNER_CONFIG_PATH=/app/config/connection.yml
       - PORT=8080
@@ -198,7 +197,7 @@ services:
     ports:
       - "5002:5002"
     environment:
-      - BACKEND_URL=${BACKEND_URL}
+      - BACKEND_URL=http://backend:8080
       - PORT=${PORT}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     volumes:

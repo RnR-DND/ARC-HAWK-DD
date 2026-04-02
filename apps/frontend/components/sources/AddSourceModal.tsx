@@ -146,7 +146,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
         try {
             const config = getConfiguration();
             // @ts-ignore - API types might need update but valid payload
-            const result = await connectionsApi.testConnection({
+            const result: any = await connectionsApi.testConnection({
                 source_type: getSourceTypeID(),
                 profile_name: name, // Using name for test context
                 config: {

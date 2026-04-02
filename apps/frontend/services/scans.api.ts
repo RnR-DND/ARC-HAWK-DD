@@ -34,7 +34,9 @@ export const scansApi = {
         try {
             // The backend returns { data: [...] } structure
             const response = await get<any>('/scans');
-            return response || [];
+            // Unwrap the backend's response wrapper and handle null
+            const scans = response?.data ?? response;
+            return Array.isArray(scans) ? scans : [];
         } catch (error) {
             console.error('Failed to fetch scans:', error);
             return [];
