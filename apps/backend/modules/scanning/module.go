@@ -6,6 +6,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/scanning/api"
 	"github.com/arc-platform/backend/modules/scanning/service"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/gin-gonic/gin"
@@ -78,7 +79,13 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 		m.classificationSummaryService,
 	)
 	m.sdkIngestHandler = api.NewSDKIngestHandler(m.ingestionService)
-	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService) // Wired real WebSocket service
+
+	// Initialize encryption for runtime credential resolution
+	encryptionService, err := encryption.NewEncryptionService()
+	if err != nil {
+		log.Printf("WARN: Encryption service unavailable, scanner will use connection.yml fallback: %v", err)
+	}
+	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService, repo, encryptionService)
 	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService)
 	m.dashboardHandler = api.NewDashboardHandler(repo)
 

@@ -220,6 +220,10 @@ apps/frontend/e2e/
 .claude/
 .gemini/
 .codex/
+.opencode/
+
+# Session handoff files
+.continue-here.md
 
 # Stale scan/test outputs
 *.patch

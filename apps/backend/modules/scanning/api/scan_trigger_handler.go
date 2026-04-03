@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/arc-platform/backend/modules/scanning/service"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,6 +24,8 @@ import (
 type ScanTriggerHandler struct {
 	scanService      *service.ScanService
 	websocketService interface{} // WebSocket service for broadcasting
+	repo             *persistence.PostgresRepository
+	encryption       *encryption.EncryptionService
 }
 
 // Prometheus metrics
@@ -51,10 +55,12 @@ var (
 	)
 )
 
-func NewScanTriggerHandler(scanService *service.ScanService, websocketService interface{}) *ScanTriggerHandler {
+func NewScanTriggerHandler(scanService *service.ScanService, websocketService interface{}, repo *persistence.PostgresRepository, enc *encryption.EncryptionService) *ScanTriggerHandler {
 	return &ScanTriggerHandler{
 		scanService:      scanService,
 		websocketService: websocketService,
+		repo:             repo,
+		encryption:       enc,
 	}
 }
 
@@ -138,13 +144,19 @@ func (h *ScanTriggerHandler) validateRequest(req *service.TriggerScanRequest) er
 func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerScanRequest) {
 	log.Printf("Starting scan execution: %s", scanID.String())
 
+	// Resolve full connection configs (including passwords) from the database.
+	// Credentials are passed in-memory over the internal Docker network,
+	// never written to disk (maintaining C-6 audit compliance).
+	connectionConfigs := h.resolveConnectionConfigs(req.Sources)
+
 	// Build the HTTP payload expected by the python scanner API
 	payload := map[string]interface{}{
-		"scan_id":        scanID.String(),
-		"scan_name":      req.Name,
-		"sources":        req.Sources,
-		"pii_types":      req.PIITypes,
-		"execution_mode": req.ExecutionMode,
+		"scan_id":            scanID.String(),
+		"scan_name":          req.Name,
+		"sources":            req.Sources,
+		"pii_types":          req.PIITypes,
+		"execution_mode":     req.ExecutionMode,
+		"connection_configs": connectionConfigs,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -204,6 +216,50 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 	// All retries exhausted — mark scan as failed so the UI stops spinning
 	log.Printf("ERROR: All dispatch attempts failed for scan %s: %v", scanID.String(), lastErr)
 	h.markScanFailed(scanID, "scanner_dispatch_failed")
+}
+
+// resolveConnectionConfigs looks up connection profiles from the database, decrypts
+// their configs, and returns a map of source_type → profile_name → full config.
+// This allows the scanner to receive credentials at runtime without filesystem secrets.
+func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) map[string]map[string]interface{} {
+	configs := make(map[string]map[string]interface{})
+
+	if h.repo == nil || h.encryption == nil {
+		log.Printf("WARN: repo or encryption not available, scanner will use connection.yml fallback")
+		return configs
+	}
+
+	ctx := context.Background()
+	connections, err := h.repo.ListConnections(ctx)
+	if err != nil {
+		log.Printf("WARN: Failed to list connections for config resolution: %v", err)
+		return configs
+	}
+
+	sourceSet := make(map[string]bool)
+	for _, s := range sourceNames {
+		sourceSet[s] = true
+	}
+
+	for _, conn := range connections {
+		if !sourceSet[conn.ProfileName] {
+			continue
+		}
+
+		var config map[string]interface{}
+		if err := h.encryption.Decrypt(conn.ConfigEncrypted, &config); err != nil {
+			log.Printf("WARN: Failed to decrypt config for %s/%s: %v", conn.SourceType, conn.ProfileName, err)
+			continue
+		}
+
+		if configs[conn.SourceType] == nil {
+			configs[conn.SourceType] = make(map[string]interface{})
+		}
+		configs[conn.SourceType][conn.ProfileName] = config
+		log.Printf("INFO: Resolved connection config for %s/%s", conn.SourceType, conn.ProfileName)
+	}
+
+	return configs
 }
 
 // markScanFailed updates the scan status to "failed" in PostgreSQL

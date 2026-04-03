@@ -1,7 +1,7 @@
 // Neo4j Lineage API - Unified Neo4j-Only Endpoint
-// Uses /api/v1/lineage with 3-level hierarchy (System → Asset → PII_Category)
+// Uses /api/v1/lineage with 3-level hierarchy (System -> Asset -> PII_Category)
 
-// 3-Level Hierarchy Types (System → Asset → PII_Category)
+import { apiClient } from '@/utils/api-client';
 import {
     LineageNode,
     LineageEdge,
@@ -31,51 +31,28 @@ export interface LineageResponse {
     };
 }
 
-// API Functions
-// Use relative URLs in browser to leverage Next.js rewrites
-// Use absolute URLs in server-side rendering
-const API_BASE = typeof window !== 'undefined'
-    ? '' // Browser: use relative URLs (proxied by Next.js)
-    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'); // SSR: use absolute URLs
-
 export async function fetchLineage(
     systemFilter?: string,
     riskFilter?: string
 ): Promise<LineageResponse> {
-    const params = new URLSearchParams();
-    if (systemFilter) params.append('system', systemFilter);
-    if (riskFilter) params.append('risk', riskFilter);
+    const params: Record<string, string> = {};
+    if (systemFilter) params.system = systemFilter;
+    if (riskFilter) params.risk = riskFilter;
 
-    const url = `${API_BASE}/api/v1/lineage${params.toString() ? `?${params}` : ''}`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch lineage: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data; // Backend wraps in { status: "success", data: {...} }
+    const response = await apiClient.get('/lineage', { params });
+    return response.data.data; // Backend wraps in { status: "success", data: {...} }
 }
 
 export async function getLineage(assetId?: string, depth?: number): Promise<LineageHierarchy> {
     try {
-        const params = new URLSearchParams();
-        if (assetId) params.append('assetId', assetId);
-        if (depth) params.append('depth', depth.toString());
+        const params: Record<string, string> = {};
+        if (assetId) params.assetId = assetId;
+        if (depth) params.depth = depth.toString();
 
-        const query = params.toString() ? `?${params.toString()}` : '';
-        const response = await fetch(`${API_BASE}/api/v1/lineage${query}`);
+        const response = await apiClient.get('/lineage', { params });
+        const result = response.data;
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-
-        // Backend returns: { data: { nodes, edges }, status }
-        // Extract the nodes and edges directly from data
         // Backend returns: { data: { hierarchy: { nodes, edges }, ... }, status }
-        // Extract from hierarchy object if present, otherwise try direct data
         if (result.data) {
             if (result.data.hierarchy) {
                 return {
@@ -89,7 +66,6 @@ export async function getLineage(assetId?: string, depth?: number): Promise<Line
             };
         }
 
-        // Fallback for empty/malformed response
         return { nodes: [], edges: [] };
     } catch (error) {
         console.error('Failed to fetch lineage:', error);
@@ -98,17 +74,9 @@ export async function getLineage(assetId?: string, depth?: number): Promise<Line
 }
 
 export async function fetchLineageStats(): Promise<LineageResponse['aggregations']> {
-    const url = `${API_BASE}/api/v1/lineage/stats`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch stats: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.stats;
+    const response = await apiClient.get('/lineage/stats');
+    return response.data.stats;
 }
-
 
 // Export as lineageApi for backward compatibility
 export const lineageApi = {

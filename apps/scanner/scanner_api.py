@@ -94,44 +94,55 @@ def execute_scan(scan_id, config):
     """
     try:
         sources = config.get('sources', [])
-        
+
         # Create output file for scan results
         output_file = f'/tmp/scan_output_{scan_id}.json'
-        
+
         # Create a temporary connection config for this scan
         connection_config_path = f'/tmp/connection_{scan_id}.yml'
-        
+
         import yaml
-        
-        # Load the global connection config synced from the backend
+
+        # Prefer connection_configs passed directly from backend (includes credentials).
+        # This keeps passwords off-disk (C-6 compliance) — they transit over the
+        # internal Docker network only.
+        runtime_configs = config.get('connection_configs', {})
+
+        # Load the global connection config for notify settings and fallback
         global_config_path = 'config/connection.yml'
         global_data = {}
         if os.path.exists(global_config_path):
             with open(global_config_path, 'r') as f:
                 global_data = yaml.safe_load(f) or {}
-                
-        # Build the filtered sources block for this scan run
-        filtered_sources = {}
-        global_sources = global_data.get('sources', {})
-        
-        for source in sources:
-            found = False
-            for src_type, profiles in global_sources.items():
-                if profiles and source in profiles:
-                    if src_type not in filtered_sources:
-                        filtered_sources[src_type] = {}
-                    filtered_sources[src_type][source] = profiles[source]
-                    found = True
-                    break
-            
-            # Fallback if the profile wasn't found (treat as fs path)
-            if not found:
-                if 'fs' not in filtered_sources:
-                    filtered_sources['fs'] = {}
-                filtered_sources['fs'][f"scan_{scan_id}_{source}"] = {
-                    "path": source
-                }
-                
+
+        if runtime_configs:
+            # Use configs passed by backend (has credentials)
+            logger.info(f"Using {sum(len(v) for v in runtime_configs.values())} runtime connection configs from backend")
+            filtered_sources = runtime_configs
+        else:
+            # Fallback: filter from connection.yml (may lack passwords)
+            logger.warning("No runtime configs from backend, falling back to connection.yml")
+            filtered_sources = {}
+            global_sources = global_data.get('sources', {})
+
+            for source in sources:
+                found = False
+                for src_type, profiles in global_sources.items():
+                    if profiles and source in profiles:
+                        if src_type not in filtered_sources:
+                            filtered_sources[src_type] = {}
+                        filtered_sources[src_type][source] = profiles[source]
+                        found = True
+                        break
+
+                # Fallback if the profile wasn't found (treat as fs path)
+                if not found:
+                    if 'fs' not in filtered_sources:
+                        filtered_sources['fs'] = {}
+                    filtered_sources['fs'][f"scan_{scan_id}_{source}"] = {
+                        "path": source
+                    }
+
         connection_data = {
             "sources": filtered_sources,
             "notify": global_data.get('notify', {})

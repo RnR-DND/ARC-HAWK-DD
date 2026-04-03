@@ -206,7 +206,7 @@ services:
       - "5002:5002"
     environment:
       - BACKEND_URL=http://backend:8080
-      - PORT=${PORT}
+      - PORT=5002
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     volumes:
       - ./scripts:/app/scripts
