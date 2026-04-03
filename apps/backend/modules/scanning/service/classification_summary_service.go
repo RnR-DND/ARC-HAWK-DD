@@ -27,6 +27,8 @@ type ClassificationSummary struct {
 	VerifiedCount      int                      `json:"verified_count"`
 	FalsePositiveCount int                      `json:"false_positive_count"`
 	DPDPACategories    map[string]int           `json:"dpdpa_categories"`
+	AssetsHit          int                      `json:"assets_hit"`
+	TotalAssets        int                      `json:"total_assets"`
 }
 
 // TypeBreakdown represents statistics for a classification type
@@ -111,6 +113,12 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 		falsePositiveCount = val
 	}
 
+	// Count unique assets with findings
+	assetsHit := 0
+	if err := s.repo.GetDB().QueryRowContext(ctx, "SELECT COUNT(DISTINCT asset_id) FROM findings").Scan(&assetsHit); err != nil {
+		fmt.Printf("WARN: Failed to count assets in summary: %v\n", err)
+	}
+
 	return &ClassificationSummary{
 		Total:              total,
 		ByType:             byType,
@@ -120,5 +128,7 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 		VerifiedCount:      verifiedCount,
 		FalsePositiveCount: falsePositiveCount,
 		DPDPACategories:    dpdpaCategories,
+		AssetsHit:          assetsHit,
+		TotalAssets:        assetsHit,
 	}, nil
 }

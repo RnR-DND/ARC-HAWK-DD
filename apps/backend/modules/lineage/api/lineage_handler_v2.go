@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/arc-platform/backend/modules/lineage/service"
@@ -136,7 +136,7 @@ func (h *LineageHandlerV2) SyncLineage(c *gin.Context) {
 		// Create a new background context since request context will be cancelled
 		bgCtx := context.Background()
 		if err := h.semanticLineageService.SyncLineage(bgCtx); err != nil {
-			fmt.Printf("Async sync failed: %v\n", err)
+			log.Printf("ERROR: Async lineage sync failed: %v", err)
 		}
 	}()
 

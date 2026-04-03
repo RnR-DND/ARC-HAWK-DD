@@ -49,6 +49,9 @@ func main() {
 	// Load application configuration
 	cfg := config.LoadConfig()
 
+	// Validate required environment variables early for clear error messages
+	validateRequiredEnvVars()
+
 	// Set Gin mode
 	ginMode := os.Getenv("GIN_MODE")
 	if ginMode == "" {
@@ -436,4 +439,30 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// validateRequiredEnvVars checks that critical environment variables are set
+// before the server attempts to connect to services, providing clear error messages.
+func validateRequiredEnvVars() {
+	required := []string{"DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_PORT"}
+	var missing []string
+	for _, key := range required {
+		if os.Getenv(key) == "" {
+			missing = append(missing, key)
+		}
+	}
+	if len(missing) > 0 {
+		log.Fatalf("FATAL: Required environment variables not set: %v", missing)
+	}
+
+	// Warn about security-sensitive placeholders
+	if os.Getenv("ENCRYPTION_KEY") == "12345678901234567890123456789012" {
+		log.Println("⚠️  WARNING: ENCRYPTION_KEY is using the default placeholder — rotate before production")
+	}
+	if strings.Contains(os.Getenv("JWT_SECRET"), "CHANGE_ME") {
+		log.Println("⚠️  WARNING: JWT_SECRET is a placeholder — generate with: openssl rand -base64 48")
+	}
+	if strings.Contains(os.Getenv("POSTGRES_PASSWORD"), "CHANGE_ME") {
+		log.Println("⚠️  WARNING: POSTGRES_PASSWORD is a placeholder — set a strong password for production")
+	}
 }

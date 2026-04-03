@@ -33,17 +33,13 @@ async function getMetricsFromSummary(summary: ClassificationSummary | null): Pro
         return { totalPII: 0, highRiskFindings: 0, assetsHit: 0, actionsRequired: 0 };
     }
 
-    const highRiskCount = summary.by_severity?.['High'] ||
-        Object.entries(summary.by_type || {}).reduce((acc, [_, data]) => {
-            if (data.count > 0) return acc + data.count;
-            return acc;
-        }, 0);
+    const highRiskCount = (summary.by_severity?.['Critical'] ?? 0) + (summary.by_severity?.['High'] ?? 0);
 
     return {
-        totalPII: summary.total || 0,
+        totalPII: summary.total ?? 0,
         highRiskFindings: highRiskCount,
-        assetsHit: (summary as any).assets_hit || (summary as any).total_assets || 0,
-        actionsRequired: summary.total - (summary.verified_count || 0) - (summary.false_positive_count || 0)
+        assetsHit: (summary as any).assets_hit ?? (summary as any).total_assets ?? 0,
+        actionsRequired: (summary.total ?? 0) - (summary.verified_count ?? 0) - (summary.false_positive_count ?? 0)
     };
 }
 
@@ -149,16 +145,18 @@ export const dashboardApi = {
                 const metricsRes = await get<any>('/dashboard/metrics');
                 if (metricsRes) {
                     metrics = {
-                        totalPII: metricsRes.total_pii || 0,
-                        highRiskFindings: metricsRes.high_risk_findings || 0,
-                        assetsHit: metricsRes.assets_hit || 0,
-                        actionsRequired: metricsRes.actions_required || 0
+                        totalPII: metricsRes.total_pii ?? 0,
+                        highRiskFindings: metricsRes.high_risk_findings ?? 0,
+                        assetsHit: metricsRes.assets_hit ?? 0,
+                        actionsRequired: metricsRes.actions_required ?? 0
                     };
                 } else {
                     throw new Error('No metrics data');
                 }
             } catch {
-                throw new Error('Failed to fetch metrics data');
+                // Fallback: derive metrics from classification summary
+                const summary = await get<ClassificationSummary>('/classification/summary').catch(() => null);
+                metrics = await getMetricsFromSummary(summary);
             }
 
             const latestScan = await get<any>('/scans/latest').catch(() => null);

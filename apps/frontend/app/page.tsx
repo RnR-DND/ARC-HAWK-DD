@@ -103,7 +103,7 @@ export default function Home() {
     }
 
     // Empty state for first-time users
-    if (!loading && !data?.latestScanId && displayData.metrics.totalPII === 0 && !error) {
+    if (!loading && displayData.metrics.totalPII === 0 && !error) {
         return (
             <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
                     <div className="max-w-2xl space-y-8">
@@ -187,10 +187,13 @@ export default function Home() {
                         <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
-                            className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3"
+                            className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-center gap-3"
                         >
-                            <AlertTriangle className="w-5 h-5" />
-                            <span className="font-medium">{error}</span>
+                            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                            <span className="text-sm">{error}</span>
+                            <button onClick={fetchDashboardData} className="ml-auto text-amber-700 hover:text-amber-900 text-sm font-medium whitespace-nowrap">
+                                Retry
+                            </button>
                         </motion.div>
                     )}
 

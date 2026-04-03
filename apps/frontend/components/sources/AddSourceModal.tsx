@@ -3,7 +3,7 @@ import { X, Database, HardDrive, Cloud, Server, Plus, Loader2, CheckCircle, Aler
 import { connectionsApi } from '@/services/connections.api';
 
 interface SourceType {
-    id: 'database' | 'filesystem' | 's3' | 'gcs' | 'other';
+    id: 'database' | 'filesystem' | 's3' | 'gcs' | 'redis' | 'slack' | 'firebase' | 'couchdb' | 'gdrive' | 'other';
     name: string;
     icon: React.ReactNode;
     description: string;
@@ -14,7 +14,7 @@ const SOURCE_TYPES: SourceType[] = [
         id: 'database',
         name: 'Database',
         icon: <Database className="w-6 h-6" />,
-        description: 'PostgreSQL, MySQL, MongoDB, etc.',
+        description: 'PostgreSQL, MySQL, MongoDB',
     },
     {
         id: 'filesystem',
@@ -35,10 +35,40 @@ const SOURCE_TYPES: SourceType[] = [
         description: 'GCS Buckets',
     },
     {
+        id: 'redis',
+        name: 'Redis',
+        icon: <Server className="w-6 h-6" />,
+        description: 'Redis key-value store',
+    },
+    {
+        id: 'slack',
+        name: 'Slack',
+        icon: <Server className="w-6 h-6" />,
+        description: 'Slack workspace messages',
+    },
+    {
+        id: 'firebase',
+        name: 'Firebase',
+        icon: <Cloud className="w-6 h-6" />,
+        description: 'Firebase / Firestore databases',
+    },
+    {
+        id: 'couchdb',
+        name: 'CouchDB',
+        icon: <Database className="w-6 h-6" />,
+        description: 'Apache CouchDB documents',
+    },
+    {
+        id: 'gdrive',
+        name: 'Google Drive',
+        icon: <Cloud className="w-6 h-6" />,
+        description: 'Google Drive files and folders',
+    },
+    {
         id: 'other',
         name: 'Other',
         icon: <Server className="w-6 h-6" />,
-        description: 'Custom data sources',
+        description: 'Custom or external tool sources',
     }
 ];
 
@@ -119,7 +149,8 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
     };
 
     const getSourceTypeID = () => {
-        if (selectedType === 'database') return dbConfig.type; // 'postgresql' or 'mysql'
+        if (selectedType === 'database') return dbConfig.type;
+        if (selectedType === 'gdrive') return 'gdrive';
         return selectedType!;
     };
 
@@ -242,6 +273,7 @@ export function AddSourceModal({ isOpen, onClose }: AddSourceModalProps) {
                 >
                     <option value="postgresql">PostgreSQL</option>
                     <option value="mysql">MySQL</option>
+                    <option value="mongodb">MongoDB</option>
                 </select>
             </div>
             <div className="grid grid-cols-3 gap-4">

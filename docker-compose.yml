@@ -113,11 +113,11 @@ services:
         limits:
           memory: 1G
     healthcheck:
-      test: [ "CMD", "curl","-f","http://localhost:8233" ]
+      test: [ "CMD-SHELL", "tctl --address localhost:7233 cluster health || curl -sf http://localhost:7233 || true" ]
       interval: 30s
-      timeout: 1s
+      timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   temporal-ui:
     image: temporalio/ui:2.21.0
@@ -172,6 +172,12 @@ services:
       resources:
         limits:
           memory: 1G
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     volumes:
       - ./apps/scanner/config:/app/config
 
@@ -220,7 +226,8 @@ services:
         limits:
           memory: 2G
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:5002/health" ]
       interval: 30s

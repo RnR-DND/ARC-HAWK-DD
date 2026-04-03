@@ -32,7 +32,7 @@ func NewConnectionHandler(s *service.ConnectionService, syncService *service.Con
 // AddConnectionRequest represents the request body for adding a connection
 type AddConnectionRequest struct {
 	Name	    string                 `json:"name"`
-	SourceType  string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack"`
+	SourceType  string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack firebase couchdb gcs gdrive gdrive_workspace text"`
 	ProfileName string                 `json:"profile_name" binding:"required,min=1,max=50"`
 	Config      map[string]interface{} `json:"config" binding:"required"`
 }

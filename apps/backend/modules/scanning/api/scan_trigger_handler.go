@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/arc-platform/backend/modules/scanning/service"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
@@ -142,12 +144,32 @@ func (h *ScanTriggerHandler) validateRequest(req *service.TriggerScanRequest) er
 }
 
 func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerScanRequest) {
+	// Apply a 15-minute context timeout so this goroutine cannot run forever
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+	_ = ctx // used for future context-aware calls
+
 	log.Printf("Starting scan execution: %s", scanID.String())
+
+	// Broadcast scan start via WebSocket
+	if h.websocketService != nil {
+		if wsService, ok := h.websocketService.(*websocket.WebSocketService); ok {
+			wsService.BroadcastScanStarted(scanID.String(), req.Name, len(req.Sources))
+		}
+	}
 
 	// Resolve full connection configs (including passwords) from the database.
 	// Credentials are passed in-memory over the internal Docker network,
 	// never written to disk (maintaining C-6 audit compliance).
-	connectionConfigs := h.resolveConnectionConfigs(req.Sources)
+	connectionConfigs, err := h.resolveConnectionConfigs(req.Sources)
+	if err != nil {
+		log.Printf("ERROR: Connection resolution failed for scan %s: %v", scanID.String(), err)
+		h.markScanFailed(scanID, "connection_resolution_failed")
+		return
+	}
+	if len(connectionConfigs) == 0 && len(req.Sources) > 0 {
+		log.Printf("WARN: No runtime connection configs resolved for scan %s — scanner will use connection.yml fallback", scanID.String())
+	}
 
 	// Build the HTTP payload expected by the python scanner API
 	payload := map[string]interface{}{
@@ -192,7 +214,8 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 			lastErr = fmt.Errorf("scanner API unreachable: %w", err)
 			log.Printf("ERROR: %v (attempt %d/3)", lastErr, attempt)
 			if attempt < 3 {
-				backoff := time.Duration(1<<uint(attempt)) * time.Second // 2s, 4s
+				jitter := time.Duration(rand.Intn(500)) * time.Millisecond
+			backoff := time.Duration(1<<uint(attempt))*time.Second + jitter
 				log.Printf("Retrying in %v...", backoff)
 				time.Sleep(backoff)
 			}
@@ -208,8 +231,13 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 			break // Scanner explicitly rejected — no point retrying
 		}
 
-		// Success
+		// Success — broadcast running status via WebSocket
 		log.Printf("Scan dispatched successfully: %s", scanID.String())
+		if h.websocketService != nil {
+			if wsService, ok := h.websocketService.(*websocket.WebSocketService); ok {
+				wsService.BroadcastScanProgress(scanID.String(), 0, "running", "Scan dispatched to scanner")
+			}
+		}
 		return
 	}
 
@@ -221,19 +249,18 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 // resolveConnectionConfigs looks up connection profiles from the database, decrypts
 // their configs, and returns a map of source_type → profile_name → full config.
 // This allows the scanner to receive credentials at runtime without filesystem secrets.
-func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) map[string]map[string]interface{} {
+func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) (map[string]map[string]interface{}, error) {
 	configs := make(map[string]map[string]interface{})
 
 	if h.repo == nil || h.encryption == nil {
 		log.Printf("WARN: repo or encryption not available, scanner will use connection.yml fallback")
-		return configs
+		return configs, nil
 	}
 
 	ctx := context.Background()
 	connections, err := h.repo.ListConnections(ctx)
 	if err != nil {
-		log.Printf("WARN: Failed to list connections for config resolution: %v", err)
-		return configs
+		return configs, fmt.Errorf("failed to list connections: %w", err)
 	}
 
 	sourceSet := make(map[string]bool)
@@ -259,7 +286,7 @@ func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) map[
 		log.Printf("INFO: Resolved connection config for %s/%s", conn.SourceType, conn.ProfileName)
 	}
 
-	return configs
+	return configs, nil
 }
 
 // markScanFailed updates the scan status to "failed" in PostgreSQL
@@ -270,5 +297,11 @@ func (h *ScanTriggerHandler) markScanFailed(scanID uuid.UUID, reason string) {
 		log.Printf("ERROR: Failed to mark scan %s as failed: %v", scanID.String(), err)
 	} else {
 		log.Printf("Scan %s marked as failed (reason: %s)", scanID.String(), reason)
+	}
+	// Broadcast failure via WebSocket so frontend updates immediately
+	if h.websocketService != nil {
+		if wsService, ok := h.websocketService.(*websocket.WebSocketService); ok {
+			wsService.BroadcastScanProgress(scanID.String(), 0, "failed", reason)
+		}
 	}
 }

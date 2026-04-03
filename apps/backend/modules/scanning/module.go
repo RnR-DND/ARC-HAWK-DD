@@ -1,8 +1,10 @@
 package scanning
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/arc-platform/backend/modules/scanning/api"
 	"github.com/arc-platform/backend/modules/scanning/service"
@@ -31,6 +33,9 @@ type ScanningModule struct {
 
 	// Dependencies
 	deps *interfaces.ModuleDependencies
+
+	// Background jobs
+	stopTimeout chan struct{}
 }
 
 // Name returns the module name
@@ -89,6 +94,22 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService)
 	m.dashboardHandler = api.NewDashboardHandler(repo)
 
+	// Start background ticker to check for stuck/timed-out scans every 5 minutes
+	m.stopTimeout = make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				m.scanService.CheckAllScanTimeouts(context.Background())
+			case <-m.stopTimeout:
+				return
+			}
+		}
+	}()
+	log.Printf("⏰ Scan timeout checker started (every 5 min)")
+
 	log.Printf("✅ Scanning & Classification Module initialized")
 	return nil
 }
@@ -130,7 +151,9 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 // Shutdown performs cleanup
 func (m *ScanningModule) Shutdown() error {
 	log.Printf("🔌 Shutting down Scanning & Classification Module...")
-	// Cleanup if needed
+	if m.stopTimeout != nil {
+		close(m.stopTimeout)
+	}
 	return nil
 }
 

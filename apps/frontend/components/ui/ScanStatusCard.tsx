@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, CheckCircle, Play, Pause, AlertCircle } from 'lucide-react';
+import { scansApi } from '@/services/scans.api';
 
 interface ScanStatusCardProps {
     scanId: string | null;
@@ -37,11 +38,8 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
 
     const fetchScanData = async () => {
         try {
-            const res = await fetch(`/api/v1/scans/${scanId}/status`);
-            if (res.ok) {
-                const data = await res.json();
-                setScanData(data);
-            }
+            const data = await scansApi.getScanStatus(scanId!);
+            setScanData(data);
         } catch (error) {
             console.error('Failed to fetch scan data:', error);
         } finally {
@@ -54,12 +52,8 @@ export default function ScanStatusCard({ scanId }: ScanStatusCardProps) {
 
         setCancelling(true);
         try {
-            const res = await fetch(`/api/v1/scans/${scanId}/cancel`, {
-                method: 'POST',
-            });
-            if (res.ok) {
-                await fetchScanData(); // Refresh scan data
-            }
+            await scansApi.cancelScan(scanId);
+            await fetchScanData();
         } catch (error) {
             console.error('Failed to cancel scan:', error);
         } finally {

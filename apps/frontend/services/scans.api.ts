@@ -1,4 +1,4 @@
-import { post, get } from '@/utils/api-client';
+import { post, get, del } from '@/utils/api-client';
 import { IngestResult } from '@/types';
 
 export const scansApi = {
@@ -46,11 +46,28 @@ export const scansApi = {
     getScan: async (id: string): Promise<any> => {
         try {
             const response = await get<any>(`/scans/${id}`);
-            return response; // The handler returns the scan object directly
+            return response;
         } catch (error) {
             console.error(`Failed to fetch scan ${id}:`, error);
             throw error;
         }
+    },
+
+    getScanStatus: async (id: string): Promise<any> => {
+        try {
+            return await get<any>(`/scans/${id}/status`);
+        } catch (error) {
+            console.error(`Failed to fetch scan status ${id}:`, error);
+            throw error;
+        }
+    },
+
+    cancelScan: async (id: string): Promise<any> => {
+        return await post<any>(`/scans/${id}/cancel`, {});
+    },
+
+    clearScanData: async (): Promise<any> => {
+        return await del<any>('/scans/clear');
     }
 };
 

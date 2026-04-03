@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/arc-platform/backend/modules/shared/domain/entity"
-	"github.com/arc-platform/backend/modules/shared/domain/repository"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -45,14 +43,10 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 		SystemHealth: "healthy",
 	}
 
-	// Extract environment filter — empty means all environments (avoids dev data being hidden)
 	envFilter := c.Query("env")
+	db := h.pgRepo.GetDB()
 
-	// Get total PII count (excluding false positives)
-	var findings []*entity.Finding
-	var err error
-
-	// Extract localized tenant for if-condition
+	// Build WHERE clause for tenant + environment filtering
 	var tenantID uuid.UUID
 	if val, ok := c.Get("tenant_id"); ok {
 		if id, canCast := val.(uuid.UUID); canCast {
@@ -60,68 +54,60 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 		}
 	}
 
-	if tenantID == uuid.Nil {
-		// Use Global list for system/anonymous view to match ClassificationSummary behavior
-		// Limit to 1000 to avoid OOM on large deployments — aggregate counts should use SQL COUNT instead
-		findings, err = h.pgRepo.ListGlobalFindings(ctx, 1000, 0)
-	} else {
-		findings, err = h.pgRepo.ListFindings(ctx, repository.FindingFilters{}, 1000, 0)
-	}
+	baseWhere := "WHERE 1=1"
+	args := []interface{}{}
+	argIdx := 1
 
-	if err != nil {
-		fmt.Printf("❌ Dashboard Metrics Error: Failed to list findings: %v\n", err) // Added logging
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to fetch findings",
-		})
-		return
-	}
-
-	totalPII := 0
-	highRiskCount := 0
-	assetsMap := make(map[string]bool)
-	actionsRequired := 0
-
-	for _, finding := range findings {
-		// Filter by environment when specified; empty envFilter means all environments
-		if envFilter != "" && finding.Environment != envFilter {
-			continue
-		}
-
-		// Count all findings (we'll filter by severity instead of status)
-		totalPII++
-
-		// Count high risk findings
-		if finding.Severity == "Critical" || finding.Severity == "High" {
-			highRiskCount++
-		}
-
-		// Track unique assets
-		assetsMap[finding.AssetID.String()] = true
-
-		// Count actions required (all pending findings that haven't been enriched)
-		if finding.EnrichmentScore == nil || *finding.EnrichmentScore < 0.5 {
-			actionsRequired++
-		}
-	}
-
-	metrics.TotalPII = totalPII
-	metrics.HighRiskFindings = highRiskCount
-	metrics.AssetsHit = len(assetsMap)
-	metrics.ActionsRequired = actionsRequired
-
-	// Get last scan time — scoped to tenant when available
-	var lastScanTime time.Time
 	if tenantID != uuid.Nil {
-		err = h.pgRepo.GetDB().QueryRow(
-			`SELECT MAX(created_at) FROM scan_runs WHERE status = 'completed' AND tenant_id = $1`,
+		baseWhere += fmt.Sprintf(" AND tenant_id = $%d", argIdx)
+		args = append(args, tenantID)
+		argIdx++
+	}
+	if envFilter != "" {
+		baseWhere += fmt.Sprintf(" AND environment = $%d", argIdx)
+		args = append(args, envFilter)
+		argIdx++
+	}
+
+	// Total PII count (SQL COUNT instead of loading all into memory)
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM findings "+baseWhere, args...).Scan(&metrics.TotalPII); err != nil {
+		fmt.Printf("WARN: Failed to count findings: %v\n", err)
+	}
+
+	// High risk count
+	highArgs := make([]interface{}, len(args))
+	copy(highArgs, args)
+	highArgs = append(highArgs, "Critical", "High")
+	highQuery := fmt.Sprintf("SELECT COUNT(*) FROM findings %s AND severity IN ($%d, $%d)", baseWhere, argIdx, argIdx+1)
+	if err := db.QueryRowContext(ctx, highQuery, highArgs...).Scan(&metrics.HighRiskFindings); err != nil {
+		fmt.Printf("WARN: Failed to count high risk findings: %v\n", err)
+	}
+
+	// Unique assets hit
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(DISTINCT asset_id) FROM findings "+baseWhere, args...).Scan(&metrics.AssetsHit); err != nil {
+		fmt.Printf("WARN: Failed to count assets: %v\n", err)
+	}
+
+	// Actions required (enrichment_score < 0.5 or NULL)
+	actionsQuery := "SELECT COUNT(*) FROM findings " + baseWhere + " AND (enrichment_score IS NULL OR enrichment_score < 0.5)"
+	if err := db.QueryRowContext(ctx, actionsQuery, args...).Scan(&metrics.ActionsRequired); err != nil {
+		fmt.Printf("WARN: Failed to count actions required: %v\n", err)
+	}
+
+	// Last scan time
+	var lastScanTime time.Time
+	var scanErr error
+	if tenantID != uuid.Nil {
+		scanErr = db.QueryRowContext(ctx,
+			`SELECT COALESCE(MAX(created_at), '0001-01-01') FROM scan_runs WHERE status = 'completed' AND tenant_id = $1`,
 			tenantID,
 		).Scan(&lastScanTime)
 	} else {
-		err = h.pgRepo.GetDB().QueryRow(
-			`SELECT MAX(created_at) FROM scan_runs WHERE status = 'completed'`,
+		scanErr = db.QueryRowContext(ctx,
+			`SELECT COALESCE(MAX(created_at), '0001-01-01') FROM scan_runs WHERE status = 'completed'`,
 		).Scan(&lastScanTime)
 	}
-	if err == nil {
+	if scanErr == nil {
 		metrics.LastScanTime = lastScanTime
 	}
 

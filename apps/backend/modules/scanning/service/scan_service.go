@@ -3,12 +3,47 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/google/uuid"
 )
+
+// Valid scan statuses
+const (
+	ScanStatusPending   = "pending"
+	ScanStatusRunning   = "running"
+	ScanStatusCompleted = "completed"
+	ScanStatusFailed    = "failed"
+	ScanStatusCancelled = "cancelled"
+	ScanStatusTimeout   = "timeout"
+)
+
+// validTransitions defines allowed state transitions
+var validTransitions = map[string][]string{
+	ScanStatusPending:   {ScanStatusRunning, ScanStatusCancelled, ScanStatusFailed},
+	ScanStatusRunning:   {ScanStatusCompleted, ScanStatusFailed, ScanStatusCancelled, ScanStatusTimeout},
+	ScanStatusCompleted: {},
+	ScanStatusFailed:    {},
+	ScanStatusCancelled: {},
+	ScanStatusTimeout:   {},
+}
+
+// ValidateStatusTransition checks if a status transition is allowed
+func ValidateStatusTransition(from, to string) error {
+	allowed, exists := validTransitions[from]
+	if !exists {
+		return fmt.Errorf("unknown current status: %s", from)
+	}
+	for _, s := range allowed {
+		if s == to {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid transition from %q to %q", from, to)
+}
 
 // ScanService manages scan execution and state
 type ScanService struct {
@@ -54,11 +89,16 @@ func (s *ScanService) CreateScanRun(ctx context.Context, req *TriggerScanRequest
 	return scanRun, nil
 }
 
-// UpdateScanStatus updates the status of a scan run
+// UpdateScanStatus updates the status of a scan run with transition validation
 func (s *ScanService) UpdateScanStatus(ctx context.Context, scanID uuid.UUID, status string) error {
 	scanRun, err := s.repo.GetScanRunByID(ctx, scanID)
 	if err != nil {
 		return fmt.Errorf("scan run not found: %w", err)
+	}
+
+	if err := ValidateStatusTransition(scanRun.Status, status); err != nil {
+		log.Printf("WARN: Scan %s status transition rejected: %v", scanID, err)
+		return err
 	}
 
 	scanRun.Status = status
@@ -123,4 +163,21 @@ func (s *ScanService) GetScanRun(ctx context.Context, scanID uuid.UUID) (*entity
 // ListScanRuns retrieves a list of scan runs
 func (s *ScanService) ListScanRuns(ctx context.Context, limit, offset int) ([]*entity.ScanRun, error) {
 	return s.repo.ListScanRuns(ctx, limit, offset)
+}
+
+// CheckAllScanTimeouts checks all active scans for timeout.
+// Called by the background ticker started in the scanning module.
+func (s *ScanService) CheckAllScanTimeouts(ctx context.Context) {
+	scans, err := s.repo.ListScanRuns(ctx, 100, 0)
+	if err != nil {
+		log.Printf("ERROR: Failed to list scans for timeout check: %v", err)
+		return
+	}
+	for _, scan := range scans {
+		if scan.Status == ScanStatusPending || scan.Status == ScanStatusRunning {
+			if err := s.CheckScanTimeout(ctx, scan.ID); err != nil {
+				log.Printf("ERROR: Timeout check failed for scan %s: %v", scan.ID, err)
+			}
+		}
+	}
 }
