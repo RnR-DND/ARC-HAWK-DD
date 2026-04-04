@@ -92,14 +92,18 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         socketRef.current = undefined;
         onDisconnect?.();
 
-        // Attempt to reconnect if not a normal closure
+        // Attempt to reconnect with exponential backoff
         if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
           reconnectAttempts.current++;
-          console.log(`Attempting to reconnect (${reconnectAttempts.current}/${maxReconnectAttempts})...`);
+          const backoff = Math.min(
+            reconnectInterval * Math.pow(2, reconnectAttempts.current - 1),
+            30000
+          );
+          console.log(`Reconnecting in ${backoff}ms (${reconnectAttempts.current}/${maxReconnectAttempts})...`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
-          }, reconnectInterval);
+          }, backoff);
         }
       };
 

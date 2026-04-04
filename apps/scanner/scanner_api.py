@@ -6,6 +6,7 @@ import uuid
 import os
 import json
 import logging
+import re
 import subprocess
 import threading
 import requests
@@ -217,6 +218,16 @@ def execute_scan(scan_id, config):
         active_scans[scan_id]['status'] = 'failed'
         active_scans[scan_id]['error'] = str(e)
 
+        # Notify backend so the scan doesn't stay "running" forever
+        try:
+            requests.post(
+                f'{BACKEND_URL}/api/v1/scans/{scan_id}/complete',
+                json={'status': 'failed'},
+                timeout=10
+            )
+        except Exception as notify_err:
+            logger.warning(f"Failed to notify backend of scan failure: {notify_err}")
+
 
 def ingest_results(scan_id, results):
     """Send scan results to backend for ingestion."""
@@ -236,6 +247,17 @@ def ingest_results(scan_id, results):
 
                 # Skip types the backend rejects (not in India-specific locked PII whitelist)
                 if pii_type is None:
+                    continue
+
+                # Format validation — reject false positives before sending to backend
+                match_value = ''
+                if f.get('matches') and len(f['matches']) > 0:
+                    match_value = f['matches'][0]
+                elif f.get('sample_text'):
+                    match_value = f['sample_text']
+
+                if match_value and not validate_pii_format(pii_type, match_value):
+                    logger.debug(f"Format validation rejected {pattern_name} ({pii_type}): {match_value[:30]!r}")
                     continue
 
                 # Extract flexible metadata across different database types
@@ -271,28 +293,194 @@ def ingest_results(scan_id, results):
             logger.info(f"Scan {scan_id} completed with zero findings — nothing to ingest")
             return
 
-        payload = {
-            "scan_id": scan_id,
-            "findings": verified_findings,
-            "metadata": {}
-        }
+        # Smart chunking: overlap ensures PII near boundaries isn't lost
+        # and related findings from the same asset stay together in at
+        # least one chunk.  Backend dedup index prevents duplicate storage.
+        chunks = _smart_chunk(verified_findings, chunk_size=2000, overlap=200)
+        logger.info(f"Sending {len(verified_findings)} findings in {len(chunks)} smart chunks (overlap=200)")
 
-        logger.info(f"Sending {len(verified_findings)} verified findings to backend")
+        import time as _time
+        for idx, chunk in enumerate(chunks):
+            payload = {
+                "scan_id": scan_id,
+                "findings": chunk,
+                "metadata": {"chunk": idx + 1, "total_chunks": len(chunks)}
+            }
 
-        response = requests.post(
-            f'{BACKEND_URL}/api/v1/scans/ingest-verified',
-            json=payload,
-            headers={'Content-Type': 'application/json'},
-            timeout=60
-        )
+            logger.info(f"Chunk {idx + 1}/{len(chunks)} — {len(chunk)} findings")
 
-        if response.ok:
-            logger.info(f"Successfully ingested {len(verified_findings)} findings")
-        else:
-            logger.error(f"Ingestion failed: {response.status_code} - {response.text}")
+            try:
+                response = requests.post(
+                    f'{BACKEND_URL}/api/v1/scans/ingest-verified',
+                    json=payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=300
+                )
+
+                if response.ok:
+                    logger.info(f"Chunk {idx + 1} ingested successfully")
+                else:
+                    logger.error(f"Chunk {idx + 1} failed: {response.status_code} - {response.text}")
+            except Exception as chunk_err:
+                logger.error(f"Chunk {idx + 1} transport error: {chunk_err}")
+
+            # Pause between chunks to let backend commit and GC
+            if idx < len(chunks) - 1:
+                _time.sleep(2)
 
     except Exception as e:
         logger.error(f"Ingestion error: {e}", exc_info=True)
+
+# ---------------------------------------------------------------------------
+# Format validators — first line of defense before sending to backend
+# ---------------------------------------------------------------------------
+
+def _extract_digits(value: str) -> str:
+    return ''.join(c for c in value if c.isdigit())
+
+
+def _luhn_check(digits: str) -> bool:
+    total = 0
+    parity = len(digits) % 2
+    for i, ch in enumerate(digits):
+        d = int(ch)
+        if i % 2 == parity:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
+_VERHOEFF_D = [
+    [0,1,2,3,4,5,6,7,8,9],[1,2,3,4,0,6,7,8,9,5],
+    [2,3,4,0,1,7,8,9,5,6],[3,4,0,1,2,8,9,5,6,7],
+    [4,0,1,2,3,9,5,6,7,8],[5,9,8,7,6,0,4,3,2,1],
+    [6,5,9,8,7,1,0,4,3,2],[7,6,5,9,8,2,1,0,4,3],
+    [8,7,6,5,9,3,2,1,0,4],[9,8,7,6,5,4,3,2,1,0],
+]
+_VERHOEFF_P = [
+    [0,1,2,3,4,5,6,7,8,9],[1,5,7,6,2,8,3,0,9,4],
+    [5,8,0,3,7,9,6,1,4,2],[8,9,1,6,0,4,3,5,2,7],
+    [9,4,5,3,1,2,6,8,7,0],[4,2,8,6,5,7,3,9,0,1],
+    [2,7,9,3,8,0,6,4,1,5],[7,0,4,6,9,1,3,2,5,8],
+]
+
+
+def _verhoeff_check(digits: str) -> bool:
+    c = 0
+    n = len(digits)
+    for i in range(n - 1, -1, -1):
+        pos = n - 1 - i
+        c = _VERHOEFF_D[c][_VERHOEFF_P[pos % 8][int(digits[i])]]
+    return c == 0
+
+
+_PAN_RE = re.compile(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
+_IFSC_RE = re.compile(r'^[A-Z]{4}0[A-Z0-9]{6}$')
+_PASSPORT_RE = re.compile(r'^[A-Z][0-9]{7}$')
+_VOTER_RE = re.compile(r'^[A-Z]{3}[0-9]{7}$')
+_UPI_RE = re.compile(r'^[a-zA-Z0-9._-]+@[a-zA-Z][a-zA-Z0-9]*$')
+_DL_RE = re.compile(r'^[A-Z]{2}[\s-]?\d{2}[\s-]?\d{4}[\s-]?\d{7}$')
+
+
+def validate_pii_format(pii_type: str, value: str) -> bool:
+    """Return True if value passes format validation for the given PII type."""
+    value = (value or '').strip()
+    if not value:
+        return False
+
+    if pii_type == 'CREDIT_CARD':
+        d = _extract_digits(value)
+        return 13 <= len(d) <= 19 and _luhn_check(d)
+
+    if pii_type == 'IN_AADHAAR':
+        d = _extract_digits(value)
+        return len(d) == 12 and d[0] not in ('0', '1') and _verhoeff_check(d)
+
+    if pii_type == 'IN_PAN':
+        return bool(_PAN_RE.match(value.upper())) and len(value.strip()) == 10
+
+    if pii_type == 'EMAIL_ADDRESS':
+        at = value.rfind('@')
+        if at < 1 or at >= len(value) - 1:
+            return False
+        domain = value[at+1:]
+        return '.' in domain and domain[0] not in ('.','-')
+
+    if pii_type == 'IN_PHONE':
+        d = _extract_digits(value)
+        if d.startswith('91') and len(d) == 12:
+            d = d[2:]
+        return len(d) == 10 and d[0] in '6789'
+
+    if pii_type == 'IN_UPI':
+        return bool(_UPI_RE.match(value))
+
+    if pii_type == 'IN_IFSC':
+        return bool(_IFSC_RE.match(value.upper())) and len(value.strip()) == 11
+
+    if pii_type == 'IN_PASSPORT':
+        return bool(_PASSPORT_RE.match(value.upper())) and len(value.strip()) == 8
+
+    if pii_type == 'IN_VOTER_ID':
+        return bool(_VOTER_RE.match(value.upper())) and len(value.strip()) == 10
+
+    if pii_type == 'IN_DRIVING_LICENSE':
+        v = value.upper().strip()
+        cleaned = v.replace('-', '').replace(' ', '')
+        return 13 <= len(cleaned) <= 16 and bool(_DL_RE.match(v))
+
+    if pii_type == 'IN_BANK_ACCOUNT':
+        d = _extract_digits(value)
+        return 9 <= len(d) <= 18
+
+    return True  # Unknown type — don't reject
+
+
+def _smart_chunk(findings: list, chunk_size: int = 2000, overlap: int = 200) -> list:
+    """Split findings into overlapping chunks grouped by source asset.
+
+    1. Group findings by source path (same table/file stay together).
+    2. Pack groups into chunks up to *chunk_size*.
+    3. Copy the last *overlap* items of each chunk to the start of the
+       next one so PII spanning the boundary gets full context in at
+       least one chunk.  Backend dedup index drops the duplicates.
+
+    Returns a list of lists (each inner list is one chunk).
+    """
+    if len(findings) <= chunk_size:
+        return [findings]
+
+    # Group by source path so related findings stay together
+    from collections import OrderedDict
+    groups: OrderedDict[str, list] = OrderedDict()
+    for f in findings:
+        key = f.get('source', {}).get('path', '') or f.get('pattern_name', '')
+        groups.setdefault(key, []).append(f)
+
+    # Pack groups into chunks, hard-capping at chunk_size
+    chunks: list[list] = []
+    current: list = []
+
+    for group_findings in groups.values():
+        # If adding this group exceeds chunk_size, flush current
+        if current and len(current) + len(group_findings) > chunk_size:
+            chunks.append(current)
+            current = current[-overlap:] if overlap else []
+
+        current.extend(group_findings)
+
+        # Hard cap: if a single group is very large, split it
+        while len(current) > chunk_size:
+            chunks.append(current[:chunk_size])
+            current = current[chunk_size - overlap:]
+
+    if current:
+        chunks.append(current)
+
+    return chunks
+
 
 def map_pattern_to_pii_type(pattern_name):
     """Map hawk_scanner pattern names to backend PII types (all 11 India locked types)."""

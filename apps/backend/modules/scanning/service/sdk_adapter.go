@@ -23,7 +23,7 @@ type VerifiedFinding struct {
 	PatternName      string                 `json:"pattern_name"`
 	DetectedAt       string                 `json:"detected_at"`
 	SDKVersion       string                 `json:"scanner_version"`
-	Metadata         map[string]interface{} `json:"metadata,omitempty"`
+	Metadata         map[string]any `json:"metadata,omitempty"`
 }
 
 // SourceLocation represents source information from Python scanner
@@ -58,7 +58,7 @@ func (a *SDKAdapter) MapToAsset(vf *VerifiedFinding) *entity.Asset {
 		Environment:  "production",
 		Owner:        "",
 		SourceSystem: "arc-hawk-scanner",
-		FileMetadata: map[string]interface{}{
+		FileMetadata: map[string]any{
 			"sdk_version":    vf.SDKVersion,
 			"scan_timestamp": time.Now().Unix(),
 		},
@@ -84,7 +84,7 @@ func (a *SDKAdapter) MapToFinding(vf *VerifiedFinding, scanRunID, assetID uuid.U
 		Severity:            severity,
 		SeverityDescription: getSeverityDescription(severity),
 		ConfidenceScore:     floatPtr(vf.MLConfidence),
-		Context: map[string]interface{}{
+		Context: map[string]any{
 			"keywords":    vf.ContextKeywords,
 			"excerpt":     vf.ContextExcerpt,
 			"line":        vf.Source.Line,
@@ -93,7 +93,7 @@ func (a *SDKAdapter) MapToFinding(vf *VerifiedFinding, scanRunID, assetID uuid.U
 			"data_source": vf.Source.DataSource,
 			"host":        vf.Source.Host,
 		},
-		EnrichmentSignals: map[string]interface{}{
+		EnrichmentSignals: map[string]any{
 			"validators_passed": vf.ValidatorsPassed,
 			"validation_method": vf.ValidationMethod,
 			"ml_entity_type":    vf.MLEntityType,
@@ -127,24 +127,24 @@ func (a *SDKAdapter) MapToClassification(vf *VerifiedFinding, findingID uuid.UUI
 		DPDPACategory:      dpdpaCategory,
 		RequiresConsent:    requiresConsent(vf.PIIType),
 		RetentionPeriod:    getRetentionPeriod(vf.PIIType),
-		SignalBreakdown: map[string]interface{}{
-			"rule_signal": map[string]interface{}{
+		SignalBreakdown: map[string]any{
+			"rule_signal": map[string]any{
 				"confidence":     0.0,
 				"weight":         0.0,
 				"weighted_score": 0.0,
 			},
-			"presidio_signal": map[string]interface{}{
+			"presidio_signal": map[string]any{
 				"confidence":     vf.MLConfidence,
 				"weight":         0.6,
 				"weighted_score": 0.6 * vf.MLConfidence,
 				"explanation":    "SDK-validated with " + joinStrings(vf.ValidatorsPassed),
 			},
-			"context_signal": map[string]interface{}{
+			"context_signal": map[string]any{
 				"confidence":     calculateContextScore(vf.ContextKeywords),
 				"weight":         0.25,
 				"weighted_score": 0.25 * calculateContextScore(vf.ContextKeywords),
 			},
-			"entropy_signal": map[string]interface{}{
+			"entropy_signal": map[string]any{
 				"confidence":     0.0,
 				"weight":         0.0,
 				"weighted_score": 0.0,
@@ -161,13 +161,6 @@ func (a *SDKAdapter) MapToClassification(vf *VerifiedFinding, findingID uuid.UUI
 }
 
 // Helper functions - using existing generateStableID from ingestion_service.go
-
-func determineDataSource(assetType string) string {
-	if assetType == "database" {
-		return "PostgreSQL"
-	}
-	return "FileSystem"
-}
 
 func determineSeverity(piiType string) string {
 	// Only India PIIs + Credit Card in scope (Intelligence-at-Edge)

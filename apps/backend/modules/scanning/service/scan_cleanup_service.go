@@ -42,13 +42,13 @@ func (s *ScanCleanupService) StartCleanupWorker(ctx context.Context, intervalMin
 func (s *ScanCleanupService) cleanupStaleScans(ctx context.Context) {
 	log.Println("🔍 Checking for stale scans...")
 
-	// Find scans that have been running for more than 30 minutes
+	// Find scans stuck in "running" or "pending" for more than 30 minutes
 	query := `
 		UPDATE scan_runs
 		SET status = 'timeout',
 		    scan_completed_at = NOW(),
 		    updated_at = NOW()
-		WHERE status = 'running' 
+		WHERE status IN ('running', 'pending')
 		  AND scan_started_at < NOW() - INTERVAL '30 minutes'
 		  AND scan_completed_at IS NULL
 		RETURNING id, profile_name, scan_started_at

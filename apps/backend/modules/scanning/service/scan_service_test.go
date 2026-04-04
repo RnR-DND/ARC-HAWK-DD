@@ -15,7 +15,7 @@ type testScanRun struct {
 	ScanStartedAt time.Time
 	TotalFindings int
 	TotalAssets   int
-	Metadata      map[string]interface{}
+	Metadata      map[string]any
 }
 
 func TestTriggerScanRequest_Validation(t *testing.T) {
@@ -100,7 +100,7 @@ func TestScanRun_Creation(t *testing.T) {
 		ProfileName:   req.Name,
 		Status:        "pending",
 		ScanStartedAt: time.Now(),
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"sources":        req.Sources,
 			"pii_types":      req.PIITypes,
 			"execution_mode": req.ExecutionMode,
@@ -110,6 +110,14 @@ func TestScanRun_Creation(t *testing.T) {
 	}
 
 	// Assertions
+	if scanRun.ID == "" {
+		t.Error("Expected non-empty scan run ID")
+	}
+
+	if scanRun.ScanStartedAt.IsZero() {
+		t.Error("Expected non-zero ScanStartedAt")
+	}
+
 	if scanRun.ProfileName != "Integration Test Scan" {
 		t.Errorf("Expected profile name 'Integration Test Scan', got %s", scanRun.ProfileName)
 	}

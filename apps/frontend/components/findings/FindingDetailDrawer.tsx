@@ -92,11 +92,11 @@ export function FindingDetailDrawer({
                                 <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1">
                                     Risk Level
                                 </label>
-                                <div className={`inline-flex items-center px-2.5 py-0.5 rounded text-sm font-medium
-                                    ${finding.severity === 'Critical' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : ''}
-                                    ${finding.severity === 'High' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' : ''}
-                                    ${finding.severity === 'Medium' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' : ''}
-                                    ${finding.severity === 'Low' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' : ''}
+                                <div className={`inline-flex items-center px-2.5 py-0.5 rounded text-sm font-medium border
+                                    ${finding.severity === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' : ''}
+                                    ${finding.severity === 'High' ? 'bg-orange-50 text-orange-700 border-orange-200' : ''}
+                                    ${finding.severity === 'Medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
+                                    ${finding.severity === 'Low' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}
                                 `}>
                                     {finding.severity}
                                 </div>
@@ -120,7 +120,7 @@ export function FindingDetailDrawer({
                         {/* Evidence */}
                         <div>
                             <h3 className="text-sm font-semibold text-slate-900 mb-3">Matching Evidence</h3>
-                            <div className="bg-slate-900 rounded border border-slate-800 p-3 font-mono text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap">
+                            <div className="bg-slate-50 rounded border border-slate-200 p-3 font-mono text-xs text-slate-700 overflow-x-auto whitespace-pre-wrap">
                                 {finding.matches?.join('\n') || finding.sample_text}
                             </div>
                         </div>

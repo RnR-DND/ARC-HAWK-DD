@@ -34,7 +34,7 @@ type AddConnectionRequest struct {
 	Name	    string                 `json:"name"`
 	SourceType  string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack firebase couchdb gcs gdrive gdrive_workspace text"`
 	ProfileName string                 `json:"profile_name" binding:"required,min=1,max=50"`
-	Config      map[string]interface{} `json:"config" binding:"required"`
+	Config      map[string]any `json:"config" binding:"required"`
 }
 
 // AddConnection handles POST /api/v1/connections
@@ -113,8 +113,8 @@ func (h *ConnectionHandler) DeleteConnection(c *gin.Context) {
 
 // TestConnectionRequest represents the request body for testing a connection
 type TestConnectionRequest struct {
-	SourceType string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack"`
-	Config     map[string]interface{} `json:"config" binding:"required"`
+	SourceType string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack firebase couchdb gcs gdrive gdrive_workspace text"`
+	Config     map[string]any `json:"config" binding:"required"`
 }
 
 // TestConnection handles POST /api/v1/connections/test

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Search, Download } from 'lucide-react';
 import FindingsTable from '@/components/FindingsTable';
 import LoadingState from '@/components/LoadingState';
 import { findingsApi } from '@/services/findings.api';
@@ -32,8 +33,6 @@ export default function FindingsPage() {
             setLoading(true);
             setError(null);
 
-            // Note: The current API service might need updating if it doesn't support all filters
-            // But for now we use what we have
             const result = await findingsApi.getFindings({
                 page,
                 page_size: 20,
@@ -50,27 +49,20 @@ export default function FindingsPage() {
             result.findings.forEach(finding => {
                 if (finding.matches && finding.matches.length > 0) {
                     finding.matches.forEach((match: string) => {
-                        // Create a clone of the finding for this specific match
                         explodedFindings.push({
                             ...finding,
-                            // Override matches to display only this specific match
                             matches: [match],
-                            // Update ID to be unique for React keys (optional but good practice)
                             id: `${finding.id}-${match}`
                         });
                     });
                 } else {
-                    // Fallback if no matches array
                     explodedFindings.push(finding);
                 }
             });
 
-            // Polyfill legacy pagination structure
             const data: FindingsResponse = {
                 findings: explodedFindings,
-                total: result.total, // Total findings count remains (or should update?) 
-                // Actually total should reflect number of rows, but backend pagination is by finding.
-                // It's acceptable to show exploded rows for the current page.
+                total: result.total,
                 page: page,
                 page_size: 20,
                 total_pages: Math.ceil(result.total / 20)
@@ -88,7 +80,7 @@ export default function FindingsPage() {
     const handleFilterChange = (filters: { severity?: string; search?: string }) => {
         if (filters.search !== undefined) setSearchTerm(filters.search);
         if (filters.severity !== undefined) setSeverityFilter(filters.severity);
-        setPage(1); // Reset to first page on filter change
+        setPage(1);
     };
 
     const [remediationState, setRemediationState] = useState<{
@@ -117,10 +109,9 @@ export default function FindingsPage() {
             await remediationApi.executeRemediation({
                 finding_ids: [remediationState.findingId],
                 action_type: remediationState.action,
-                user_id: 'current-user' // In real app, get from auth context
+                user_id: 'current-user'
             });
 
-            // Refresh findings
             fetchFindings();
             setRemediationState(prev => ({ ...prev, isOpen: false }));
         } catch (error) {
@@ -135,7 +126,7 @@ export default function FindingsPage() {
                 feedback_type: 'FALSE_POSITIVE',
                 comments: 'Marked via UI'
             });
-            fetchFindings(); // Refresh list to see status change
+            fetchFindings();
         } catch (error) {
             console.error('Failed to mark false positive:', error);
             setError('Failed to update finding');
@@ -143,12 +134,12 @@ export default function FindingsPage() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-background">
-            {/* Header with Title and Global Actions */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-border bg-card">
+        <div className="flex flex-col h-full bg-white">
+            {/* Header */}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-slate-200 bg-white">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Findings Explorer</h1>
-                    <p className="text-muted-foreground mt-1">Detailed breakdown of PII detections and display security risks.</p>
+                    <h1 className="text-2xl font-bold text-slate-900">Findings Explorer</h1>
+                    <p className="text-slate-500 mt-1">Detailed breakdown of PII detections and security risks.</p>
                 </div>
                 {findingsData && findingsData.findings.length > 0 && (
                     <button
@@ -156,29 +147,23 @@ export default function FindingsPage() {
                             const { exportToCSV } = require('@/utils/export');
                             exportToCSV(findingsData.findings, 'findings');
                         }}
-                        className="px-4 py-2 bg-white border border-border text-slate-700 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors text-sm font-medium flex items-center gap-2"
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors text-sm font-medium"
                     >
-                        📊 Export CSV
+                        <Download className="w-4 h-4" />
+                        Export CSV
                     </button>
                 )}
             </div>
 
             {/* Sticky Filters Bar */}
-            <div className="sticky top-0 z-20 bg-card border-b border-border px-8 py-3 flex items-center gap-4 overflow-x-auto">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium whitespace-nowrap">
-                    <span className="text-slate-500">Filters:</span>
+            <div className="sticky top-0 z-20 bg-white border-b border-slate-200 px-8 py-3 flex items-center gap-4 overflow-x-auto">
+                <div className="flex items-center gap-2 text-sm text-slate-500 font-medium whitespace-nowrap">
+                    <span>Filters:</span>
                 </div>
-
-                {/* Scan Filter (Mock) */}
-                <select className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option>All Scans</option>
-                    <option>SCAN_021 (Latest)</option>
-                    <option>SCAN_020</option>
-                </select>
 
                 {/* PII Type Filter */}
                 <select
-                    className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={piiTypeFilter}
                     onChange={(e) => setPiiTypeFilter(e.target.value)}
                 >
@@ -190,7 +175,7 @@ export default function FindingsPage() {
 
                 {/* Asset Filter */}
                 <select
-                    className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={assetFilter}
                     onChange={(e) => setAssetFilter(e.target.value)}
                 >
@@ -201,7 +186,7 @@ export default function FindingsPage() {
 
                 {/* Risk Filter */}
                 <select
-                    className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={severityFilter}
                     onChange={(e) => setSeverityFilter(e.target.value)}
                 >
@@ -213,7 +198,7 @@ export default function FindingsPage() {
 
                 {/* Status Filter */}
                 <select
-                    className="bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                 >
@@ -224,19 +209,22 @@ export default function FindingsPage() {
                 </select>
 
                 {/* Search */}
-                <input
-                    type="text"
-                    placeholder="Search path/field..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="ml-auto bg-white border border-border text-slate-700 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 w-64"
-                />
+                <div className="ml-auto relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                        type="text"
+                        placeholder="Search path/field..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg pl-9 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+                    />
+                </div>
             </div>
 
             {/* Findings Content */}
             <div className="flex-1 overflow-auto p-8">
                 {error && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-lg mb-6">
+                    <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-6 text-sm">
                         {error}
                     </div>
                 )}
@@ -244,7 +232,7 @@ export default function FindingsPage() {
                 {loading && !findingsData ? (
                     <LoadingState message="Loading findings..." />
                 ) : (
-                    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         {findingsData ? (
                             <FindingsTable
                                 findings={findingsData.findings}

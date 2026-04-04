@@ -49,7 +49,7 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 
 	totalRaw, _ := rawSummary["total"].(int64)
 	total := int(totalRaw)
-	byTypeRaw, _ := rawSummary["by_type"].(map[string]interface{})
+	byTypeRaw, _ := rawSummary["by_type"].(map[string]any)
 
 	byType := make(map[string]TypeBreakdown)
 	highConfidence := 0
@@ -57,7 +57,7 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 	dpdpaCategories := make(map[string]int)
 
 	for typeName, data := range byTypeRaw {
-		dataMap, _ := data.(map[string]interface{})
+		dataMap, _ := data.(map[string]any)
 		if dataMap == nil {
 			continue
 		}

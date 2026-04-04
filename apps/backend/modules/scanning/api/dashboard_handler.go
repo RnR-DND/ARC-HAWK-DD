@@ -55,7 +55,7 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 	}
 
 	baseWhere := "WHERE 1=1"
-	args := []interface{}{}
+	args := []any{}
 	argIdx := 1
 
 	if tenantID != uuid.Nil {
@@ -75,7 +75,7 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 	}
 
 	// High risk count
-	highArgs := make([]interface{}, len(args))
+	highArgs := make([]any, len(args))
 	copy(highArgs, args)
 	highArgs = append(highArgs, "Critical", "High")
 	highQuery := fmt.Sprintf("SELECT COUNT(*) FROM findings %s AND severity IN ($%d, $%d)", baseWhere, argIdx, argIdx+1)

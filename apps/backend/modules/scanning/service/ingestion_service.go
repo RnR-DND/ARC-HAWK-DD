@@ -15,6 +15,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/arc-platform/backend/pkg/normalization"
+	"github.com/arc-platform/backend/pkg/validators"
 	"github.com/google/uuid"
 )
 
@@ -63,7 +64,7 @@ type HawkeyeFinding struct {
 	SampleText          string                 `json:"sample_text"`
 	Profile             string                 `json:"profile"`
 	DataSource          string                 `json:"data_source"`
-	FileData            map[string]interface{} `json:"file_data"`
+	FileData            map[string]any `json:"file_data"`
 	Severity            string                 `json:"severity"`
 	SeverityDescription string                 `json:"severity_description"`
 }
@@ -146,7 +147,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 			ScanCompletedAt: time.Now(),
 			Host:            allFindings[0].Host,
 			Status:          "completed",
-			Metadata:        map[string]interface{}{},
+			Metadata:        map[string]any{},
 		}
 
 		if err := tx.CreateScanRun(ctx, scanRun); err != nil {
@@ -158,7 +159,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		scanRun.Status = "completed"
 		scanRun.ScanCompletedAt = time.Now()
 		if scanRun.Metadata == nil {
-			scanRun.Metadata = make(map[string]interface{})
+			scanRun.Metadata = make(map[string]any)
 		}
 
 		if err := tx.UpdateScanRun(ctx, scanRun); err != nil {
@@ -212,6 +213,14 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		// CRITICAL FIX #3: Normalize before classification
 		normalizedMatch := normalization.Normalize(matchSample)
 
+		// Format validation — reject false positives before expensive classification
+		piiType := validators.MapPatternToPIIType(hawkeyeFinding.PatternName)
+		if piiType != "" && !validators.Validate(piiType, normalizedMatch) {
+			log.Printf("DEBUG: Format validation rejected %s (%s): %q",
+				hawkeyeFinding.PatternName, piiType, normalizedMatch)
+			continue
+		}
+
 		// Perform enrichment
 		enrichmentSignals := s.enrichment.Enrich(ctx, EnrichmentContext{
 			FilePath:    hawkeyeFinding.FilePath,
@@ -264,7 +273,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		// Track sanitization in scan metadata
 		if sanitizationCount > 0 {
 			if scanRun.Metadata == nil {
-				scanRun.Metadata = make(map[string]interface{})
+				scanRun.Metadata = make(map[string]any)
 			}
 			if existingCount, ok := scanRun.Metadata["sanitized_findings"].(int); ok {
 				scanRun.Metadata["sanitized_findings"] = existingCount + sanitizationCount
@@ -274,7 +283,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		}
 
 		// Convert enrichment signals to map for storage
-		enrichmentMap := map[string]interface{}{
+		enrichmentMap := map[string]any{
 			"asset_semantics":   enrichmentSignals.AssetSemantics,
 			"environment":       enrichmentSignals.Environment,
 			"entropy":           enrichmentSignals.Entropy,
@@ -323,6 +332,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		// Create finding with deduplication hash
 		finding := &entity.Finding{
 			ID:                  uuid.New(),
+			TenantID:            persistence.DevSystemTenantID,
 			ScanRunID:           scanRun.ID,
 			AssetID:             assetID,
 			PatternID:           &patternID,
@@ -558,29 +568,6 @@ func (s *IngestionService) getOrCreatePattern(ctx context.Context, finding *Hawk
 	return pattern.ID, nil
 }
 
-// extractTableName extracts table name from database finding path
-// Path format: "connection string > schema.table.column" or "connection string > table.column"
-func extractTableName(filePath string) string {
-	// Split by '>' to separate connection from table path
-	parts := strings.Split(filePath, ">")
-	if len(parts) < 2 {
-		return filePath
-	}
-
-	// Get the table part and trim whitespace
-	tablePart := strings.TrimSpace(parts[1])
-
-	// Split by '.' to get schema.table.column
-	dotParts := strings.Split(tablePart, ".")
-
-	if len(dotParts) >= 2 {
-		// Return schema.table (ignore column)
-		return fmt.Sprintf("%s.%s", dotParts[0], dotParts[1])
-	}
-
-	// Fallback to full table part if format is unexpected
-	return tablePart
-}
 
 // generateStableID creates a stable identifier from asset identifier
 // getFileName extracts filename from path
@@ -681,7 +668,7 @@ func (s *IngestionService) GetLatestScan(ctx context.Context) (*entity.ScanRun, 
 
 // calculateDynamicSeverity determines severity based on classification, confidence, and environment
 // This creates coherence between severity, classification, and confidence for better interpretability
-func calculateDynamicSeverity(classification, confidence string, fileData map[string]interface{}) string {
+func calculateDynamicSeverity(classification, confidence string, fileData map[string]any) string {
 	// Determine if this is production environment
 	isProduction := isProductionEnvironment(fileData)
 
@@ -727,7 +714,7 @@ func calculateDynamicSeverity(classification, confidence string, fileData map[st
 }
 
 // isProductionEnvironment determines if data is from production environment
-func isProductionEnvironment(fileData map[string]interface{}) bool {
+func isProductionEnvironment(fileData map[string]any) bool {
 	if fileData == nil {
 		return true // Default to production if unknown (safer)
 	}
@@ -759,7 +746,7 @@ func isProductionEnvironment(fileData map[string]interface{}) bool {
 
 // calculateComprehensiveRiskScore provides numeric risk score (0-100) for sorting and prioritization
 // Combines classification sensitivity, confidence level, and environment context
-func calculateComprehensiveRiskScore(classification, confidence string, fileData map[string]interface{}) int {
+func calculateComprehensiveRiskScore(classification, confidence string, fileData map[string]any) int {
 	// Base weights for classification types
 	var classificationWeight float64
 	switch classification {

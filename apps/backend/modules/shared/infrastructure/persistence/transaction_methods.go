@@ -115,13 +115,13 @@ func (t *PostgresTransaction) CreateFinding(ctx context.Context, finding *entity
 	}
 
 	query := `
-		INSERT INTO findings (id, scan_run_id, asset_id, pattern_id, pattern_name, 
+		INSERT INTO findings (id, tenant_id, scan_run_id, asset_id, pattern_id, pattern_name,
 			matches, sample_text, severity, severity_description, confidence_score, context)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING created_at, updated_at`
 
 	return t.tx.QueryRowContext(ctx, query,
-		finding.ID, finding.ScanRunID, finding.AssetID, finding.PatternID, finding.PatternName,
+		finding.ID, finding.TenantID, finding.ScanRunID, finding.AssetID, finding.PatternID, finding.PatternName,
 		pq.Array(finding.Matches), finding.SampleText, finding.Severity, finding.SeverityDescription,
 		finding.ConfidenceScore, contextJSON,
 	).Scan(&finding.CreatedAt, &finding.UpdatedAt)

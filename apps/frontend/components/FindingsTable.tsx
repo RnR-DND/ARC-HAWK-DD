@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FindingWithDetails, SignalScore } from '@/types';
+import { FindingWithDetails } from '@/types';
 import { findingsApi } from '@/services/findings.api';
-import { theme, getRiskColor } from '@/design-system/theme';
 import { FindingDetailDrawer } from './findings/FindingDetailDrawer';
 
 interface FindingsTableProps {
@@ -46,32 +45,29 @@ export default function FindingsTable({
     const handleMarkFalsePositive = async (id: string) => {
         if (onMarkFalsePositive) {
             await onMarkFalsePositive(id);
-            // Close drawer if action was regarding the selected finding
-            // setIsDrawerOpen(false); // Optional: keep open or close? Keep open to see result usually better but if list updates finding might be gone.
         }
     };
 
     return (
         <div>
-            {/* Table Header Only - Filters are in Page */}
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead>
-                        <tr className="bg-secondary text-muted-foreground border-b border-border">
-                            <th className="px-4 py-3 font-medium">Asset</th>
-                            <th className="px-4 py-3 font-medium">Object/Path</th>
-                            <th className="px-4 py-3 font-medium">Field</th>
-                            <th className="px-4 py-3 font-medium">PII Type</th>
-                            <th className="px-4 py-3 font-medium">Risk</th>
-                            <th className="px-4 py-3 font-medium">Conf</th>
-                            <th className="px-4 py-3 font-medium">Status</th>
-                            <th className="px-4 py-3 font-medium text-right">Actions</th>
+                        <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                            <th className="px-4 py-3 font-semibold">Asset</th>
+                            <th className="px-4 py-3 font-semibold">Object/Path</th>
+                            <th className="px-4 py-3 font-semibold">Field</th>
+                            <th className="px-4 py-3 font-semibold">PII Type</th>
+                            <th className="px-4 py-3 font-semibold">Risk</th>
+                            <th className="px-4 py-3 font-semibold">Conf</th>
+                            <th className="px-4 py-3 font-semibold">Status</th>
+                            <th className="px-4 py-3 font-semibold text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-slate-100">
                         {findings.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                                <td colSpan={8} className="text-center py-12 text-slate-500">
                                     No findings match the current filters
                                 </td>
                             </tr>
@@ -81,7 +77,6 @@ export default function FindingsTable({
                                 const piiType = classification?.classification_type || 'Unknown';
                                 const confidence = classification?.confidence_score || 0;
 
-                                // Logic to split path and field
                                 const fullPath = finding.asset_path || '';
                                 const lastSeparatorIndex = Math.max(fullPath.lastIndexOf('/'), fullPath.lastIndexOf('.'));
                                 const path = lastSeparatorIndex > -1 ? fullPath.substring(0, lastSeparatorIndex) : 'Root';
@@ -91,32 +86,32 @@ export default function FindingsTable({
                                     <tr
                                         key={finding.id}
                                         onClick={() => handleRowClick(finding)}
-                                        className="hover:bg-muted cursor-pointer transition-colors group"
+                                        className="hover:bg-slate-50 cursor-pointer transition-colors group"
                                     >
-                                        <td className="px-4 py-3 font-medium text-foreground">
+                                        <td className="px-4 py-3 font-medium text-slate-900">
                                             {finding.asset_name}
                                         </td>
-                                        <td className="px-4 py-3 text-muted-foreground text-xs font-mono truncate max-w-[150px]" title={path}>
+                                        <td className="px-4 py-3 text-slate-500 text-xs font-mono truncate max-w-[150px]" title={path}>
                                             {path}
                                         </td>
                                         <td className="px-4 py-3 text-blue-600 text-xs font-mono font-medium">
                                             {field}
                                         </td>
-                                        <td className="px-4 py-3 text-muted-foreground">
+                                        <td className="px-4 py-3 text-slate-600">
                                             {piiType}
                                         </td>
                                         <td className="px-4 py-3">
                                             <span className={`
                                                 px-2 py-0.5 rounded text-xs font-bold border
-                                                ${finding.severity === 'Critical' ? 'bg-red-500/10 text-red-500 border-red-500/20' : ''}
-                                                ${finding.severity === 'High' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' : ''}
-                                                ${finding.severity === 'Medium' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : ''}
-                                                ${finding.severity === 'Low' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' : ''}
+                                                ${finding.severity === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' : ''}
+                                                ${finding.severity === 'High' ? 'bg-orange-50 text-orange-700 border-orange-200' : ''}
+                                                ${finding.severity === 'Medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
+                                                ${finding.severity === 'Low' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : ''}
                                             `}>
                                                 {finding.severity}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                                        <td className="px-4 py-3 font-mono text-xs text-slate-600">
                                             {(confidence * 100).toFixed(0)}%
                                         </td>
                                         <td className="px-4 py-3">
@@ -127,8 +122,8 @@ export default function FindingsTable({
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); /* View lineage logic */ }}
-                                                    className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted rounded border border-border hover:border-slate-400 transition-colors"
+                                                    onClick={(e) => { e.stopPropagation(); }}
+                                                    className="px-2 py-1 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 rounded border border-slate-200 hover:border-slate-300 transition-colors"
                                                 >
                                                     Lineage
                                                 </button>
@@ -149,36 +144,37 @@ export default function FindingsTable({
             </div>
 
             {totalPages > 1 && (
-                <div style={{ borderTop: `1px solid ${theme.colors.border.default}`, paddingTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <button
-                        onClick={() => onPageChange(page - 1)}
-                        disabled={page <= 1}
-                        style={{
-                            border: `1px solid ${theme.colors.border.default}`,
-                            borderRadius: 4,
-                            padding: '6px 12px',
-                            background: page <= 1 ? theme.colors.background.secondary : theme.colors.background.card,
-                            color: page <= 1 ? theme.colors.text.muted : theme.colors.text.primary
-                        }}
-                    >
-                        Previous
-                    </button>
-                    <span style={{ fontSize: 14, color: theme.colors.text.secondary, alignSelf: 'center' }}>
-                        Page {page} of {totalPages}
+                <div className="border-t border-slate-200 px-4 py-3 flex items-center justify-between">
+                    <span className="text-sm text-slate-500">
+                        Showing {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, total)} of {total.toLocaleString()} findings
                     </span>
-                    <button
-                        onClick={() => onPageChange(page + 1)}
-                        disabled={page >= totalPages}
-                        style={{
-                            border: `1px solid ${theme.colors.border.default}`,
-                            borderRadius: 4,
-                            padding: '6px 12px',
-                            background: page >= totalPages ? theme.colors.background.secondary : theme.colors.background.card,
-                            color: page >= totalPages ? theme.colors.text.muted : theme.colors.text.primary
-                        }}
-                    >
-                        Next
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => onPageChange(page - 1)}
+                            disabled={page <= 1}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                                page <= 1
+                                    ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            Previous
+                        </button>
+                        <span className="text-sm text-slate-600 px-2">
+                            Page {page} of {totalPages}
+                        </span>
+                        <button
+                            onClick={() => onPageChange(page + 1)}
+                            disabled={page >= totalPages}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors ${
+                                page >= totalPages
+                                    ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
             )}
 

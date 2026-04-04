@@ -10,6 +10,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/utils"
+	"github.com/arc-platform/backend/pkg/validators"
 	"github.com/google/uuid"
 )
 
@@ -39,18 +40,16 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 	}
 
 	// Look up existing ScanRun first (orchestrator creates it before the scanner runs)
+	// Do NOT set status to "completed" here — the scanner calls /complete after all chunks,
+	// which properly sets both status and scan_completed_at timestamp.
 	var scanRun *entity.ScanRun
 	if existing, lookupErr := s.repo.GetScanRunByID(ctx, scanRunID); lookupErr == nil {
-		existing.Status = "completed"
-		if updateErr := tx.UpdateScanRun(ctx, existing); updateErr != nil {
-			return fmt.Errorf("failed to update scan run: %w", updateErr)
-		}
 		scanRun = existing
 	} else {
-		// ScanRun not found — create a new one
+		// ScanRun not found — create a new one (keep as "running")
 		scanRun = &entity.ScanRun{
 			ID:     scanRunID,
-			Status: "completed",
+			Status: "running",
 			Metadata: map[string]interface{}{
 				"sdk_scan":    true,
 				"sdk_version": "2.0",
@@ -68,9 +67,14 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 	// Process each finding
 	for _, vf := range input.Findings {
 		// CRITICAL: Validate PII type against locked scope (LAW 3)
-		// Backend MUST reject findings with PII types not in the locked 11 India types
 		if !IsLockedPIIType(vf.PIIType) {
-			continue // Skip this finding - do not ingest
+			continue
+		}
+
+		// Format validation — reject false positives (defense-in-depth)
+		matchValue := vf.ContextExcerpt
+		if matchValue != "" && !validators.Validate(vf.PIIType, matchValue) {
+			continue
 		}
 
 		acceptedFindingsCount++
@@ -127,6 +131,7 @@ func (s *IngestionService) processSingleSDKFinding(
 
 	// 2. Create finding — enforce PII_STORE_MODE (C-3)
 	finding := adapter.MapToFinding(vf, scanRunID, asset.ID)
+	finding.TenantID = persistence.DevSystemTenantID
 	applyPIIStoreMode(finding)
 	if err := tx.CreateFinding(ctx, finding); err != nil {
 		return assetID, fmt.Errorf("failed to create finding: %w", err)

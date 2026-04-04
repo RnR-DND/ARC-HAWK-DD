@@ -25,7 +25,7 @@ import (
 // ScanTriggerHandler handles scan trigger requests
 type ScanTriggerHandler struct {
 	scanService      *service.ScanService
-	websocketService interface{} // WebSocket service for broadcasting
+	websocketService any // WebSocket service for broadcasting
 	repo             *persistence.PostgresRepository
 	encryption       *encryption.EncryptionService
 }
@@ -57,7 +57,7 @@ var (
 	)
 )
 
-func NewScanTriggerHandler(scanService *service.ScanService, websocketService interface{}, repo *persistence.PostgresRepository, enc *encryption.EncryptionService) *ScanTriggerHandler {
+func NewScanTriggerHandler(scanService *service.ScanService, websocketService any, repo *persistence.PostgresRepository, enc *encryption.EncryptionService) *ScanTriggerHandler {
 	return &ScanTriggerHandler{
 		scanService:      scanService,
 		websocketService: websocketService,
@@ -147,8 +147,6 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 	// Apply a 15-minute context timeout so this goroutine cannot run forever
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
-	_ = ctx // used for future context-aware calls
-
 	log.Printf("Starting scan execution: %s", scanID.String())
 
 	// Broadcast scan start via WebSocket
@@ -172,7 +170,7 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 	}
 
 	// Build the HTTP payload expected by the python scanner API
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"scan_id":            scanID.String(),
 		"scan_name":          req.Name,
 		"sources":            req.Sources,
@@ -201,7 +199,7 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 	for attempt := 1; attempt <= 3; attempt++ {
 		log.Printf("Dispatching scan to %s (attempt %d/3)", url, attempt)
 
-		reqHttp, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+		reqHttp, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(payloadBytes))
 		if err != nil {
 			lastErr = fmt.Errorf("failed to create request: %w", err)
 			log.Printf("ERROR: %v", lastErr)
@@ -231,8 +229,11 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 			break // Scanner explicitly rejected — no point retrying
 		}
 
-		// Success — broadcast running status via WebSocket
+		// Success — update DB to "running" AND broadcast via WebSocket
 		log.Printf("Scan dispatched successfully: %s", scanID.String())
+		if err := h.scanService.UpdateScanStatus(ctx, scanID, "running"); err != nil {
+			log.Printf("WARN: Failed to update scan %s to running: %v", scanID.String(), err)
+		}
 		if h.websocketService != nil {
 			if wsService, ok := h.websocketService.(*websocket.WebSocketService); ok {
 				wsService.BroadcastScanProgress(scanID.String(), 0, "running", "Scan dispatched to scanner")
@@ -249,8 +250,8 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 // resolveConnectionConfigs looks up connection profiles from the database, decrypts
 // their configs, and returns a map of source_type → profile_name → full config.
 // This allows the scanner to receive credentials at runtime without filesystem secrets.
-func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) (map[string]map[string]interface{}, error) {
-	configs := make(map[string]map[string]interface{})
+func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) (map[string]map[string]any, error) {
+	configs := make(map[string]map[string]any)
 
 	if h.repo == nil || h.encryption == nil {
 		log.Printf("WARN: repo or encryption not available, scanner will use connection.yml fallback")
@@ -273,14 +274,14 @@ func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) (map
 			continue
 		}
 
-		var config map[string]interface{}
+		var config map[string]any
 		if err := h.encryption.Decrypt(conn.ConfigEncrypted, &config); err != nil {
 			log.Printf("WARN: Failed to decrypt config for %s/%s: %v", conn.SourceType, conn.ProfileName, err)
 			continue
 		}
 
 		if configs[conn.SourceType] == nil {
-			configs[conn.SourceType] = make(map[string]interface{})
+			configs[conn.SourceType] = make(map[string]any)
 		}
 		configs[conn.SourceType][conn.ProfileName] = config
 		log.Printf("INFO: Resolved connection config for %s/%s", conn.SourceType, conn.ProfileName)

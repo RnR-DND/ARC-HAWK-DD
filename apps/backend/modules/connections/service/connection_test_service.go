@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -51,7 +52,7 @@ func (s *TestConnectionService) TestConnection(ctx context.Context, connID strin
 		return nil, fmt.Errorf("connection not found: %w", err)
 	}
 
-	var config map[string]interface{}
+	var config map[string]any
 	if err := s.encryption.Decrypt(conn.ConfigEncrypted, &config); err != nil {
 		return nil, fmt.Errorf("failed to decrypt config: %w", err)
 	}
@@ -74,6 +75,16 @@ func (s *TestConnectionService) TestConnection(ctx context.Context, connID strin
 		result, err = s.testRedis(ctx, config)
 	case "slack":
 		result, err = s.testSlack(ctx, config)
+	case "firebase":
+		result, err = s.testFirebase(ctx, config)
+	case "couchdb":
+		result, err = s.testCouchDB(ctx, config)
+	case "gcs":
+		result, err = s.testGCS(ctx, config)
+	case "gdrive", "gdrive_workspace":
+		result, err = s.testGDrive(ctx, config, conn.SourceType)
+	case "text":
+		result, err = s.testText(ctx, config)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", conn.SourceType)
 	}
@@ -82,7 +93,7 @@ func (s *TestConnectionService) TestConnection(ctx context.Context, connID strin
 	return result, nil
 }
 
-func (s *TestConnectionService) TestConnectionByConfig(ctx context.Context, sourceType string, config map[string]interface{}) (*ConnectionTestResult, error) {
+func (s *TestConnectionService) TestConnectionByConfig(ctx context.Context, sourceType string, config map[string]any) (*ConnectionTestResult, error) {
 	startTime := time.Now()
 	var result *ConnectionTestResult
 	var err error
@@ -102,6 +113,16 @@ func (s *TestConnectionService) TestConnectionByConfig(ctx context.Context, sour
 		result, err = s.testRedis(ctx, config)
 	case "slack":
 		result, err = s.testSlack(ctx, config)
+	case "firebase":
+		result, err = s.testFirebase(ctx, config)
+	case "couchdb":
+		result, err = s.testCouchDB(ctx, config)
+	case "gcs":
+		result, err = s.testGCS(ctx, config)
+	case "gdrive", "gdrive_workspace":
+		result, err = s.testGDrive(ctx, config, sourceType)
+	case "text":
+		result, err = s.testText(ctx, config)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -110,7 +131,7 @@ func (s *TestConnectionService) TestConnectionByConfig(ctx context.Context, sour
 	return result, err
 }
 
-func (s *TestConnectionService) testPostgreSQL(ctx context.Context, config map[string]interface{}) (*ConnectionTestResult, error) {
+func (s *TestConnectionService) testPostgreSQL(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
 	result := &ConnectionTestResult{SourceType: "postgresql"}
 
 	host := getString(config, "host")
@@ -167,7 +188,7 @@ func (s *TestConnectionService) testPostgreSQL(ctx context.Context, config map[s
 	return result, nil
 }
 
-func (s *TestConnectionService) testMySQL(ctx context.Context, config map[string]interface{}) (*ConnectionTestResult, error) {
+func (s *TestConnectionService) testMySQL(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
 	result := &ConnectionTestResult{SourceType: "mysql"}
 
 	host := getString(config, "host")
@@ -216,7 +237,7 @@ func (s *TestConnectionService) testMySQL(ctx context.Context, config map[string
 	return result, nil
 }
 
-func (s *TestConnectionService) testMongoDB(ctx context.Context, config map[string]interface{}) (*ConnectionTestResult, error) {
+func (s *TestConnectionService) testMongoDB(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
 	result := &ConnectionTestResult{SourceType: "mongodb"}
 
 	host := getString(config, "host")
@@ -276,7 +297,7 @@ func (s *TestConnectionService) testMongoDB(ctx context.Context, config map[stri
 	return result, nil
 }
 
-func (s *TestConnectionService) testS3(ctx context.Context, config map[string]interface{}) (*ConnectionTestResult, error) {
+func (s *TestConnectionService) testS3(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
 	result := &ConnectionTestResult{SourceType: "s3"}
 
 	region := getString(config, "region")
@@ -311,7 +332,7 @@ func (s *TestConnectionService) testS3(ctx context.Context, config map[string]in
 	return result, nil
 }
 
-func (s *TestConnectionService) testFilesystem(ctx context.Context, config map[string]interface{}) (*ConnectionTestResult, error) {
+func (s *TestConnectionService) testFilesystem(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
 	result := &ConnectionTestResult{SourceType: "filesystem"}
 
 	path := getString(config, "path")
@@ -335,7 +356,7 @@ func (s *TestConnectionService) testFilesystem(ctx context.Context, config map[s
 	return result, nil
 }
 
-func (s *TestConnectionService) testRedis(ctx context.Context, config map[string]interface{}) (*ConnectionTestResult, error) {
+func (s *TestConnectionService) testRedis(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
 	result := &ConnectionTestResult{SourceType: "redis"}
 
 	host := getString(config, "host")
@@ -362,7 +383,7 @@ func (s *TestConnectionService) testRedis(ctx context.Context, config map[string
 	return result, nil
 }
 
-func (s *TestConnectionService) testSlack(ctx context.Context, config map[string]interface{}) (*ConnectionTestResult, error) {
+func (s *TestConnectionService) testSlack(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
 	result := &ConnectionTestResult{SourceType: "slack"}
 
 	token := getString(config, "bot_token")
@@ -386,7 +407,141 @@ func (s *TestConnectionService) testSlack(ctx context.Context, config map[string
 	return result, nil
 }
 
-func getString(config map[string]interface{}, key string) string {
+func (s *TestConnectionService) testFirebase(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "firebase"}
+
+	projectID := getString(config, "project_id")
+	if projectID == "" {
+		result.Success = false
+		result.Message = "Missing project_id"
+		result.ErrorDetails = "project_id is required for Firebase source"
+		return result, nil
+	}
+
+	// Verify the Firebase REST endpoint is reachable
+	url := fmt.Sprintf("https://%s.firebaseio.com/.json?shallow=true", projectID)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach Firebase"
+		result.ErrorDetails = "Unable to connect to Firebase. Please verify your project ID and network access."
+		fmt.Printf("[SECURITY] Firebase connection failed for project %s - %v\n", projectID, err)
+		return result, nil
+	}
+	resp.Body.Close()
+
+	result.Success = true
+	result.Message = "Firebase reachable"
+	result.ServerVersion = "Firebase Realtime Database"
+	result.DatabaseInfo = fmt.Sprintf("Project: %s", projectID)
+	return result, nil
+}
+
+func (s *TestConnectionService) testCouchDB(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "couchdb"}
+
+	host := getString(config, "host")
+	port := getInt(config, "port", 5984)
+
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to connect to CouchDB"
+		result.ErrorDetails = "Unable to reach CouchDB server. Please verify hostname, port, and network access."
+		fmt.Printf("[SECURITY] CouchDB connection failed for %s - %v\n", addr, err)
+		return result, nil
+	}
+	conn.Close()
+
+	result.Success = true
+	result.Message = "Connection successful"
+	result.ServerVersion = "CouchDB"
+	result.DatabaseInfo = fmt.Sprintf("Address: %s", addr)
+	return result, nil
+}
+
+func (s *TestConnectionService) testGCS(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "gcs"}
+
+	bucket := getString(config, "bucket")
+	if bucket == "" {
+		result.Success = false
+		result.Message = "Missing bucket"
+		result.ErrorDetails = "bucket is required for GCS source"
+		return result, nil
+	}
+
+	// Verify GCS endpoint is reachable
+	conn, err := net.DialTimeout("tcp", "storage.googleapis.com:443", 5*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach Google Cloud Storage"
+		result.ErrorDetails = "Unable to connect to GCS. Please verify network access."
+		return result, nil
+	}
+	conn.Close()
+
+	result.Success = true
+	result.Message = "GCS endpoint reachable"
+	result.ServerVersion = "Google Cloud Storage"
+	result.DatabaseInfo = fmt.Sprintf("Bucket: %s", bucket)
+	return result, nil
+}
+
+func (s *TestConnectionService) testGDrive(ctx context.Context, config map[string]any, sourceType string) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: sourceType}
+
+	// Google Drive requires OAuth — validate that credentials are configured
+	clientID := getString(config, "client_id")
+	if clientID == "" {
+		result.Success = false
+		result.Message = "Missing client_id"
+		result.ErrorDetails = "OAuth client_id is required for Google Drive source"
+		return result, nil
+	}
+
+	// Verify Google API endpoint is reachable
+	conn, err := net.DialTimeout("tcp", "www.googleapis.com:443", 5*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach Google APIs"
+		result.ErrorDetails = "Unable to connect to Google APIs. Please verify network access."
+		return result, nil
+	}
+	conn.Close()
+
+	result.Success = true
+	result.Message = "Google API endpoint reachable"
+	result.ServerVersion = "Google Drive API v3"
+	return result, nil
+}
+
+func (s *TestConnectionService) testText(ctx context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "text"}
+
+	path := getString(config, "path")
+	content := getString(config, "content")
+
+	if path == "" && content == "" {
+		result.Success = false
+		result.Message = "Missing path or content"
+		result.ErrorDetails = "Either path or content is required for text source"
+		return result, nil
+	}
+
+	result.Success = true
+	result.Message = "Text source configured"
+	if path != "" {
+		result.DatabaseInfo = fmt.Sprintf("Path: %s", path)
+	} else {
+		result.DatabaseInfo = fmt.Sprintf("Inline content (%d chars)", len(content))
+	}
+	return result, nil
+}
+
+func getString(config map[string]any, key string) string {
 	if val, ok := config[key]; ok {
 		if s, ok := val.(string); ok {
 			return s
@@ -402,7 +557,7 @@ func getString(config map[string]interface{}, key string) string {
 	return ""
 }
 
-func getInt(config map[string]interface{}, key string, defaultVal int) int {
+func getInt(config map[string]any, key string, defaultVal int) int {
 	if val, ok := config[key]; ok {
 		switch v := val.(type) {
 		case int:

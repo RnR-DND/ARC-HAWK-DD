@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
@@ -150,30 +152,49 @@ func (h *HealthHandler) checkScanner(ctx context.Context) ComponentHealth {
 		LastCheck: time.Now(),
 	}
 
-	// Check if scans table is accessible and has recent activity
+	// First check if the scanner HTTP endpoint is reachable
+	scannerURL := os.Getenv("SCANNER_URL")
+	if scannerURL == "" {
+		scannerURL = "http://scanner:5002"
+	}
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(fmt.Sprintf("%s/health", scannerURL))
+	if err != nil {
+		health.Status = "offline"
+		health.Message = "Scanner service unreachable"
+		health.Details = "Cannot connect to scanner HTTP endpoint"
+		return health
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		health.Status = "degraded"
+		health.Message = "Scanner service unhealthy"
+		health.Details = fmt.Sprintf("Scanner returned HTTP %d", resp.StatusCode)
+		return health
+	}
+
+	// Also check for recent scan activity
 	var lastScanTime *time.Time
-	err := h.db.QueryRow(`
+	err = h.db.QueryRowContext(ctx, `
 		SELECT MAX(created_at)
 		FROM scan_runs
 		WHERE created_at > NOW() - INTERVAL '1 hour'
 	`).Scan(&lastScanTime)
 
 	if err != nil {
-		health.Status = "degraded"
-		health.Message = "Scanner status unknown"
-		health.Details = "Unable to query recent scans"
+		health.Status = "online"
+		health.Message = "Scanner reachable, scan history unavailable"
 		return health
 	}
 
-	if lastScanTime == nil {
-		health.Status = "degraded"
-		health.Message = "No recent scan activity"
-		health.Details = "No scans in the last hour"
-	} else {
-		health.Status = "online"
-		health.Message = "Scanner operational"
+	health.Status = "online"
+	health.Message = "Scanner operational"
+	if lastScanTime != nil {
 		health.Details = "Recent scan activity detected"
+	} else {
+		health.Details = "No scans in the last hour"
 	}
-
 	return health
 }
