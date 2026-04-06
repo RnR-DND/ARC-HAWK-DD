@@ -96,9 +96,9 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 		}
 	}
 
-	// Update ScanRun total counts
-	scanRun.TotalFindings = acceptedFindingsCount
-	scanRun.TotalAssets = len(assetMap)
+	// Update ScanRun total counts — accumulate across chunks, don't overwrite
+	scanRun.TotalFindings += acceptedFindingsCount
+	scanRun.TotalAssets += len(assetMap)
 
 	if err := tx.UpdateScanRun(ctx, scanRun); err != nil {
 		return fmt.Errorf("failed to update scan run with final stats: %w", err)

@@ -154,7 +154,7 @@ def execute(args):
             for key, config in postgresql_config.items():
                 host = config.get('host')
                 user = config.get('user')
-                port = config.get('port', 5432)  # default port for PostgreSQL
+                port = int(config.get('port', 5432))  # default port for PostgreSQL
                 password = config.get('password')
                 database = config.get('database')
                 limit_start = config.get('limit_start', 0)

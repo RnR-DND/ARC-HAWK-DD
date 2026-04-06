@@ -13,6 +13,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/google/uuid"
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"

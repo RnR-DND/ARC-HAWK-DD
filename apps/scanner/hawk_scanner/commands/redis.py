@@ -56,7 +56,7 @@ def execute(args):
 
             for profile_name, config in redis_config.items():
                 host = config.get('host')
-                port = config.get('port', 6379)
+                port = int(config.get('port', 6379))
                 password = config.get('password')
 
                 if host:

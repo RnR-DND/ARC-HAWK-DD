@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Play, Clock, CheckCircle, AlertCircle, Calendar, Loader2, Trash2 } from 'lucide-react';
 import { scansApi } from '@/services/scans.api';
 import { format } from 'date-fns';
@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { ScanConfigModal } from '@/components/scans/ScanConfigModal';
 
 export default function ScansPage() {
+    const router = useRouter();
     const [scans, setScans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showScanConfigModal, setShowScanConfigModal] = useState(false);
@@ -126,55 +127,46 @@ export default function ScansPage() {
                             {scans.map((scan) => (
                                 <tr
                                     key={scan.id}
+                                    onClick={() => router.push(`/scans/${scan.id}`)}
                                     className="group hover:bg-slate-50 transition-colors cursor-pointer"
                                 >
                                     <td className="px-6 py-4">
-                                        <Link href={`/scans/${scan.id}`} className="block">
-                                            <div className="font-semibold text-blue-600 group-hover:text-blue-700 transition-colors">
-                                                {scan.profile_name || 'Unnamed Scan'}
-                                            </div>
-                                            <div className="text-xs text-slate-500 mt-0.5">{scan.id}</div>
-                                        </Link>
+                                        <div className="font-semibold text-blue-600 group-hover:text-blue-700 transition-colors">
+                                            {scan.profile_name || 'Unnamed Scan'}
+                                        </div>
+                                        <div className="text-xs text-slate-500 mt-0.5">{scan.id}</div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
-                                        <Link href={`/scans/${scan.id}`} className="block">
-                                            <div className="flex items-center gap-2">
-                                                <Calendar className="w-4 h-4 text-slate-400" />
-                                                {formatDate(scan.scan_started_at)}
-                                            </div>
-                                        </Link>
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="w-4 h-4 text-slate-400" />
+                                            {formatDate(scan.scan_started_at)}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <Link href={`/scans/${scan.id}`} className="block">
-                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${scan.status === 'completed'
-                                                ? 'bg-green-50 text-green-700 border-green-200'
-                                                : scan.status === 'failed'
-                                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                                    : 'bg-blue-50 text-blue-700 border-blue-200'
-                                                }`}>
-                                                {scan.status === 'completed' ? (
-                                                    <CheckCircle className="w-3 h-3" />
-                                                ) : scan.status === 'failed' ? (
-                                                    <AlertCircle className="w-3 h-3" />
-                                                ) : (
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                )}
-                                                <span className="capitalize">{scan.status}</span>
-                                            </div>
-                                        </Link>
+                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${scan.status === 'completed'
+                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                            : scan.status === 'failed'
+                                                ? 'bg-red-50 text-red-700 border-red-200'
+                                                : 'bg-blue-50 text-blue-700 border-blue-200'
+                                            }`}>
+                                            {scan.status === 'completed' ? (
+                                                <CheckCircle className="w-3 h-3" />
+                                            ) : scan.status === 'failed' ? (
+                                                <AlertCircle className="w-3 h-3" />
+                                            ) : (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                            )}
+                                            <span className="capitalize">{scan.status}</span>
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
-                                        <Link href={`/scans/${scan.id}`} className="block">
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="w-4 h-4 text-slate-400" />
-                                                {getDuration(scan.scan_started_at, scan.scan_completed_at, scan.status)}
-                                            </div>
-                                        </Link>
+                                        <div className="flex items-center gap-2">
+                                            <Clock className="w-4 h-4 text-slate-400" />
+                                            {getDuration(scan.scan_started_at, scan.scan_completed_at, scan.status)}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-slate-700">
-                                        <Link href={`/scans/${scan.id}`} className="block">
-                                            {scan.total_findings?.toLocaleString() || 0}
-                                        </Link>
+                                        {scan.total_findings?.toLocaleString() || 0}
                                     </td>
                                     <td className="px-3 py-4 text-center">
                                         <button

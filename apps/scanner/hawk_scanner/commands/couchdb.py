@@ -60,8 +60,8 @@ def execute(args):
 
             for key, config in couchdb_config.items():
                 host = config.get('host')
-                port = config.get('port', 5984)  # default CouchDB port
-                username = config.get('username')
+                port = int(config.get('port', 5984))  # default CouchDB port
+                username = config.get('user')
                 password = config.get('password')
                 database = config.get('database')
 

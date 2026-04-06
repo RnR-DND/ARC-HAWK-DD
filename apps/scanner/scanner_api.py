@@ -148,7 +148,7 @@ def _normalize_for_hawk_scanner(sources: dict) -> dict:
     PLATFORM_ONLY_FIELDS = {'environment', 'read_only', 'allow_remediation', 'ssl_mode'}
 
     # Field renames per source type family
-    DB_TYPES = {'postgresql', 'mysql', 'mongodb'}
+    DB_TYPES = {'postgresql', 'mysql', 'mongodb', 'couchdb', 'redis'}
     BUCKET_TYPES = {'s3', 'gcs', 'firebase'}
 
     normalized = {}
@@ -174,6 +174,15 @@ def _normalize_for_hawk_scanner(sources: dict) -> dict:
                     new_cfg['bucket_name'] = v
                 else:
                     new_cfg[k] = v
+
+            # Coerce port to int at the boundary so individual commands
+            # never receive a string port from the YAML config
+            if 'port' in new_cfg:
+                try:
+                    new_cfg['port'] = int(new_cfg['port'])
+                except (ValueError, TypeError):
+                    pass
+
             normalized[src_type][profile_name] = new_cfg
     return normalized
 
@@ -268,9 +277,13 @@ def execute_scan(scan_id, config):
                 timeout=600  # 10 minute timeout
             )
 
-            logger.info(f"stdout: {result.stdout[:500] if result.stdout else 'empty'}")
+            # Strip ASCII art banner for cleaner logs
+            stdout_clean = result.stdout or ''
+            if '=====' in stdout_clean:
+                stdout_clean = stdout_clean[stdout_clean.rfind('=====') + 5:].strip()
+            logger.info(f"stdout: {stdout_clean[:2000] if stdout_clean else 'empty'}")
             if result.stderr:
-                logger.warning(f"stderr: {result.stderr[:500]}")
+                logger.warning(f"stderr (full): {result.stderr}")
 
         except subprocess.TimeoutExpired:
             logger.error("Scan timed out after 600s")
@@ -291,7 +304,7 @@ def execute_scan(scan_id, config):
 
                 findings_count = sum(len(v) for v in scan_results.values() if isinstance(v, list))
                 # Ingest into backend
-                ingest_results(scan_id, scan_results)
+                ingest_results(scan_id, scan_results, config)
         finally:
             # Cleanup temp files regardless of success/failure
             for tmp in (output_file, connection_config_path):
@@ -344,7 +357,7 @@ def execute_scan(scan_id, config):
             logger.warning(f"Failed to notify backend of scan failure: {notify_err}")
 
 
-def ingest_results(scan_id, results):
+def ingest_results(scan_id, results, config=None):
     """Send scan results to backend for ingestion."""
     try:
         logger.info(f"Raw results keys: {list(results.keys())}")
@@ -403,6 +416,31 @@ def ingest_results(scan_id, results):
                     "metadata": f.get('file_data', {})
                 }
                 verified_findings.append(vf)
+
+        # Filter by requested PII types if specified
+        # Frontend sends short names (PAN, AADHAAR, EMAIL) but internal types
+        # use prefixed names (IN_PAN, IN_AADHAAR, EMAIL_ADDRESS). Build a
+        # lookup that accepts both forms.
+        requested_pii_types = (config or {}).get('pii_types', [])
+        if requested_pii_types:
+            _SHORT_TO_INTERNAL = {
+                'PAN': 'IN_PAN', 'AADHAAR': 'IN_AADHAAR', 'EMAIL': 'EMAIL_ADDRESS',
+                'PHONE': 'IN_PHONE', 'PASSPORT': 'IN_PASSPORT', 'VOTER_ID': 'IN_VOTER_ID',
+                'DRIVING_LICENSE': 'IN_DRIVING_LICENSE', 'CREDIT_CARD': 'CREDIT_CARD',
+                'UPI_ID': 'IN_UPI', 'BANK_ACCOUNT': 'IN_BANK_ACCOUNT', 'GST': 'IN_GST',
+                'IFSC': 'IN_IFSC',
+            }
+            allowed = set()
+            for t in requested_pii_types:
+                allowed.add(t)
+                if t in _SHORT_TO_INTERNAL:
+                    allowed.add(_SHORT_TO_INTERNAL[t])
+
+            before_count = len(verified_findings)
+            verified_findings = [f for f in verified_findings if f['pii_type'] in allowed]
+            filtered_out = before_count - len(verified_findings)
+            if filtered_out > 0:
+                logger.info(f"Filtered {filtered_out} findings not in requested PII types {allowed}")
 
         if len(verified_findings) == 0:
             logger.info(f"Scan {scan_id} completed with zero findings — nothing to ingest")

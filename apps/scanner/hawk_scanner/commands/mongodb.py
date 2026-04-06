@@ -105,7 +105,7 @@ def execute(args):
 
                 db = connect_mongodb(args, host, port, username,
                                      password, database, uri)
-                if db:
+                if db is not None:
                     results += check_data_patterns(args, db, patterns, key, database, limit_start=limit_start,
                                                    limit_end=limit_end, whitelisted_collections=collections)
         else:
