@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Play, Zap, Clock } from 'lucide-react';
+import { X, Play, Zap, Clock, Trash2 } from 'lucide-react';
 import { scansApi } from '@/services/scans.api';
 import { connectionsApi, type Connection } from '@/services/connections.api';
 
@@ -65,6 +65,18 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
     };
 
     if (!isOpen) return null;
+
+    const handleDeleteSource = async (e: React.MouseEvent, source: Connection) => {
+        e.stopPropagation();
+        if (!confirm(`Remove "${source.profile_name}" data source? This cannot be undone.`)) return;
+        try {
+            await connectionsApi.deleteConnection(source.id);
+            setSources(prev => prev.filter(s => s.id !== source.id));
+            setSelectedSources(prev => prev.filter(id => id !== source.profile_name));
+        } catch (err) {
+            console.error('Failed to delete source:', err);
+        }
+    };
 
     const toggleSource = (sourceId: string) => {
         setSelectedSources(prev =>
@@ -194,18 +206,25 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                 </div>
                             ) : (
                                 sources.map((source) => (
-                                    <button
+                                    <div
                                         key={source.id}
-                                        onClick={() => toggleSource(source.profile_name)}
                                         className={`
-                    p-3 rounded-lg border-2 transition-all text-left
+                    relative p-3 rounded-lg border-2 transition-all text-left cursor-pointer
                     ${selectedSources.includes(source.profile_name)
                                                 ? 'border-green-500 bg-green-50'
                                                 : 'border-slate-200 bg-slate-50 hover:border-slate-300'
                                             }
                   `}
+                                        onClick={() => toggleSource(source.profile_name)}
                                     >
-                                        <div className="font-medium text-slate-900 text-sm">{source.profile_name}</div>
+                                        <button
+                                            onClick={(e) => handleDeleteSource(e, source)}
+                                            className="absolute top-2 right-2 p-1 rounded hover:bg-red-100 text-slate-400 hover:text-red-500 transition-colors"
+                                            title="Remove data source"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <div className="font-medium text-slate-900 text-sm pr-6">{source.profile_name}</div>
                                         <div className="text-xs text-slate-500 mt-1">{source.source_type}</div>
                                         {source.validation_status && (
                                             <div className={`text-xs mt-1 ${source.validation_status === 'valid' ? 'text-green-600' : 'text-yellow-600'
@@ -213,7 +232,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                                 {source.validation_status}
                                             </div>
                                         )}
-                                    </button>
+                                    </div>
                                 ))
                             )}
                         </div>

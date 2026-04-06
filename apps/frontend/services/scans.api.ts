@@ -68,6 +68,20 @@ export const scansApi = {
 
     clearScanData: async (): Promise<any> => {
         return await del<any>('/scans/clear');
+    },
+
+    deleteScan: async (id: string): Promise<any> => {
+        return await del<any>(`/scans/${id}`);
+    },
+
+    getScanPIISummary: async (id: string): Promise<any[]> => {
+        try {
+            const response = await get<any>(`/scans/${id}/pii-summary`);
+            return response?.data ?? [];
+        } catch (error) {
+            console.error(`Failed to fetch PII summary for scan ${id}:`, error);
+            return [];
+        }
     }
 };
 

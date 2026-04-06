@@ -9,14 +9,19 @@ import { format } from 'date-fns';
 export default function ScanDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const [scan, setScan] = useState<any>(null);
+    const [piiSummary, setPiiSummary] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchScan = async () => {
             try {
-                const data = await scansApi.getScan(id);
+                const [data, summary] = await Promise.all([
+                    scansApi.getScan(id),
+                    scansApi.getScanPIISummary(id),
+                ]);
                 setScan(data);
+                setPiiSummary(summary);
             } catch (err) {
                 console.error('Failed to load scan details', err);
                 setError('Failed to load scan details. The scan may not exist.');
@@ -59,7 +64,7 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-full bg-background text-muted-foreground">
+            <div className="flex items-center justify-center h-full bg-slate-50 text-slate-500">
                 <Loader2 className="w-8 h-8 animate-spin mr-3" />
                 <span>Loading scan details...</span>
             </div>
@@ -68,19 +73,16 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
 
     if (error || !scan) {
         return (
-            <div className="flex flex-col items-center justify-center h-full bg-background text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-full bg-slate-50 text-slate-500">
                 <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">Error Loading Scan</h3>
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">Error Loading Scan</h3>
                 <p>{error || 'Scan not found'}</p>
-                <Link href="/scans" className="mt-6 px-4 py-2 bg-muted rounded-lg hover:bg-accent transition-colors text-white">
+                <Link href="/scans" className="mt-6 px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors text-slate-700">
                     Return to Scans
                 </Link>
             </div>
         );
     }
-
-    // Adapt metadata for display
-    const piiSummary = scan.metadata?.pii_summary || []; // Assuming backend passes this structure, adaptable if needed
 
     return (
         <div className="flex flex-col h-full bg-slate-50">
@@ -169,7 +171,16 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
                     ) : (
                         <div className="bg-white border border-slate-200 rounded-xl p-8 text-center shadow-sm">
                             <h3 className="text-lg font-medium text-slate-800 mb-2">No PII Summary Available</h3>
-                            <p className="text-slate-500">This scan did not produce a detailed breakdown summary or no PII was found.</p>
+                            <p className="text-slate-500">
+                                {scan.metadata?.status_message ||
+                                    'This scan did not produce a detailed breakdown summary or no PII was found.'}
+                            </p>
+                            {scan.metadata?.diagnostics?.tables_scanned === 0 && (
+                                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+                                    <AlertTriangle className="w-4 h-4 inline mr-2" />
+                                    The database has no scannable tables. Please verify the database contains data before scanning.
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

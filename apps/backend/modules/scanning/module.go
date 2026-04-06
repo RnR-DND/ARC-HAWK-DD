@@ -91,7 +91,7 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 		log.Printf("WARN: Encryption service unavailable, scanner will use connection.yml fallback: %v", err)
 	}
 	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService, repo, encryptionService)
-	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService)
+	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService, repo)
 	m.dashboardHandler = api.NewDashboardHandler(repo)
 
 	// Start background ticker to check for stuck/timed-out scans every 5 minutes
@@ -129,6 +129,8 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		scans.GET("/:id/status", m.scanStatusHandler.GetScanStatus)
 		scans.POST("/:id/complete", m.scanStatusHandler.CompleteScan)
 		scans.POST("/:id/cancel", m.scanStatusHandler.CancelScan)
+		scans.DELETE("/:id", m.scanStatusHandler.DeleteScan)
+		scans.GET("/:id/pii-summary", m.scanStatusHandler.GetScanPIISummary)
 
 		// Scan management
 		scans.GET("", m.scanStatusHandler.ListScans)

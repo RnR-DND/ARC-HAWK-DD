@@ -231,3 +231,4 @@ detection_quality_report.json
 scan_output_test.json
 test_scan_output.json
 real_scan_results*.json
+.gstack/

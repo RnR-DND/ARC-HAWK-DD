@@ -114,8 +114,12 @@ func (a *SDKAdapter) MapToClassification(vf *VerifiedFinding, findingID uuid.UUI
 	classificationType := mapPIITypeToClassification(vf.PIIType)
 	dpdpaCategory := getDPDPACategory(vf.PIIType)
 
-	// Simplified scoring: SDK already validated
-	finalScore := 0.6*vf.MLConfidence + 0.25*calculateContextScore(vf.ContextKeywords) + 0.15*1.0
+	// Confidence scoring: boost MLConfidence for SDK-validated findings that passed format validators
+	mlConf := vf.MLConfidence
+	if len(vf.ValidatorsPassed) > 0 && mlConf < 0.85 {
+		mlConf = 0.85 // Format-validated findings deserve high base confidence
+	}
+	finalScore := 0.6*mlConf + 0.25*calculateContextScore(vf.ContextKeywords) + 0.15*1.0
 
 	return &entity.Classification{
 		ID:                 uuid.New(),

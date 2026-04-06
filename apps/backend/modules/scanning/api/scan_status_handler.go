@@ -1,10 +1,12 @@
 package api
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
 	"github.com/arc-platform/backend/modules/scanning/service"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,13 +15,15 @@ import (
 // ScanStatusHandler handles scan status requests
 type ScanStatusHandler struct {
 	scanService      *service.ScanService
+	repo             *persistence.PostgresRepository
 	websocketService interface{}
 }
 
 // NewScanStatusHandler creates a new scan status handler
-func NewScanStatusHandler(scanService *service.ScanService, websocketService interface{}) *ScanStatusHandler {
+func NewScanStatusHandler(scanService *service.ScanService, websocketService interface{}, repo *persistence.PostgresRepository) *ScanStatusHandler {
 	return &ScanStatusHandler{
 		scanService:      scanService,
+		repo:             repo,
 		websocketService: websocketService,
 	}
 }
@@ -129,7 +133,9 @@ func (h *ScanStatusHandler) CompleteScan(c *gin.Context) {
 	}
 
 	var req struct {
-		Status string `json:"status" binding:"required"`
+		Status      string                 `json:"status" binding:"required"`
+		Message     string                 `json:"message"`
+		Diagnostics map[string]interface{} `json:"diagnostics"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -145,6 +151,25 @@ func (h *ScanStatusHandler) CompleteScan(c *gin.Context) {
 			"error": "Invalid status",
 		})
 		return
+	}
+
+	// Store scanner diagnostics BEFORE status transition (UpdateScanRun
+	// blocks updates once status is "completed")
+	if req.Message != "" || len(req.Diagnostics) > 0 {
+		if scan, err := h.scanService.GetScanRun(c.Request.Context(), scanID); err == nil {
+			if scan.Metadata == nil {
+				scan.Metadata = make(map[string]interface{})
+			}
+			if req.Message != "" {
+				scan.Metadata["status_message"] = req.Message
+			}
+			if len(req.Diagnostics) > 0 {
+				scan.Metadata["diagnostics"] = req.Diagnostics
+			}
+			if err := h.repo.UpdateScanRun(c.Request.Context(), scan); err != nil {
+				log.Printf("WARN: Failed to store scan diagnostics for %s: %v", scanID, err)
+			}
+		}
 	}
 
 	if err := h.scanService.UpdateScanStatus(c.Request.Context(), scanID, req.Status); err != nil {
@@ -200,4 +225,37 @@ func (h *ScanStatusHandler) CancelScan(c *gin.Context) {
 		"message": "Scan cancelled successfully",
 		"scan_id": scanID,
 	})
+}
+
+// DeleteScan handles DELETE /api/v1/scans/:id
+func (h *ScanStatusHandler) DeleteScan(c *gin.Context) {
+	scanID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid scan ID"})
+		return
+	}
+
+	if err := h.repo.DeleteScanRun(c.Request.Context(), scanID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete scan", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Scan deleted successfully"})
+}
+
+// GetScanPIISummary handles GET /api/v1/scans/:id/pii-summary
+func (h *ScanStatusHandler) GetScanPIISummary(c *gin.Context) {
+	scanID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid scan ID"})
+		return
+	}
+
+	summary, err := h.repo.GetScanPIISummary(c.Request.Context(), scanID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get PII summary"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": summary})
 }

@@ -120,7 +120,7 @@ export default function FindingsTable({
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); }}
                                                     className="px-2 py-1 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 rounded border border-slate-200 hover:border-slate-300 transition-colors"

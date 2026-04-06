@@ -88,6 +88,96 @@ def get_scan_status(scan_id):
     return jsonify({'status': 'not_found'}), 404
 
 
+def _parse_scanner_diagnostics(stdout: str) -> dict:
+    """Extract structured diagnostics from hawk_scanner stdout."""
+    diag = {}
+    # Match lines like: "✅ ✅ Scanned 0 rows across 0 tables"
+    rows_match = re.search(r'Scanned\s+([\d,]+)\s+rows?\s+across\s+([\d,]+)\s+tables?', stdout)
+    if rows_match:
+        diag['rows_scanned'] = int(rows_match.group(1).replace(',', ''))
+        diag['tables_scanned'] = int(rows_match.group(2).replace(',', ''))
+
+    # Match connection success/failure
+    if 'Connected to PostgreSQL' in stdout or 'Connected to MySQL' in stdout:
+        diag['connected'] = True
+    if 'Failed to connect' in stdout:
+        diag['connected'] = False
+        fail_match = re.search(r'Failed to connect.*?error:\s*(.+)', stdout)
+        if fail_match:
+            diag['connection_error'] = fail_match.group(1).strip()
+
+    # Match skipped tables
+    skip_match = re.search(r'Skipped\s+(\d+)\s+system/framework tables', stdout)
+    if skip_match:
+        diag['tables_skipped'] = int(skip_match.group(1))
+
+    return diag
+
+
+def _build_status_message(diagnostics: dict, findings_count: int) -> str:
+    """Build a human-readable status message from scan diagnostics."""
+    if diagnostics.get('connected') is False:
+        err = diagnostics.get('connection_error', 'unknown error')
+        return f"Connection failed: {err}"
+
+    tables = diagnostics.get('tables_scanned')
+    rows = diagnostics.get('rows_scanned')
+
+    if tables == 0:
+        return "No scannable tables found in the database. The database may be empty or contain only system tables."
+
+    if tables is not None and rows is not None:
+        if findings_count > 0:
+            return f"Scanned {rows:,} rows across {tables} tables. Found {findings_count} PII findings."
+        return f"Scanned {rows:,} rows across {tables} tables. No PII detected."
+
+    if findings_count > 0:
+        return f"Scan completed. Found {findings_count} PII findings."
+    return "Scan completed. No PII detected."
+
+
+def _normalize_for_hawk_scanner(sources: dict) -> dict:
+    """
+    Translate platform field names to hawk_scanner's expected format.
+
+    The frontend stores 'username' but hawk_scanner expects 'user'.
+    The frontend stores 'bucket' but hawk_scanner expects 'bucket_name'.
+    Platform-only fields (environment, read_only, etc.) are stripped.
+    """
+    # Fields that hawk_scanner does not understand — remove them
+    PLATFORM_ONLY_FIELDS = {'environment', 'read_only', 'allow_remediation', 'ssl_mode'}
+
+    # Field renames per source type family
+    DB_TYPES = {'postgresql', 'mysql', 'mongodb'}
+    BUCKET_TYPES = {'s3', 'gcs', 'firebase'}
+
+    normalized = {}
+    for src_type, profiles in sources.items():
+        normalized[src_type] = {}
+        if not isinstance(profiles, dict):
+            normalized[src_type] = profiles
+            continue
+        for profile_name, cfg in profiles.items():
+            if not isinstance(cfg, dict):
+                normalized[src_type][profile_name] = cfg
+                continue
+
+            new_cfg = {}
+            for k, v in cfg.items():
+                if k in PLATFORM_ONLY_FIELDS:
+                    continue
+                # username → user for database sources
+                if k == 'username' and src_type in DB_TYPES:
+                    new_cfg['user'] = v
+                # bucket → bucket_name for object storage sources
+                elif k == 'bucket' and src_type in BUCKET_TYPES:
+                    new_cfg['bucket_name'] = v
+                else:
+                    new_cfg[k] = v
+            normalized[src_type][profile_name] = new_cfg
+    return normalized
+
+
 def execute_scan(scan_id, config):
     """
     Execute the scan using hawk_scanner CLI.
@@ -144,13 +234,20 @@ def execute_scan(scan_id, config):
                         "path": source
                     }
 
+        # Normalize field names so hawk_scanner gets what it expects
+        # (e.g. 'username' → 'user', strip platform-only fields)
+        filtered_sources = _normalize_for_hawk_scanner(filtered_sources)
+
         connection_data = {
             "sources": filtered_sources,
             "notify": global_data.get('notify', {})
         }
-        
+
         with open(connection_config_path, 'w') as f:
             yaml.dump(connection_data, f)
+
+        # Debug: log the YAML so we can diagnose scanner issues
+        logger.info(f"Connection YAML for scan {scan_id}:\n{yaml.dump(connection_data, default_flow_style=False)}")
             
         # Build scan command using the native CLI entrypoint. 
         # 'all' tells the CLI to execute the pipeline over every data source type found in the YAML.
@@ -182,12 +279,17 @@ def execute_scan(scan_id, config):
             logger.error(f"Error running scanner: {e}")
             raise
         
+        # Parse hawk_scanner stdout for diagnostics
+        diagnostics = _parse_scanner_diagnostics(result.stdout or '')
+
         # Read and ingest results
+        findings_count = 0
         try:
             if os.path.exists(output_file):
                 with open(output_file, 'r') as f:
                     scan_results = json.load(f)
 
+                findings_count = sum(len(v) for v in scan_results.values() if isinstance(v, list))
                 # Ingest into backend
                 ingest_results(scan_id, scan_results)
         finally:
@@ -199,15 +301,28 @@ def execute_scan(scan_id, config):
                 except OSError as cleanup_err:
                     logger.warning(f"Failed to remove temp file {tmp}: {cleanup_err}")
 
+        # Build a human-readable status message
+        status_message = _build_status_message(diagnostics, findings_count)
+        if diagnostics.get('tables_scanned', -1) == 0:
+            logger.warning(f"Scan {scan_id}: {status_message}")
+        else:
+            logger.info(f"Scan {scan_id}: {status_message}")
+
         # Update scan status
         active_scans[scan_id]['status'] = 'completed'
         active_scans[scan_id]['completed_at'] = datetime.now().isoformat()
-        
-        # Notify backend of completion
+        active_scans[scan_id]['diagnostics'] = diagnostics
+        active_scans[scan_id]['status_message'] = status_message
+
+        # Notify backend of completion with diagnostics
         try:
             requests.post(
                 f'{BACKEND_URL}/api/v1/scans/{scan_id}/complete',
-                json={'status': 'completed'},
+                json={
+                    'status': 'completed',
+                    'message': status_message,
+                    'diagnostics': diagnostics,
+                },
                 timeout=10
             )
         except Exception as e:

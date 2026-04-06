@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Play, Clock, CheckCircle, AlertCircle, Calendar, Loader2 } from 'lucide-react';
+import { Play, Clock, CheckCircle, AlertCircle, Calendar, Loader2, Trash2 } from 'lucide-react';
 import { scansApi } from '@/services/scans.api';
 import { format } from 'date-fns';
 
@@ -12,6 +12,22 @@ export default function ScansPage() {
     const [scans, setScans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showScanConfigModal, setShowScanConfigModal] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const handleDeleteScan = async (e: React.MouseEvent, scanId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!confirm('Delete this scan and all its findings?')) return;
+        setDeletingId(scanId);
+        try {
+            await scansApi.deleteScan(scanId);
+            setScans(prev => prev.filter(s => s.id !== scanId));
+        } catch (error) {
+            console.error('Failed to delete scan:', error);
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const fetchScans = async () => {
         try {
@@ -80,14 +96,14 @@ export default function ScansPage() {
                 </button>
             </div>
 
-            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                 {loading ? (
-                    <div className="flex items-center justify-center p-12 text-muted-foreground">
+                    <div className="flex items-center justify-center p-12 text-slate-500">
                         <Loader2 className="w-8 h-8 animate-spin mr-3" />
                         <span>Loading scan history...</span>
                     </div>
                 ) : scans.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center p-12 text-slate-500">
                         <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                             <Clock className="w-8 h-8 text-slate-400" />
                         </div>
@@ -103,13 +119,14 @@ export default function ScansPage() {
                                 <th className="px-6 py-4 font-semibold">Status</th>
                                 <th className="px-6 py-4 font-semibold">Duration</th>
                                 <th className="px-6 py-4 font-semibold text-right">Findings</th>
+                                <th className="px-6 py-4 font-semibold w-12"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-border">
+                        <tbody className="divide-y divide-slate-100">
                             {scans.map((scan) => (
                                 <tr
                                     key={scan.id}
-                                    className="group hover:bg-secondary transition-colors cursor-pointer"
+                                    className="group hover:bg-slate-50 transition-colors cursor-pointer"
                                 >
                                     <td className="px-6 py-4">
                                         <Link href={`/scans/${scan.id}`} className="block">
@@ -158,6 +175,20 @@ export default function ScansPage() {
                                         <Link href={`/scans/${scan.id}`} className="block">
                                             {scan.total_findings?.toLocaleString() || 0}
                                         </Link>
+                                    </td>
+                                    <td className="px-3 py-4 text-center">
+                                        <button
+                                            onClick={(e) => handleDeleteScan(e, scan.id)}
+                                            disabled={deletingId === scan.id}
+                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                            title="Delete scan"
+                                        >
+                                            {deletingId === scan.id ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Trash2 className="w-4 h-4" />
+                                            )}
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
