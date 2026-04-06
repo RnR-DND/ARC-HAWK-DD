@@ -6,13 +6,13 @@ from rich.console import Console
 console = Console()
 
 
-def connect_mongodb(args, host, port, username, password, database, uri=None):
+def connect_mongodb(args, host, port, user, password, database, uri=None):
     try:
         if uri:
             client = pymongo.MongoClient(uri)
         else:
             client = pymongo.MongoClient(
-                host=host, port=port, username=username, password=password)
+                host=host, port=port, username=user, password=password)
 
         if database not in client.list_database_names():
             system.print_error(
@@ -83,8 +83,8 @@ def execute(args):
 
             for key, config in mongodb_config.items():
                 host = config.get('host')
-                port = int(config.get('port', 27017))  # default MongoDB port
-                username = config.get('user')
+                port = int(config.get('port', 27017))
+                user = config.get('user')
                 password = config.get('password')
                 database = config.get('database')
                 uri = config.get('uri')  # Added support for URI
@@ -95,7 +95,7 @@ def execute(args):
                 if uri:
                     system.print_info(
                         args, f"Checking MongoDB Profile {key} using URI")
-                elif host and username and password and database:
+                elif host and user and password and database:
                     system.print_info(
                         args, f"Checking MongoDB Profile {key} with host and authentication")
                 else:
@@ -103,7 +103,7 @@ def execute(args):
                         args, f"Incomplete MongoDB configuration for key: {key}")
                     continue
 
-                db = connect_mongodb(args, host, port, username,
+                db = connect_mongodb(args, host, port, user,
                                      password, database, uri)
                 if db is not None:
                     results += check_data_patterns(args, db, patterns, key, database, limit_start=limit_start,

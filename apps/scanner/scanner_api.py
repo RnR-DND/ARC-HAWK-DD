@@ -175,13 +175,13 @@ def _normalize_for_hawk_scanner(sources: dict) -> dict:
                 else:
                     new_cfg[k] = v
 
-            # Coerce port to int at the boundary so individual commands
-            # never receive a string port from the YAML config
+            # Coerce port to int for all source types that use ports.
+            # JSON deserialization may produce float (3306.0) or string ("3306").
             if 'port' in new_cfg:
                 try:
                     new_cfg['port'] = int(new_cfg['port'])
                 except (ValueError, TypeError):
-                    pass
+                    pass  # leave as-is if unconvertible; command defaults will apply
 
             normalized[src_type][profile_name] = new_cfg
     return normalized

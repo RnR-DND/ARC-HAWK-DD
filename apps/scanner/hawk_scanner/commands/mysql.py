@@ -86,7 +86,7 @@ def execute(args):
             for key, config in mysql_config.items():
                 host = config.get('host')
                 user = config.get('user')
-                port = int(config.get('port', 3306))  # default port for MySQL
+                port = int(config.get('port', 3306))
                 password = config.get('password')
                 database = config.get('database')
                 limit_start = config.get('limit_start', 0)

@@ -5,9 +5,9 @@ from rich.console import Console
 console = Console()
 
 
-def connect_couchdb(args, host, port, username, password, database):
+def connect_couchdb(args, host, port, user, password, database):
     try:
-        server = couchdb.Server(f"http://{username}:{password}@{host}:{port}/")
+        server = couchdb.Server(f"http://{user}:{password}@{host}:{port}/")
         if database not in server:
             system.print_error(
                 args, f"Database {database} not found on CouchDB server.")
@@ -60,12 +60,12 @@ def execute(args):
 
             for key, config in couchdb_config.items():
                 host = config.get('host')
-                port = int(config.get('port', 5984))  # default CouchDB port
-                username = config.get('user')
+                port = int(config.get('port', 5984))
+                user = config.get('user')
                 password = config.get('password')
                 database = config.get('database')
 
-                if host and username and password and database:
+                if host and user and password and database:
                     system.print_info(
                         args, f"Checking CouchDB Profile {key} with host and authentication")
                 else:
@@ -74,7 +74,7 @@ def execute(args):
                     continue
 
                 db = connect_couchdb(
-                    args, host, port, username, password, database)
+                    args, host, port, user, password, database)
                 if db:
                     results += check_data_patterns(args,
                                                    db, patterns, key, database)
