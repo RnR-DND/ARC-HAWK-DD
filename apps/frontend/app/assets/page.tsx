@@ -34,6 +34,17 @@ export default function AssetInventoryPage() {
         router.push(`/assets/${assetId}`);
     };
 
+    const handleDeleteAsset = async (assetId: string) => {
+        if (!confirm('Are you sure you want to delete this asset and all its findings?')) return;
+        try {
+            await assetsApi.deleteAsset(assetId);
+            setAssets(prev => prev.filter(a => a.id !== assetId));
+            setTotal(prev => prev - 1);
+        } catch (error) {
+            console.error('Failed to delete asset:', error);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-50 p-8">
             <div className="mb-8">
@@ -59,6 +70,7 @@ export default function AssetInventoryPage() {
                         total={total}
                         loading={loading}
                         onAssetClick={handleAssetClick}
+                        onDeleteAsset={handleDeleteAsset}
                     />
                 </div>
             )}

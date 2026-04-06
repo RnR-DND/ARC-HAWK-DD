@@ -27,6 +27,7 @@ func (h *FindingsHandler) GetFindings(c *gin.Context) {
 		Severity:    c.Query("severity"),
 		PatternName: c.Query("pattern_name"),
 		DataSource:  c.Query("data_source"),
+		Search:      c.Query("search"),
 		SortBy:      c.DefaultQuery("sort_by", "created_at"),
 		SortOrder:   c.DefaultQuery("sort_order", "desc"),
 	}

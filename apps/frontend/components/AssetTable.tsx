@@ -2,16 +2,17 @@
 
 import React from 'react';
 import { Asset } from '@/types';
-import { AlertTriangle, Database, FileCode, Server } from 'lucide-react';
+import { AlertTriangle, Database, FileCode, Server, Trash2 } from 'lucide-react';
 
 interface AssetTableProps {
     assets: Asset[];
     total: number;
     loading?: boolean;
     onAssetClick: (id: string) => void;
+    onDeleteAsset?: (id: string) => void;
 }
 
-export default function AssetTable({ assets, loading, onAssetClick }: AssetTableProps) {
+export default function AssetTable({ assets, loading, onAssetClick, onDeleteAsset }: AssetTableProps) {
     if (loading) {
         return (
             <div className="p-8 text-center text-muted-foreground flex flex-col items-center">
@@ -23,10 +24,10 @@ export default function AssetTable({ assets, loading, onAssetClick }: AssetTable
 
     if (assets.length === 0) {
         return (
-            <div className="p-12 text-center border-2 border-dashed border-border rounded-xl">
+            <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-xl">
                 <div className="text-4xl mb-4 opacity-50">📦</div>
-                <h3 className="text-lg font-semibold text-white mb-2">No Assets Found</h3>
-                <p className="text-muted-foreground">Run a scan or adjust filters to see assets.</p>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Assets Found</h3>
+                <p className="text-slate-500">Run a scan or adjust filters to see assets.</p>
             </div>
         );
     }
@@ -35,17 +36,18 @@ export default function AssetTable({ assets, loading, onAssetClick }: AssetTable
         <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
                 <thead>
-                    <tr className="bg-secondary text-muted-foreground border-b border-border">
+                    <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
                         <th className="px-6 py-4 font-medium">Asset Name</th>
                         <th className="px-6 py-4 font-medium">Type</th>
                         <th className="px-6 py-4 font-medium">Risk Score</th>
                         <th className="px-6 py-4 font-medium">System</th>
                         <th className="px-6 py-4 font-medium">Findings</th>
+                        <th className="px-6 py-4 font-medium text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-slate-100">
                     {assets.map((asset) => (
-                        <AssetRow key={asset.id} asset={asset} onClick={() => onAssetClick(asset.id)} />
+                        <AssetRow key={asset.id} asset={asset} onClick={() => onAssetClick(asset.id)} onDelete={onDeleteAsset ? () => onDeleteAsset(asset.id) : undefined} />
                     ))}
                 </tbody>
             </table>
@@ -53,14 +55,14 @@ export default function AssetTable({ assets, loading, onAssetClick }: AssetTable
     );
 }
 
-function AssetRow({ asset, onClick }: { asset: Asset; onClick: () => void }) {
+function AssetRow({ asset, onClick, onDelete }: { asset: Asset; onClick: () => void; onDelete?: () => void }) {
     return (
         <tr
             onClick={onClick}
-            className="group hover:bg-muted cursor-pointer transition-colors"
+            className="group hover:bg-slate-50 cursor-pointer transition-colors"
         >
             <td className="px-6 py-4">
-                <div className="font-semibold text-slate-200 group-hover:text-blue-400 transition-colors">
+                <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
                     {asset.name}
                 </div>
                 <div
@@ -76,15 +78,15 @@ function AssetRow({ asset, onClick }: { asset: Asset; onClick: () => void }) {
             <td className="px-6 py-4">
                 <RiskBadge score={asset.risk_score} />
             </td>
-            <td className="px-6 py-4 text-muted-foreground">
+            <td className="px-6 py-4 text-slate-600">
                 <div className="flex items-center gap-2">
-                    <Server className="w-4 h-4 text-slate-600" />
+                    <Server className="w-4 h-4 text-slate-400" />
                     {asset.source_system}
                 </div>
             </td>
             <td className="px-6 py-4">
                 {asset.total_findings > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-50 text-red-600 border border-red-200 text-xs font-semibold">
                         <AlertTriangle className="w-3 h-3" />
                         {asset.total_findings}
                     </span>
@@ -93,6 +95,17 @@ function AssetRow({ asset, onClick }: { asset: Asset; onClick: () => void }) {
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500/50" />
                         Safe
                     </span>
+                )}
+            </td>
+            <td className="px-6 py-4 text-right">
+                {onDelete && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete asset"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
                 )}
             </td>
         </tr>
@@ -104,7 +117,7 @@ function TypeBadge({ type }: { type: string }) {
     if (type === 'Table') icon = <Database className="w-3 h-3" />;
 
     return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-slate-300 border border-border">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
             {icon}
             {type}
         </span>
@@ -112,12 +125,12 @@ function TypeBadge({ type }: { type: string }) {
 }
 
 function RiskBadge({ score }: { score: number }) {
-    let colorClass = "bg-muted text-muted-foreground border-border";
+    let colorClass = "bg-slate-50 text-slate-600 border-slate-200";
 
-    if (score >= 90) colorClass = "bg-red-500/10 text-red-500 border-red-500/20";
-    else if (score >= 70) colorClass = "bg-orange-500/10 text-orange-500 border-orange-500/20";
-    else if (score >= 40) colorClass = "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
-    else colorClass = "bg-blue-500/10 text-blue-500 border-blue-500/20";
+    if (score >= 90) colorClass = "bg-red-50 text-red-700 border-red-200";
+    else if (score >= 70) colorClass = "bg-orange-50 text-orange-700 border-orange-200";
+    else if (score >= 40) colorClass = "bg-yellow-50 text-yellow-700 border-yellow-200";
+    else colorClass = "bg-blue-50 text-blue-700 border-blue-200";
 
     return (
         <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded border text-xs font-bold ${colorClass}`}>

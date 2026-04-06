@@ -79,7 +79,7 @@ export default function AssetDetailPage() {
             <div className="max-w-7xl mx-auto p-6 md:p-8">
                 {/* Header / Breadcrumb */}
                 <button
-                    onClick={() => router.push('/asset-inventory')}
+                    onClick={() => router.push('/assets')}
                     className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6 text-sm font-medium transition-colors group"
                 >
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />

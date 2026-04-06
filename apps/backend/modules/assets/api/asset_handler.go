@@ -45,3 +45,20 @@ func (h *AssetHandler) ListAssets(c *gin.Context) {
 
 	api.Success(c, assets)
 }
+
+// DeleteAsset handles DELETE /api/v1/assets/:id
+func (h *AssetHandler) DeleteAsset(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		api.BadRequest(c, "Invalid asset ID")
+		return
+	}
+
+	if err := h.service.DeleteAsset(c.Request.Context(), id); err != nil {
+		api.InternalServerError(c, "Failed to delete asset")
+		return
+	}
+
+	c.JSON(200, gin.H{"status": "deleted"})
+}

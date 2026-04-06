@@ -4,7 +4,7 @@
  * Service for asset-specific API calls
  */
 
-import { get, apiClient } from '@/utils/api-client';
+import { get, del, apiClient } from '@/utils/api-client';
 import { Asset } from '@/types';
 
 // ============================================
@@ -45,9 +45,17 @@ export async function getAssets(params?: {
     }
 }
 
+/**
+ * Delete asset by ID
+ */
+export async function deleteAsset(id: string): Promise<void> {
+    await del<void>(`/assets/${id}`);
+}
+
 export const assetsApi = {
     getAsset,
     getAssets,
+    deleteAsset,
 };
 
 export default assetsApi;

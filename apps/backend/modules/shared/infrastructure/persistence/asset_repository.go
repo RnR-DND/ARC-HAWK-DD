@@ -224,6 +224,51 @@ func (r *PostgresRepository) GetHighRiskAssets(ctx context.Context, threshold in
 	return assets, rows.Err()
 }
 
+// DeleteAsset deletes an asset and its associated findings, classifications, and review states
+func (r *PostgresRepository) DeleteAsset(ctx context.Context, id uuid.UUID) error {
+	tenantID, err := EnsureTenantID(ctx)
+	if err != nil {
+		return err
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Delete review states for findings of this asset
+	_, err = tx.ExecContext(ctx, `DELETE FROM review_states WHERE finding_id IN (SELECT id FROM findings WHERE asset_id = $1 AND tenant_id = $2)`, id, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to delete review states: %w", err)
+	}
+
+	// Delete classifications for findings of this asset
+	_, err = tx.ExecContext(ctx, `DELETE FROM classifications WHERE finding_id IN (SELECT id FROM findings WHERE asset_id = $1 AND tenant_id = $2)`, id, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to delete classifications: %w", err)
+	}
+
+	// Delete findings for this asset
+	_, err = tx.ExecContext(ctx, `DELETE FROM findings WHERE asset_id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to delete findings: %w", err)
+	}
+
+	// Delete the asset
+	result, err := tx.ExecContext(ctx, `DELETE FROM assets WHERE id = $1 AND tenant_id = $2`, id, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to delete asset: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("asset not found")
+	}
+
+	return tx.Commit()
+}
+
 // UpdateMaskingStatus updates the masking status of an asset
 func (r *PostgresRepository) UpdateMaskingStatus(ctx context.Context, assetID uuid.UUID, isMasked bool, strategy string) error {
 	tenantID, err := EnsureTenantID(ctx)

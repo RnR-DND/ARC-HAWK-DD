@@ -69,6 +69,7 @@ func (m *AssetsModule) Initialize(deps *interfaces.ModuleDependencies) error {
 func (m *AssetsModule) RegisterRoutes(router *gin.RouterGroup) {
 	router.GET("/assets", m.assetHandler.ListAssets)
 	router.GET("/assets/:id", m.assetHandler.GetAsset)
+	router.DELETE("/assets/:id", m.assetHandler.DeleteAsset)
 	router.GET("/findings", m.findingsHandler.GetFindings)
 	router.POST("/findings/:id/feedback", m.findingsHandler.SubmitFeedback)
 	router.GET("/dataset/golden", m.datasetHandler.GetGoldenDataset)

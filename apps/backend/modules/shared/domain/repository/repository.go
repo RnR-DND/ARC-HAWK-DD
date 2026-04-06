@@ -11,6 +11,7 @@ type FindingFilters struct {
 	Severity    string
 	PatternName string
 	DataSource  string
+	Search      string
 }
 
 // RelationshipFilters defines filters for relationship queries

@@ -148,6 +148,19 @@ func (s *AssetService) UpdateAssetStats(ctx context.Context, assetID uuid.UUID, 
 	return s.repo.UpdateAssetStats(ctx, assetID, riskScore, findingCount)
 }
 
+// DeleteAsset deletes an asset and all associated data
+func (s *AssetService) DeleteAsset(ctx context.Context, id uuid.UUID) error {
+	if err := s.repo.DeleteAsset(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete asset: %w", err)
+	}
+
+	if s.auditLogger != nil {
+		_ = s.auditLogger.Record(ctx, "ASSET_DELETED", "asset", id.String(), nil)
+	}
+
+	return nil
+}
+
 // ListAssets returns a list of assets
 func (s *AssetService) ListAssets(ctx context.Context, limit, offset int) ([]*entity.Asset, error) {
 	return s.repo.ListAssets(ctx, limit, offset)

@@ -133,6 +133,12 @@ export default function FindingsTable({
                                                 >
                                                     Mask
                                                 </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleRemediate(finding.id, 'DELETE'); }}
+                                                    className="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors"
+                                                >
+                                                    Delete
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>

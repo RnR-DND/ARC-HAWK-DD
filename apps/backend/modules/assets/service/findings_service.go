@@ -28,6 +28,7 @@ type FindingsQuery struct {
 	Severity    string
 	PatternName string
 	DataSource  string
+	Search      string
 	Page        int
 	PageSize    int
 	SortBy      string
@@ -74,6 +75,7 @@ func (s *FindingsService) GetFindings(ctx context.Context, query FindingsQuery) 
 		Severity:    query.Severity,
 		PatternName: query.PatternName,
 		DataSource:  query.DataSource,
+		Search:      query.Search,
 	}
 
 	// Get findings

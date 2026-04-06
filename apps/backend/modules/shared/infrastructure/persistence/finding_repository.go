@@ -121,37 +121,45 @@ func (r *PostgresRepository) ListFindings(ctx context.Context, filters repositor
 	}
 
 	// AUTO-EXCLUDE Non-PII: Join with classifications to filter out false positives
+	// Join assets for search support
 	query := `
-		SELECT DISTINCT f.id, f.tenant_id, f.scan_run_id, f.asset_id, f.pattern_id, f.pattern_name, f.matches, f.sample_text, 
+		SELECT DISTINCT f.id, f.tenant_id, f.scan_run_id, f.asset_id, f.pattern_id, f.pattern_name, f.matches, f.sample_text,
 			f.severity, f.severity_description, f.confidence_score, f.environment, f.context, f.created_at, f.updated_at
 		FROM findings f
 		LEFT JOIN classifications c ON f.id = c.finding_id
+		LEFT JOIN assets a ON f.asset_id = a.id
 		WHERE f.tenant_id = $1 AND (c.classification_type IS NULL OR c.classification_type != 'Non-PII')`
 
 	args := []interface{}{tenantID}
 	argCount := 2
 
 	if filters.ScanRunID != nil {
-		query += fmt.Sprintf(" AND scan_run_id = $%d", argCount)
+		query += fmt.Sprintf(" AND f.scan_run_id = $%d", argCount)
 		args = append(args, *filters.ScanRunID)
 		argCount++
 	}
 
 	if filters.AssetID != nil {
-		query += fmt.Sprintf(" AND asset_id = $%d", argCount)
+		query += fmt.Sprintf(" AND f.asset_id = $%d", argCount)
 		args = append(args, *filters.AssetID)
 		argCount++
 	}
 
 	if filters.Severity != "" {
-		query += fmt.Sprintf(" AND severity = ANY(string_to_array($%d, ','))", argCount)
+		query += fmt.Sprintf(" AND f.severity = ANY(string_to_array($%d, ','))", argCount)
 		args = append(args, filters.Severity)
 		argCount++
 	}
 
 	if filters.PatternName != "" {
-		query += fmt.Sprintf(" AND pattern_name ILIKE $%d", argCount)
+		query += fmt.Sprintf(" AND f.pattern_name ILIKE $%d", argCount)
 		args = append(args, "%"+filters.PatternName+"%")
+		argCount++
+	}
+
+	if filters.Search != "" {
+		query += fmt.Sprintf(" AND (a.name ILIKE $%d OR a.path ILIKE $%d OR f.pattern_name ILIKE $%d)", argCount, argCount, argCount)
+		args = append(args, "%"+filters.Search+"%")
 		argCount++
 	}
 
@@ -190,35 +198,42 @@ func (r *PostgresRepository) CountFindings(ctx context.Context, filters reposito
 
 	// AUTO-EXCLUDE Non-PII: Join with classifications to filter out false positives
 	query := `
-		SELECT COUNT(DISTINCT f.id) 
+		SELECT COUNT(DISTINCT f.id)
 		FROM findings f
 		LEFT JOIN classifications c ON f.id = c.finding_id
+		LEFT JOIN assets a ON f.asset_id = a.id
 		WHERE f.tenant_id = $1 AND (c.classification_type IS NULL OR c.classification_type != 'Non-PII')`
 
 	args := []interface{}{tenantID}
 	argCount := 2
 
 	if filters.ScanRunID != nil {
-		query += fmt.Sprintf(" AND scan_run_id = $%d", argCount)
+		query += fmt.Sprintf(" AND f.scan_run_id = $%d", argCount)
 		args = append(args, *filters.ScanRunID)
 		argCount++
 	}
 
 	if filters.AssetID != nil {
-		query += fmt.Sprintf(" AND asset_id = $%d", argCount)
+		query += fmt.Sprintf(" AND f.asset_id = $%d", argCount)
 		args = append(args, *filters.AssetID)
 		argCount++
 	}
 
 	if filters.Severity != "" {
-		query += fmt.Sprintf(" AND severity = ANY(string_to_array($%d, ','))", argCount)
+		query += fmt.Sprintf(" AND f.severity = ANY(string_to_array($%d, ','))", argCount)
 		args = append(args, filters.Severity)
 		argCount++
 	}
 
 	if filters.PatternName != "" {
-		query += fmt.Sprintf(" AND pattern_name ILIKE $%d", argCount)
+		query += fmt.Sprintf(" AND f.pattern_name ILIKE $%d", argCount)
 		args = append(args, "%"+filters.PatternName+"%")
+		argCount++
+	}
+
+	if filters.Search != "" {
+		query += fmt.Sprintf(" AND (a.name ILIKE $%d OR a.path ILIKE $%d OR f.pattern_name ILIKE $%d)", argCount, argCount, argCount)
+		args = append(args, "%"+filters.Search+"%")
 		argCount++
 	}
 

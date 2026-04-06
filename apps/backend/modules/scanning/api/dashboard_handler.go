@@ -74,13 +74,13 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 		fmt.Printf("WARN: Failed to count findings: %v\n", err)
 	}
 
-	// High risk count
-	highArgs := make([]any, len(args))
-	copy(highArgs, args)
-	highArgs = append(highArgs, "Critical", "High")
-	highQuery := fmt.Sprintf("SELECT COUNT(*) FROM findings %s AND severity IN ($%d, $%d)", baseWhere, argIdx, argIdx+1)
-	if err := db.QueryRowContext(ctx, highQuery, highArgs...).Scan(&metrics.HighRiskFindings); err != nil {
-		fmt.Printf("WARN: Failed to count high risk findings: %v\n", err)
+	// Critical findings only (not High) — so the number differs from total
+	critArgs := make([]any, len(args))
+	copy(critArgs, args)
+	critArgs = append(critArgs, "Critical")
+	critQuery := fmt.Sprintf("SELECT COUNT(*) FROM findings %s AND severity = $%d", baseWhere, argIdx)
+	if err := db.QueryRowContext(ctx, critQuery, critArgs...).Scan(&metrics.HighRiskFindings); err != nil {
+		fmt.Printf("WARN: Failed to count critical findings: %v\n", err)
 	}
 
 	// Unique assets hit
@@ -88,9 +88,14 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 		fmt.Printf("WARN: Failed to count assets: %v\n", err)
 	}
 
-	// Actions required (enrichment_score < 0.5 or NULL)
-	actionsQuery := "SELECT COUNT(*) FROM findings " + baseWhere + " AND (enrichment_score IS NULL OR enrichment_score < 0.5)"
-	if err := db.QueryRowContext(ctx, actionsQuery, args...).Scan(&metrics.ActionsRequired); err != nil {
+	// Remediation tasks: Critical+High findings not yet reviewed/remediated
+	remArgs := make([]any, len(args))
+	copy(remArgs, args)
+	remArgs = append(remArgs, "Critical", "High")
+	remQuery := fmt.Sprintf(`SELECT COUNT(*) FROM findings f %s AND f.severity IN ($%d, $%d) AND NOT EXISTS (
+		SELECT 1 FROM review_states rs WHERE rs.finding_id = f.id AND rs.status IN ('confirmed', 'false_positive', 'remediated')
+	)`, baseWhere, argIdx, argIdx+1)
+	if err := db.QueryRowContext(ctx, remQuery, remArgs...).Scan(&metrics.ActionsRequired); err != nil {
 		fmt.Printf("WARN: Failed to count actions required: %v\n", err)
 	}
 
