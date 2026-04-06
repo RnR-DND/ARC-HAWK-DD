@@ -83,8 +83,8 @@ def execute(args):
 
             for key, config in mongodb_config.items():
                 host = config.get('host')
-                port = config.get('port', 27017)  # default MongoDB port
-                username = config.get('username')
+                port = int(config.get('port', 27017))  # default MongoDB port
+                username = config.get('user')
                 password = config.get('password')
                 database = config.get('database')
                 uri = config.get('uri')  # Added support for URI
@@ -103,7 +103,7 @@ def execute(args):
                         args, f"Incomplete MongoDB configuration for key: {key}")
                     continue
 
-                db = connect_mongodb(host, port, username,
+                db = connect_mongodb(args, host, port, username,
                                      password, database, uri)
                 if db:
                     results += check_data_patterns(args, db, patterns, key, database, limit_start=limit_start,
