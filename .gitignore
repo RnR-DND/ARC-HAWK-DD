@@ -217,7 +217,11 @@ apps/frontend/e2e/
 .planning/
 
 # GSD tool config (installed per-developer)
-.claude/
+.claude/*
+# gstack team-required enforcement files (tracked despite .claude/* above)
+!.claude/hooks/
+!.claude/hooks/check-gstack.sh
+!.claude/settings.json
 .gemini/
 .codex/
 .opencode/
