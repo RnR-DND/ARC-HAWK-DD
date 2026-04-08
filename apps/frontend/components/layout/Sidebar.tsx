@@ -11,7 +11,8 @@ import {
     GitBranch,
     Shield,
     History,
-    Settings
+    Settings,
+    Compass
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -20,12 +21,13 @@ import { cn } from '@/lib/utils';
 
 const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard, shortcut: '1' },
-    { name: 'Scans', href: '/scans', icon: ScanSearch, shortcut: '2' },
-    { name: 'Assets', href: '/assets', icon: Database, shortcut: '3' },
-    { name: 'Findings', href: '/findings', icon: Search, shortcut: '4' },
-    { name: 'Lineage', href: '/lineage', icon: GitBranch, shortcut: '5' },
-    { name: 'Remediation', href: '/remediation', icon: Shield, shortcut: '6' },
-    { name: 'History', href: '/history', icon: History, shortcut: '7' },
+    { name: 'Discovery', href: '/discovery', icon: Compass, shortcut: '2' },
+    { name: 'Scans', href: '/scans', icon: ScanSearch, shortcut: '3' },
+    { name: 'Assets', href: '/assets', icon: Database, shortcut: '4' },
+    { name: 'Findings', href: '/findings', icon: Search, shortcut: '5' },
+    { name: 'Lineage', href: '/lineage', icon: GitBranch, shortcut: '6' },
+    { name: 'Remediation', href: '/remediation', icon: Shield, shortcut: '7' },
+    { name: 'History', href: '/history', icon: History, shortcut: '8' },
 ];
 
 const systemNav = [

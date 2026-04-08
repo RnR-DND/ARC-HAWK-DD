@@ -18,6 +18,7 @@ import (
 	"github.com/arc-platform/backend/modules/auth/service"
 	"github.com/arc-platform/backend/modules/compliance"
 	"github.com/arc-platform/backend/modules/connections"
+	"github.com/arc-platform/backend/modules/discovery"
 	"github.com/arc-platform/backend/modules/fplearning"
 	"github.com/arc-platform/backend/modules/lineage"
 	"github.com/arc-platform/backend/modules/masking"
@@ -189,6 +190,7 @@ func main() {
 		connections.NewConnectionsModule(), // Connections & Orchestration
 		remediation.NewRemediationModule(), // Remediation
 		fplearning.NewFPlearningModule(),   // Fingerprint Learning
+		discovery.NewDiscoveryModule(),     // Data Discovery (catalog + risk + drift + reports)
 		websocketModule,                    // Real-time WebSocket Communication
 	}
 

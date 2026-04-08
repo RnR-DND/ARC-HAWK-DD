@@ -321,6 +321,31 @@ func (r *PostgresRepository) GetTenantBySlug(ctx context.Context, slug string) (
 	return tenant, nil
 }
 
+// ListActiveTenants returns the IDs of every active tenant.
+// Used by background workers (e.g. discovery snapshot worker) that need to iterate
+// across all tenants without requiring a tenant context themselves.
+func (r *PostgresRepository) ListActiveTenants(ctx context.Context) ([]uuid.UUID, error) {
+	query := `SELECT id FROM tenants WHERE is_active = true ORDER BY id`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
 // ===== Audit Log Repository Methods =====
 
 // CreateAuditLog creates an audit log entry

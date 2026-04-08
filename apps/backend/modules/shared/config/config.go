@@ -3,11 +3,28 @@ package config
 import (
 	"os"
 	"strconv"
+	"time"
 )
 
 type Config struct {
 	Classification ClassificationConfig
 	PIIStorage     PIIStorageConfig
+	Discovery      DiscoveryConfig
+
+	// DiscoverySnapshotInterval is exposed at top level for convenience by the
+	// discovery module's snapshot worker. Mirrors Discovery.SnapshotInterval.
+	DiscoverySnapshotInterval time.Duration
+}
+
+// DiscoveryConfig holds tunables for the data discovery module.
+type DiscoveryConfig struct {
+	SnapshotInterval     time.Duration // default 24h, env DISCOVERY_SNAPSHOT_INTERVAL
+	SnapshotTimeout      time.Duration // default 5m per source, env DISCOVERY_SNAPSHOT_TIMEOUT
+	ReportMaxRows        int           // default 10000, env DISCOVERY_REPORT_MAX_ROWS
+	RiskWeightVolume     float64       // default 1.0
+	RiskWeightSensitivity float64      // default 2.0
+	RiskWeightExposure   float64       // default 1.5
+	FactRetentionDays    int           // default 90 (v1.5: archive)
 }
 
 type ClassificationConfig struct {
@@ -30,6 +47,16 @@ type PIIStorageConfig struct {
 }
 
 func LoadConfig() *Config {
+	discovery := DiscoveryConfig{
+		SnapshotInterval:      getEnvDuration("DISCOVERY_SNAPSHOT_INTERVAL", 24*time.Hour),
+		SnapshotTimeout:       getEnvDuration("DISCOVERY_SNAPSHOT_TIMEOUT", 5*time.Minute),
+		ReportMaxRows:         getEnvInt("DISCOVERY_REPORT_MAX_ROWS", 10000),
+		RiskWeightVolume:      getEnvFloat("DISCOVERY_RISK_WEIGHT_VOLUME", 1.0),
+		RiskWeightSensitivity: getEnvFloat("DISCOVERY_RISK_WEIGHT_SENSITIVITY", 2.0),
+		RiskWeightExposure:    getEnvFloat("DISCOVERY_RISK_WEIGHT_EXPOSURE", 1.5),
+		FactRetentionDays:     getEnvInt("DISCOVERY_FACT_RETENTION_DAYS", 90),
+	}
+
 	return &Config{
 		Classification: ClassificationConfig{
 			WeightRules:   getEnvFloat("CLASSIFICATION_WEIGHT_RULES", 0.40),
@@ -40,7 +67,27 @@ func LoadConfig() *Config {
 		PIIStorage: PIIStorageConfig{
 			Mode: getPIIMode(),
 		},
+		Discovery:                 discovery,
+		DiscoverySnapshotInterval: discovery.SnapshotInterval,
 	}
+}
+
+func getEnvInt(key string, defaultVal int) int {
+	if val, exists := os.LookupEnv(key); exists {
+		if i, err := strconv.Atoi(val); err == nil {
+			return i
+		}
+	}
+	return defaultVal
+}
+
+func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
+	if val, exists := os.LookupEnv(key); exists {
+		if d, err := time.ParseDuration(val); err == nil {
+			return d
+		}
+	}
+	return defaultVal
 }
 
 func getEnvFloat(key string, defaultVal float64) float64 {
