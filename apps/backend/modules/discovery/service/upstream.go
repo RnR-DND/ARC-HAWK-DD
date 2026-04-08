@@ -64,8 +64,9 @@ func (u *upstreamFromDeps) ListAssetSummaries(ctx context.Context, limit, offset
 		limit = 1000
 	}
 
-	// LEFT JOIN findings to get a finding count + dominant classification per asset.
-	// Defensive against assets that have no findings yet (count = 0, classification = '').
+	// LEFT JOIN findings to get a finding count + dominant PII pattern per asset.
+	// Uses pattern_name (the PII type, e.g. "EMAIL", "SSN") as the classification signal.
+	// Sensitivity is derived from the severity column: CRITICAL→100, HIGH→80, MEDIUM→50, LOW→20.
 	query := `
 		SELECT
 			a.id,
@@ -79,12 +80,18 @@ func (u *upstreamFromDeps) ListAssetSummaries(ctx context.Context, limit, offset
 		FROM assets a
 		LEFT JOIN LATERAL (
 			SELECT
-				classification,
-				MAX(COALESCE(NULLIF((classification_score)::integer, 0), 50)) AS sensitivity,
+				pattern_name AS classification,
+				MAX(CASE
+					WHEN severity = 'CRITICAL' THEN 100
+					WHEN severity = 'HIGH'     THEN 80
+					WHEN severity = 'MEDIUM'   THEN 50
+					ELSE 20
+				END) AS sensitivity,
 				COUNT(*) AS finding_count
 			FROM findings
 			WHERE findings.asset_id = a.id AND findings.tenant_id = a.tenant_id
-			GROUP BY classification
+			  AND findings.deleted_at IS NULL
+			GROUP BY pattern_name
 			ORDER BY COUNT(*) DESC
 			LIMIT 1
 		) f ON true
