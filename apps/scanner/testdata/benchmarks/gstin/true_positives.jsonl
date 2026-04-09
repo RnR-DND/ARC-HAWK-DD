@@ -1,0 +1,3 @@
+{"id":"gstin_tp_001","raw_value":"27AAPFU0939F1ZV","column_name":"gst_number","context":"Maharashtra GSTIN","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
+{"id":"gstin_tp_002","raw_value":"29AABCT1332L1ZT","column_name":"vendor_gstin","context":"Karnataka GSTIN for vendor","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
+{"id":"gstin_tp_003","raw_value":"07AAACR5055K1Z5","column_name":"gstin","context":"Delhi GSTIN","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}

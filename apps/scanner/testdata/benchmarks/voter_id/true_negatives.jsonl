@@ -1,0 +1,2 @@
+{"id":"voter_tn_001","raw_value":"AB123456","column_name":"ref_id","context":"only 2 letter prefix — too short","expected_layer":"rule_based","expected_category":"Not PII","expected_confidence_band":"high"}
+{"id":"voter_tn_002","raw_value":"ABCDE12345","column_name":"order_code","context":"5-letter prefix — doesn't match voter ID pattern","expected_layer":"rule_based","expected_category":"Not PII","expected_confidence_band":"high"}

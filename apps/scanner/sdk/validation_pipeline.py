@@ -141,17 +141,33 @@ def validate_and_create_finding(presidio_result, text: str, source_info: SourceI
         pattern_name=pattern_name,
         validators=validators_passed
     )
-    
+
     # Update confidence score with context-adjusted value
     verified.confidence_score = adjusted_confidence
-    
+
+    # Phase 3: Context window (±50 chars) for human review
+    ctx_start = max(0, presidio_result.start - 50)
+    ctx_end = min(len(text), presidio_result.end + 50)
+    verified.context_window = text[ctx_start:ctx_end]
+
+    # Phase 3: matched_by array — which layers validated this finding
+    verified.matched_by = validators_passed if validators_passed else ["ml"]
+    if adjusted_confidence != base_confidence:
+        verified.matched_by.append("context_adjuster")
+
+    # Phase 3: Unicode normalization tag (NFC)
+    import unicodedata
+    original = matched_value
+    normalized = unicodedata.normalize("NFC", matched_value)
+    verified.unicode_normalized = original != normalized
+
     confidence_change = adjusted_confidence - base_confidence
     confidence_indicator = "↑" if confidence_change > 0 else "↓" if confidence_change < 0 else "="
-    
+
     print(f"✅ Verified {pii_type}: {matched_value[:10]}*** "
           f"(confidence: {adjusted_confidence:.2f} {confidence_indicator}, "
           f"validators: {len(validators_passed)})")
-    
+
     return verified
 
 

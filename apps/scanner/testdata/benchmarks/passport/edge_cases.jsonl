@@ -1,0 +1,2 @@
+{"id":"passport_ec_001","raw_value":"a1234567","column_name":"passport","context":"lowercase series letter","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"medium"}
+{"id":"passport_ec_002","raw_value":"A 1234567","column_name":"doc_id","context":"space between letter and digits","expected_layer":"rule_based","expected_category":"Not PII","expected_confidence_band":"medium"}

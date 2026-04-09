@@ -1,0 +1,3 @@
+{"id":"dob_tp_001","raw_value":"1990-05-15","column_name":"date_of_birth","context":"ISO 8601 date","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
+{"id":"dob_tp_002","raw_value":"15/05/1990","column_name":"dob","context":"DD/MM/YYYY Indian format","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
+{"id":"dob_tp_003","raw_value":"15-May-1990","column_name":"birth_date","context":"DD-Mon-YYYY format","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"medium"}

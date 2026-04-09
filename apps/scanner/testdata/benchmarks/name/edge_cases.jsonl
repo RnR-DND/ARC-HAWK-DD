@@ -1,0 +1,3 @@
+{"id":"name_ec_001","raw_value":"A. Kumar","column_name":"name","context":"abbreviated first name","expected_layer":"ml","expected_category":"Contact Information","expected_confidence_band":"medium"}
+{"id":"name_ec_002","raw_value":"Kumar","column_name":"surname","context":"single-word surname only","expected_layer":"llm","expected_category":"Contact Information","expected_confidence_band":"medium"}
+{"id":"name_ec_003","raw_value":"Test User","column_name":"full_name","context":"synthetic test name","expected_layer":"llm","expected_category":"Not PII","expected_confidence_band":"medium"}

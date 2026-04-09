@@ -1,0 +1,3 @@
+{"id":"dob_ec_001","raw_value":"29/02/1988","column_name":"dob","context":"leap year DOB","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"medium"}
+{"id":"dob_ec_002","raw_value":"00/00/0000","column_name":"date_of_birth","context":"zero placeholder date","expected_layer":"rule_based","expected_category":"Not PII","expected_confidence_band":"high"}
+{"id":"dob_ec_003","raw_value":"1850-01-01","column_name":"dob","context":"date before modern records — unlikely real DOB","expected_layer":"llm","expected_category":"Not PII","expected_confidence_band":"medium"}

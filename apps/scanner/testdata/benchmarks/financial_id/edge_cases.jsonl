@@ -1,0 +1,2 @@
+{"id":"fin_ec_001","raw_value":"4111111111111111","column_name":"card_no","context":"Luhn-valid test Visa number","expected_layer":"rule_based","expected_category":"Financial ID","expected_confidence_band":"medium"}
+{"id":"fin_ec_002","raw_value":"xxxx-xxxx-xxxx-1234","column_name":"masked_card","context":"masked card number","expected_layer":"llm","expected_category":"Financial ID","expected_confidence_band":"medium"}

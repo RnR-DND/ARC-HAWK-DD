@@ -1,0 +1,3 @@
+{"id":"aadhaar_ec_001","raw_value":"2345-6789-0123","column_name":"kyc_id","context":"hyphen-separated format","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"medium"}
+{"id":"aadhaar_ec_002","raw_value":"XXXX XXXX 0123","column_name":"masked_uid","context":"partially masked aadhaar","expected_layer":"llm","expected_category":"Government ID","expected_confidence_band":"medium"}
+{"id":"aadhaar_ec_003","raw_value":"234567890123 (VID)","column_name":"virtual_id","context":"virtual ID associated with Aadhaar","expected_layer":"ml","expected_category":"Government ID","expected_confidence_band":"medium"}

@@ -15,6 +15,7 @@ from .voter_id import VoterIDRecognizer
 from .bank_account import BankAccountRecognizer
 from .ifsc import IFSCRecognizer
 from .upi import UPIRecognizer
+from .gst import GSTRecognizer
 
 __all__ = [
     'AadhaarRecognizer',
@@ -28,4 +29,5 @@ __all__ = [
     'BankAccountRecognizer',
     'IFSCRecognizer',
     'UPIRecognizer',
+    'GSTRecognizer',
 ]

@@ -1,0 +1,2 @@
+{"id":"voter_ec_001","raw_value":"abc1234567","column_name":"voter_id","context":"lowercase prefix","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"medium"}
+{"id":"voter_ec_002","raw_value":"ABC 1234567","column_name":"epic","context":"space between prefix and digits","expected_layer":"rule_based","expected_category":"Not PII","expected_confidence_band":"medium"}

@@ -1,0 +1,2 @@
+{"id":"passport_tp_001","raw_value":"A1234567","column_name":"passport_number","context":"Indian passport format A + 7 digits","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
+{"id":"passport_tp_002","raw_value":"J9876543","column_name":"travel_doc_id","context":"Indian passport J series","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
