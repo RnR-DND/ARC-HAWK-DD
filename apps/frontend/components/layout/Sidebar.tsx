@@ -15,7 +15,11 @@ import {
     Compass,
     ClipboardList,
     Regex,
-    Plug
+    Plug,
+    BarChart3,
+    CheckSquare,
+    Lock,
+    FileText,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -23,21 +27,28 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, shortcut: '1' },
-    { name: 'Discovery', href: '/discovery', icon: Compass, shortcut: '2' },
-    { name: 'Scans', href: '/scans', icon: ScanSearch, shortcut: '3' },
-    { name: 'Assets', href: '/assets', icon: Database, shortcut: '4' },
-    { name: 'Findings', href: '/findings', icon: Search, shortcut: '5' },
-    { name: 'Lineage', href: '/lineage', icon: GitBranch, shortcut: '6' },
-    { name: 'Remediation', href: '/remediation', icon: Shield, shortcut: '7' },
-    { name: 'History', href: '/history', icon: History, shortcut: '8' },
-    { name: 'Audit Logs', href: '/audit', icon: ClipboardList, shortcut: '9' },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Discovery', href: '/discovery', icon: Compass },
+    { name: 'Scans', href: '/scans', icon: ScanSearch },
+    { name: 'Assets', href: '/assets', icon: Database },
+    { name: 'Findings', href: '/findings', icon: Search },
+    { name: 'Lineage', href: '/lineage', icon: GitBranch },
+    { name: 'Remediation', href: '/remediation', icon: Shield },
+    { name: 'History', href: '/history', icon: History },
+    { name: 'Audit Logs', href: '/audit', icon: ClipboardList },
+];
+
+const analyticsNav = [
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Compliance', href: '/compliance', icon: CheckSquare },
+    { name: 'Posture', href: '/posture', icon: Lock },
+    { name: 'Reports', href: '/reports', icon: FileText },
 ];
 
 const systemNav = [
-    { name: 'Settings', href: '/settings', icon: Settings },
-    { name: 'Regex Patterns', href: '/settings/regex', icon: Regex },
     { name: 'Connectors', href: '/settings/connectors', icon: Plug },
+    { name: 'Regex Patterns', href: '/settings/regex', icon: Regex },
+    { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -65,7 +76,6 @@ export function Sidebar() {
                     {navigation.map((item) => {
                         const Icon = item.icon;
                         const active = isActive(item.href);
-
                         return (
                             <Button
                                 key={item.name}
@@ -85,9 +95,39 @@ export function Sidebar() {
                     })}
                 </nav>
 
+                {/* Analytics Section */}
+                <div className="mt-6 pt-4">
+                    <Separator className="mb-3" />
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+                        Analytics
+                    </div>
+                    <nav className="space-y-1">
+                        {analyticsNav.map((item) => {
+                            const Icon = item.icon;
+                            const active = isActive(item.href);
+                            return (
+                                <Button
+                                    key={item.name}
+                                    asChild
+                                    variant={active ? 'secondary' : 'ghost'}
+                                    className={cn(
+                                        'w-full justify-start gap-3 font-medium',
+                                        active && 'bg-accent'
+                                    )}
+                                >
+                                    <Link href={item.href}>
+                                        <Icon className="h-4 w-4" />
+                                        <span>{item.name}</span>
+                                    </Link>
+                                </Button>
+                            );
+                        })}
+                    </nav>
+                </div>
+
                 {/* System Section */}
-                <div className="mt-8 pt-4">
-                    <Separator className="mb-4" />
+                <div className="mt-6 pt-4">
+                    <Separator className="mb-3" />
                     <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
                         System
                     </div>
@@ -95,7 +135,6 @@ export function Sidebar() {
                         {systemNav.map((item) => {
                             const Icon = item.icon;
                             const active = isActive(item.href);
-
                             return (
                                 <Button
                                     key={item.name}
