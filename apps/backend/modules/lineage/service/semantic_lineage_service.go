@@ -10,6 +10,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/google/uuid"
+	neo4jDriver "github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 // getConfidenceThreshold reads LINEAGE_CONFIDENCE_THRESHOLD from env, defaults to 0.45
@@ -419,4 +420,114 @@ func (s *SemanticLineageService) SyncLineage(ctx context.Context) error {
 
 	log.Printf("[FULL-SYNC] Sync completed: %d assets synced, %d failed", totalSynced, totalErrors)
 	return nil
+}
+
+// DetectLineageCycles runs a Neo4j Cypher query to find cycles in the EXPOSES
+// relationship graph. A cycle would mean an asset indirectly exposes itself —
+// which indicates a data-flow loop or a Neo4j sync bug.
+//
+// Phase 5 requirement: flag cycles with risk +10 in caller.
+func (s *SemanticLineageService) DetectLineageCycles(ctx context.Context) ([][]string, error) {
+	if s.neo4jRepo == nil {
+		return nil, nil
+	}
+
+	// Cypher: find paths where an Asset node reaches itself via EXPOSES edges.
+	// Limit to 20 to avoid overwhelming the graph for large installations.
+	query := `
+		MATCH path = (a:Asset)-[:EXPOSES*2..10]->(b)
+		WHERE a = b
+		RETURN [node IN nodes(path) | COALESCE(node.id, node.name, toString(id(node)))] AS cycle_ids
+		LIMIT 20
+	`
+	session := s.neo4jRepo.GetDriver().NewSession(ctx, neo4jDriver.SessionConfig{DatabaseName: "neo4j"})
+	defer session.Close(ctx)
+
+	result, err := session.Run(ctx, query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("cycle detection query: %w", err)
+	}
+
+	var cycles [][]string
+	for result.Next(ctx) {
+		record := result.Record()
+		raw, ok := record.Get("cycle_ids")
+		if !ok {
+			continue
+		}
+		ids, ok := raw.([]interface{})
+		if !ok {
+			continue
+		}
+		var cycle []string
+		for _, id := range ids {
+			cycle = append(cycle, fmt.Sprintf("%v", id))
+		}
+		if len(cycle) > 0 {
+			cycles = append(cycles, cycle)
+		}
+	}
+	return cycles, result.Err()
+}
+
+// TagOrphanAssets marks assets in PostgreSQL that have had no scan findings
+// for more than staleAfterDays days. Orphan assets get a +10 risk bonus
+// (applied by the caller when scoring). Returns the count of newly tagged assets.
+//
+// Phase 5 requirement.
+func (s *SemanticLineageService) TagOrphanAssets(ctx context.Context, staleAfterDays int) (int, error) {
+	if staleAfterDays <= 0 {
+		staleAfterDays = 90
+	}
+
+	// An asset is an orphan if its most recent finding was created more than
+	// staleAfterDays ago OR it has never had a finding.
+	res, err := s.pgRepo.GetDB().ExecContext(ctx, `
+		UPDATE assets
+		   SET is_orphan        = TRUE,
+		       orphan_since     = NOW(),
+		       orphan_risk_bonus = 10,
+		       updated_at       = NOW()
+		 WHERE (
+		     -- No findings ever
+		     id NOT IN (SELECT DISTINCT asset_id FROM findings WHERE asset_id IS NOT NULL)
+		     OR
+		     -- Last finding older than threshold
+		     id IN (
+		         SELECT asset_id
+		           FROM findings
+		       GROUP BY asset_id
+		         HAVING MAX(created_at) < NOW() - ($1 || ' days')::INTERVAL
+		     )
+		 )
+		   AND is_orphan = FALSE
+	`, staleAfterDays)
+	if err != nil {
+		return 0, fmt.Errorf("tag orphan assets: %w", err)
+	}
+	n, _ := res.RowsAffected()
+
+	// Clear orphan flag for assets that have been scanned recently
+	_, err = s.pgRepo.GetDB().ExecContext(ctx, `
+		UPDATE assets
+		   SET is_orphan         = FALSE,
+		       orphan_since      = NULL,
+		       orphan_risk_bonus = 0,
+		       updated_at        = NOW()
+		 WHERE is_orphan = TRUE
+		   AND id IN (
+		       SELECT asset_id
+		         FROM findings
+		     GROUP BY asset_id
+		       HAVING MAX(created_at) >= NOW() - ($1 || ' days')::INTERVAL
+		   )
+	`, staleAfterDays)
+	if err != nil {
+		log.Printf("[LINEAGE] orphan clear-flag error (non-fatal): %v", err)
+	}
+
+	if n > 0 {
+		log.Printf("[LINEAGE] Tagged %d new orphan assets (stale after %d days)", n, staleAfterDays)
+	}
+	return int(n), nil
 }

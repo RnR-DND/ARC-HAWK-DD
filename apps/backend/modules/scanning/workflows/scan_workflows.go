@@ -41,13 +41,9 @@ func ScanLifecycleWorkflow(ctx workflow.Context, scanID string) error {
 		return err
 	}
 
-	// Trigger Agent-Based Controller (Gemini SDK) for exposure & remediation mapping
-	logger.Info("Triggering Agentic Controller evaluation", "scanID", scanID, "findings", findingCount)
-	var agentEvaluated bool
-	err = workflow.ExecuteActivity(ctx, "EvaluateWithAgent", scanID, findingCount).Get(ctx, &agentEvaluated)
-	if err != nil {
-		logger.Warn("Agentic evaluation failed/degraded gracefully; continuing pipeline", "error", err)
-	}
+	// Note: LLM-assisted classification (Layer 3) is handled in the Python scanner
+	// before findings are ingested. Claude (Anthropic API) is used for contextual
+	// classification of ambiguous-confidence findings. The Gemini stub has been removed.
 
 	// Async Neo4j sync (fire and forget - won't block completion)
 	workflow.ExecuteActivity(ctx, "SyncToNeo4j", scanID)

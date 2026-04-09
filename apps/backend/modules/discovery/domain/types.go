@@ -207,3 +207,51 @@ func DefaultRiskWeights() RiskWeights {
 		Exposure:    1.5,
 	}
 }
+
+// DPDPARiskInputs holds the four factors used in the DPDPA 2023 risk formula.
+//
+//	risk_score = (pii_density × 0.35) + (sensitivity_weight × 0.30) +
+//	             (access_exposure × 0.20) + (retention_violation × 0.15)
+//
+// All inputs are normalised to [0, 1] before the formula is applied.
+// The result is scaled to [0, 100] and mapped to a RiskTier.
+type DPDPARiskInputs struct {
+	// PIIDensity is the fraction of fields in the asset that contain PII (0.0–1.0).
+	// Computed as: pii_field_count / total_field_count.
+	PIIDensity float64 `json:"pii_density"`
+
+	// SensitivityWeight is the weighted average sensitivity of PII classifications.
+	// high=1.0, medium=0.6, low=0.2.
+	SensitivityWeight float64 `json:"sensitivity_weight"`
+
+	// AccessExposure is the fraction of PII fields accessible without RBAC (0.0–1.0).
+	// Defaults to 0.5 until connections module exposes per-source RBAC metadata.
+	AccessExposure float64 `json:"access_exposure"`
+
+	// RetentionViolation is 1 if any finding in the asset exceeds its retention period, else 0.
+	RetentionViolation float64 `json:"retention_violation"`
+}
+
+// RiskTier is the DPDPA risk tier derived from a 0–100 score.
+type RiskTier string
+
+const (
+	RiskTierCritical RiskTier = "Critical" // 80–100
+	RiskTierHigh     RiskTier = "High"     // 60–79
+	RiskTierMedium   RiskTier = "Medium"   // 40–59
+	RiskTierLow      RiskTier = "Low"      // 0–39
+)
+
+// TierFromScore maps a 0–100 DPDPA score to a RiskTier.
+func TierFromScore(score float64) RiskTier {
+	switch {
+	case score >= 80:
+		return RiskTierCritical
+	case score >= 60:
+		return RiskTierHigh
+	case score >= 40:
+		return RiskTierMedium
+	default:
+		return RiskTierLow
+	}
+}

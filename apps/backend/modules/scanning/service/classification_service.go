@@ -14,7 +14,7 @@ import (
 // ==================================================================================
 // LOCKED PII SCOPE - Intelligence-at-Edge Architecture
 // ==================================================================================
-// Only these 11 India PII types are in scope. All others MUST be rejected.
+// Only these 12 India PII types are in scope. All others MUST be rejected.
 // Language: English only
 // ==================================================================================
 var LOCKED_PII_TYPES = map[string]bool{
@@ -29,12 +29,18 @@ var LOCKED_PII_TYPES = map[string]bool{
 	"EMAIL_ADDRESS":      true, // Email
 	"IN_VOTER_ID":        true, // Voter ID (EPIC)
 	"IN_DRIVING_LICENSE": true, // Driving License (India)
+	"IN_GST":             true, // GST Identification Number (GSTIN)
 }
 
-// IsLockedPIIType validates if a PII type is in the locked scope
+// IsLockedPIIType validates if a PII type is in the locked scope.
+// Also allows CUSTOM_* types from user-defined patterns.
 func IsLockedPIIType(piiType string) bool {
 	normalized := strings.ToUpper(strings.TrimSpace(piiType))
-	return LOCKED_PII_TYPES[normalized]
+	if LOCKED_PII_TYPES[normalized] {
+		return true
+	}
+	// Allow user-defined custom patterns (prefixed with CUSTOM_ or USR_)
+	return strings.HasPrefix(normalized, "CUSTOM_") || strings.HasPrefix(normalized, "USR_")
 }
 
 // ClassificationService handles PII classification with multi-signal intelligence
@@ -232,6 +238,11 @@ func (s *ClassificationService) extractClassificationFromPattern(patternName str
 	}
 	if containsStrict(lower, []string{"phone", "mobile", "cellphone"}) {
 		return "Personal Data"
+	}
+
+	// Business identifiers
+	if containsStrict(lower, []string{"gst", "gstin", "tax_id", "vat"}) {
+		return "Sensitive Personal Data"
 	}
 
 	// Secrets

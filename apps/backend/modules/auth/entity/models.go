@@ -87,6 +87,9 @@ type AuditLog struct {
 	UserAgent    string    `json:"user_agent" gorm:"size:500"`
 	Metadata     string    `json:"metadata" gorm:"type:text"`
 	CreatedAt    time.Time `json:"created_at" gorm:"index"`
+	// Chain integrity fields added in migration 000029.
+	PreviousHash string `json:"previous_hash,omitempty" gorm:"type:text"`
+	EntryHash    string `json:"entry_hash,omitempty" gorm:"type:text;index"`
 }
 
 type LoginSession struct {

@@ -30,8 +30,8 @@ func (h *IngestionHandler) IngestScan(c *gin.Context) {
 		return
 	}
 
-	// Validate input
-	if len(input.FS) == 0 && len(input.PostgreSQL) == 0 {
+	// Validate input — Sources map is populated by UnmarshalJSON
+	if len(input.Sources) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "No findings in scan input",
 		})

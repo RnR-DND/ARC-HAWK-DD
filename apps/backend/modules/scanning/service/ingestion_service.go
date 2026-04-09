@@ -12,6 +12,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/domain/repository"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/arc-platform/backend/pkg/normalization"
@@ -25,6 +26,7 @@ type IngestionService struct {
 	classifier   *ClassificationService
 	enrichment   *EnrichmentService
 	assetManager interfaces.AssetManager
+	encryptor    *encryption.EncryptionService // nil when ENCRYPTION_KEY not set (dev fallback)
 }
 
 // NewIngestionService creates a new ingestion service
@@ -33,26 +35,51 @@ func NewIngestionService(
 	classifier *ClassificationService,
 	enrichment *EnrichmentService,
 	assetManager interfaces.AssetManager,
+	encryptor *encryption.EncryptionService,
 ) *IngestionService {
 	return &IngestionService{
 		repo:         repo,
 		classifier:   classifier,
 		enrichment:   enrichment,
 		assetManager: assetManager,
+		encryptor:    encryptor,
 	}
 }
 
-// HawkeyeScanInput represents the Hawk-eye scanner JSON format
+// HawkeyeScanInput represents the Hawk-eye scanner JSON format.
+// Sources holds findings keyed by connector name (e.g. "fs", "postgresql", "bigquery").
+// Custom UnmarshalJSON captures any JSON key that isn't "scan_id" into Sources,
+// so new connectors never require a struct change.
 type HawkeyeScanInput struct {
-	ScanID     string           `json:"scan_id"` // Added for correlation
-	FS         []HawkeyeFinding `json:"fs"`
-	PostgreSQL []HawkeyeFinding `json:"postgresql"`
-	MySQL      []HawkeyeFinding `json:"mysql"`
-	MongoDB    []HawkeyeFinding `json:"mongodb"`
-	S3         []HawkeyeFinding `json:"s3"`
-	Redis      []HawkeyeFinding `json:"redis"`
-	Slack      []HawkeyeFinding `json:"slack"`
-	GCS        []HawkeyeFinding `json:"gcs"`
+	ScanID  string                      `json:"scan_id"`
+	Sources map[string][]HawkeyeFinding `json:"-"`
+}
+
+// UnmarshalJSON populates ScanID and routes all other keys into Sources.
+func (h *HawkeyeScanInput) UnmarshalJSON(data []byte) error {
+	raw := map[string]json.RawMessage{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if v, ok := raw["scan_id"]; ok {
+		if err := json.Unmarshal(v, &h.ScanID); err != nil {
+			return err
+		}
+	}
+	h.Sources = make(map[string][]HawkeyeFinding)
+	for key, val := range raw {
+		if key == "scan_id" {
+			continue
+		}
+		var findings []HawkeyeFinding
+		if err := json.Unmarshal(val, &findings); err != nil {
+			continue // non-finding keys (future metadata) — skip gracefully
+		}
+		if len(findings) > 0 {
+			h.Sources[key] = findings
+		}
+	}
+	return nil
 }
 
 // HawkeyeFinding represents a single finding from Hawk-eye
@@ -80,10 +107,7 @@ type IngestScanResult struct {
 
 // IngestScan processes Hawk-eye scan output and normalizes it into the database
 func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInput) (retResult *IngestScanResult, retErr error) {
-	if len(input.FS) == 0 && len(input.PostgreSQL) == 0 &&
-		len(input.MySQL) == 0 && len(input.MongoDB) == 0 &&
-		len(input.S3) == 0 && len(input.Redis) == 0 &&
-		len(input.Slack) == 0 && len(input.GCS) == 0 {
+	if len(input.Sources) == 0 {
 		return nil, fmt.Errorf("no findings in scan input")
 	}
 
@@ -103,17 +127,14 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 	}()
 
 	// Combine findings from all data sources — use fresh slice to avoid mutating caller's backing array
-	totalLen := len(input.FS) + len(input.PostgreSQL) + len(input.MySQL) +
-		len(input.MongoDB) + len(input.S3) + len(input.Redis) + len(input.Slack) + len(input.GCS)
+	totalLen := 0
+	for _, findings := range input.Sources {
+		totalLen += len(findings)
+	}
 	allFindings := make([]HawkeyeFinding, 0, totalLen)
-	allFindings = append(allFindings, input.FS...)
-	allFindings = append(allFindings, input.PostgreSQL...)
-	allFindings = append(allFindings, input.MySQL...)
-	allFindings = append(allFindings, input.MongoDB...)
-	allFindings = append(allFindings, input.S3...)
-	allFindings = append(allFindings, input.Redis...)
-	allFindings = append(allFindings, input.Slack...)
-	allFindings = append(allFindings, input.GCS...)
+	for _, findings := range input.Sources {
+		allFindings = append(allFindings, findings...)
+	}
 
 	// Try to link to existing ScanRun if ScanID is provided in input
 	// (Check first finding's custom field or top-level metadata if available)
@@ -270,6 +291,23 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		}
 		sanitizedSample := strings.ReplaceAll(hawkeyeFinding.SampleText, "\u0000", "")
 
+		// Encrypt PII sample value at rest (AES-256-GCM) — DPDPA security requirement.
+		// If encryptor is unavailable (dev/test without ENCRYPTION_KEY), store as-is with a warning.
+		storedSample := sanitizedSample
+		if s.encryptor != nil && sanitizedSample != "" {
+			encrypted, encErr := s.encryptor.EncryptString(sanitizedSample)
+			if encErr != nil {
+				log.Printf("WARNING: Failed to encrypt sample text for %s: %v — storing redacted",
+					hawkeyeFinding.PatternName, encErr)
+				storedSample = "[ENCRYPTION_FAILED]"
+			} else {
+				storedSample = encrypted
+			}
+		} else if s.encryptor == nil {
+			log.Printf("WARNING: EncryptionService unavailable — PII sample stored unencrypted for %s",
+				hawkeyeFinding.PatternName)
+		}
+
 		// Track sanitization in scan metadata
 		if sanitizationCount > 0 {
 			if scanRun.Metadata == nil {
@@ -338,7 +376,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 			PatternID:           &patternID,
 			PatternName:         hawkeyeFinding.PatternName,
 			Matches:             sanitizedMatches,
-			SampleText:          sanitizedSample,
+			SampleText:          storedSample,
 			Severity:            dynamicSeverity, // Now calculated from classification+confidence+context
 			SeverityDescription: fmt.Sprintf("Risk Score: %d/100 | %s", riskScore, decision.Justification),
 			ConfidenceScore:     &decision.FinalScore,

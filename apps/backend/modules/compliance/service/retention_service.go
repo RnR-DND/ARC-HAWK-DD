@@ -37,14 +37,18 @@ func NewRetentionService(db *sql.DB) *RetentionService {
 	return &RetentionService{db: db}
 }
 
-// SetRetentionPolicy sets the retention policy for an asset
+// SetRetentionPolicy sets the retention policy for an asset (upserts per tenant).
 func (s *RetentionService) SetRetentionPolicy(ctx context.Context, assetID string, policyDays int, policyName, policyBasis string) error {
+	if policyDays <= 0 {
+		policyDays = 365
+	}
 	query := `
 		UPDATE assets
 		SET retention_policy_days = $1,
 		    retention_policy_name = $2,
-		    retention_policy_basis = $3
-		WHERE id = $4
+		    retention_policy_basis = $3,
+		    updated_at = NOW()
+		WHERE id = $4::UUID
 	`
 
 	result, err := s.db.ExecContext(ctx, query, policyDays, policyName, policyBasis, assetID)
@@ -138,12 +142,12 @@ func (s *RetentionService) GetRetentionViolations(ctx context.Context) ([]Retent
 // CalculateDeletionDue calculates when a finding should be deleted
 func (s *RetentionService) CalculateDeletionDue(ctx context.Context, findingID string) (time.Time, error) {
 	query := `
-		SELECT 
-			f.first_detected_at,
-			a.retention_policy_days
+		SELECT
+			f.created_at,
+			COALESCE(a.retention_policy_days, 365)
 		FROM findings f
 		JOIN assets a ON f.asset_id = a.id
-		WHERE f.id = $1
+		WHERE f.id = $1::UUID
 	`
 
 	var firstDetected time.Time
@@ -161,23 +165,23 @@ func (s *RetentionService) CalculateDeletionDue(ctx context.Context, findingID s
 // GetRetentionTimeline gets the retention timeline for an asset
 func (s *RetentionService) GetRetentionTimeline(ctx context.Context, assetID string) ([]RetentionTimelineEntry, error) {
 	query := `
-		SELECT 
+		SELECT
 			f.id,
-			f.pii_type,
-			f.first_detected_at,
-			a.retention_policy_days,
-			calculate_deletion_due(f.first_detected_at, a.retention_policy_days) as deletion_due_at,
-			CASE 
-				WHEN calculate_deletion_due(f.first_detected_at, a.retention_policy_days) < NOW() 
+			f.pattern_name,
+			f.created_at,
+			COALESCE(a.retention_policy_days, 365),
+			calculate_deletion_due(f.created_at, COALESCE(a.retention_policy_days, 365)) as deletion_due_at,
+			CASE
+				WHEN calculate_deletion_due(f.created_at, COALESCE(a.retention_policy_days, 365)) < NOW()
 				THEN 'OVERDUE'
-				WHEN calculate_deletion_due(f.first_detected_at, a.retention_policy_days) < NOW() + INTERVAL '30 days'
+				WHEN calculate_deletion_due(f.created_at, COALESCE(a.retention_policy_days, 365)) < NOW() + INTERVAL '30 days'
 				THEN 'EXPIRING_SOON'
 				ELSE 'COMPLIANT'
 			END as status
 		FROM findings f
 		JOIN assets a ON f.asset_id = a.id
-		WHERE f.asset_id = $1
-		ORDER BY f.first_detected_at DESC
+		WHERE f.asset_id = $1::UUID
+		ORDER BY f.created_at DESC
 	`
 
 	rows, err := s.db.QueryContext(ctx, query, assetID)

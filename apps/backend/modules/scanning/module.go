@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/arc-platform/backend/modules/scanning/api"
@@ -22,6 +23,7 @@ type ScanningModule struct {
 	classificationSummaryService *service.ClassificationSummaryService
 	enrichmentService            *service.EnrichmentService
 	scanService                  *service.ScanService
+	patternsService              *service.PatternsService
 
 	// Handlers
 	ingestionHandler      *api.IngestionHandler
@@ -30,6 +32,7 @@ type ScanningModule struct {
 	scanTriggerHandler    *api.ScanTriggerHandler
 	scanStatusHandler     *api.ScanStatusHandler
 	dashboardHandler      *api.DashboardHandler
+	patternsHandler       *api.PatternsHandler
 
 	// Dependencies
 	deps *interfaces.ModuleDependencies
@@ -69,12 +72,22 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 		return fmt.Errorf("AssetManager dependency is required for Scanning Module")
 	}
 
-	// Ingestion service now uses AssetManager instead of creating assets directly
+	// Initialize encryption service — used by both ingestion (PII sample encryption, P0-1)
+	// and the scan trigger handler (runtime credential resolution).
+	// A nil service is acceptable in dev when ENCRYPTION_KEY is not set.
+	encryptionService, err := encryption.NewEncryptionService()
+	if err != nil {
+		log.Printf("WARN: Encryption service unavailable — PII samples will be stored unencrypted: %v", err)
+	}
+
+	// Ingestion service now uses AssetManager instead of creating assets directly.
+	// EncryptionService is wired here to encrypt PII sample values at rest (DPDPA P0-1).
 	m.ingestionService = service.NewIngestionService(
 		repo,
 		m.classificationService,
 		m.enrichmentService,
 		assetManager,
+		encryptionService,
 	)
 
 	// Initialize handlers
@@ -85,14 +98,13 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	)
 	m.sdkIngestHandler = api.NewSDKIngestHandler(m.ingestionService)
 
-	// Initialize encryption for runtime credential resolution
-	encryptionService, err := encryption.NewEncryptionService()
-	if err != nil {
-		log.Printf("WARN: Encryption service unavailable, scanner will use connection.yml fallback: %v", err)
-	}
 	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService, repo, encryptionService)
 	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService, repo)
 	m.dashboardHandler = api.NewDashboardHandler(repo)
+
+	// Custom patterns
+	m.patternsService = service.NewPatternsService(repo)
+	m.patternsHandler = api.NewPatternsHandler(m.patternsService)
 
 	// Start background ticker to check for stuck/timed-out scans every 5 minutes
 	m.stopTimeout = make(chan struct{})
@@ -124,24 +136,45 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		// Scan trigger
 		scans.POST("/trigger", m.scanTriggerHandler.TriggerScan)
 
-		// Scan status and details
+		// Scan management — static routes MUST be registered before /:id
+		// wildcards to avoid router conflicts on /clear and /latest.
+		scans.GET("", m.scanStatusHandler.ListScans)
+		scans.GET("/latest", m.ingestionHandler.GetLatestScan)
+		scans.DELETE("/clear", m.ingestionHandler.ClearScanData)
+
+		// Scan status and details (wildcard routes)
 		scans.GET("/:id", m.scanStatusHandler.GetScan)
 		scans.GET("/:id/status", m.scanStatusHandler.GetScanStatus)
 		scans.POST("/:id/complete", m.scanStatusHandler.CompleteScan)
 		scans.POST("/:id/cancel", m.scanStatusHandler.CancelScan)
-		scans.DELETE("/:id", m.scanStatusHandler.DeleteScan)
+		// DELETE /:id requires admin role — no tenant_id on scan_runs yet (see RISK.md).
+		// This gate limits blast radius until tenant-scoped deletion is implemented.
+		scans.DELETE("/:id", func(c *gin.Context) {
+			role, _ := c.Get("user_role")
+			if role != "admin" {
+				c.JSON(http.StatusForbidden, gin.H{"error": "forbidden", "message": "scan deletion requires admin role"})
+				c.Abort()
+				return
+			}
+			c.Next()
+		}, m.scanStatusHandler.DeleteScan)
 		scans.GET("/:id/pii-summary", m.scanStatusHandler.GetScanPIISummary)
-
-		// Scan management
-		scans.GET("", m.scanStatusHandler.ListScans)
-		scans.GET("/latest", m.ingestionHandler.GetLatestScan)
-		scans.DELETE("/clear", m.ingestionHandler.ClearScanData)
+		scans.GET("/:id/delta", m.scanTriggerHandler.GetScanDelta)
 	}
 
 	// Classification
 	classification := router.Group("/classification")
 	{
 		classification.GET("/summary", m.classificationHandler.GetClassificationSummary)
+	}
+
+	// Custom PII patterns
+	patterns := router.Group("/patterns")
+	{
+		patterns.GET("", m.patternsHandler.ListPatterns)
+		patterns.POST("", m.patternsHandler.CreatePattern)
+		patterns.PUT("/:id", m.patternsHandler.UpdatePattern)
+		patterns.DELETE("/:id", m.patternsHandler.DeletePattern)
 	}
 
 	// Dashboard

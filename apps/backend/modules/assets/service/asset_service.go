@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -164,4 +165,132 @@ func (s *AssetService) DeleteAsset(ctx context.Context, id uuid.UUID) error {
 // ListAssets returns a list of assets
 func (s *AssetService) ListAssets(ctx context.Context, limit, offset int) ([]*entity.Asset, error) {
 	return s.repo.ListAssets(ctx, limit, offset)
+}
+
+// BulkTagRequest describes a bulk tag operation.
+type BulkTagRequest struct {
+	AssetIDs []uuid.UUID       `json:"asset_ids"`
+	Tags     map[string]string `json:"tags"`   // key → value
+	Mode     string            `json:"mode"`   // "merge" | "replace" — "merge" is default
+	// ManualOverride: if true, these tags override any existing manual tags.
+	// If false (default), manual tags (set via single-asset edit) win over bulk tags.
+	ManualOverride bool `json:"manual_override"`
+}
+
+// BulkTagResult is returned immediately; actual work runs in the background.
+type BulkTagResult struct {
+	JobID     string `json:"job_id"`
+	AssetCount int   `json:"asset_count"`
+	Status    string `json:"status"` // "queued"
+}
+
+// BulkTagAssets queues a background goroutine to apply tags to a batch of assets.
+// Imports: encoding/json is imported at file-level via standard module tooling.
+// Tag conflict resolution: if ManualOverride is false (default), existing tags that
+// were set via a single-asset manual edit (file_metadata->>'_manual_tag_source' = 'manual')
+// are preserved and the bulk value is ignored for those keys.
+func (s *AssetService) BulkTagAssets(ctx context.Context, req *BulkTagRequest, actor string) (*BulkTagResult, error) {
+	if len(req.AssetIDs) == 0 {
+		return nil, fmt.Errorf("no asset IDs provided")
+	}
+	if len(req.Tags) == 0 {
+		return nil, fmt.Errorf("no tags provided")
+	}
+
+	jobID := uuid.New().String()
+	result := &BulkTagResult{
+		JobID:      jobID,
+		AssetCount: len(req.AssetIDs),
+		Status:     "queued",
+	}
+
+	// Fire-and-forget background goroutine — returns 202 immediately to caller.
+	go func() {
+		bgCtx := context.Background()
+		success := 0
+		for _, assetID := range req.AssetIDs {
+			if err := s.applyTagsToAsset(bgCtx, assetID, req.Tags, req.Mode, req.ManualOverride); err != nil {
+				log.Printf("[BULK-TAG] job=%s asset=%s error: %v", jobID, assetID, err)
+			} else {
+				success++
+			}
+		}
+		log.Printf("[BULK-TAG] job=%s complete: %d/%d assets tagged", jobID, success, len(req.AssetIDs))
+		if s.auditLogger != nil {
+			_ = s.auditLogger.Record(bgCtx, "BULK_TAG_COMPLETE", "job", jobID, map[string]interface{}{
+				"actor": actor, "asset_count": len(req.AssetIDs), "success": success,
+			})
+		}
+	}()
+
+	return result, nil
+}
+
+// applyTagsToAsset merges or replaces tags in file_metadata JSONB for one asset.
+// Manual tags (file_metadata->>'_manual_tag_source' = 'manual') are preserved unless
+// ManualOverride is true.
+func (s *AssetService) applyTagsToAsset(ctx context.Context, assetID uuid.UUID, tags map[string]string, mode string, manualOverride bool) error {
+	// Build JSONB update: use jsonb_set or || operator.
+	// Using a safe UPDATE with COALESCE ensures we don't lose existing metadata.
+	if mode == "replace" {
+		// Replace entire file_metadata tags namespace (but keep _manual_* keys if not overriding)
+		updateSQL := `
+			UPDATE assets
+			   SET file_metadata = file_metadata || $2::jsonb,
+			       updated_at = NOW()
+			 WHERE id = $1
+		`
+		if !manualOverride {
+			// Preserve manual keys — merge with manual values winning
+			updateSQL = `
+				UPDATE assets
+				   SET file_metadata = ($2::jsonb || COALESCE(
+				       (SELECT jsonb_object_agg(key, value)
+				          FROM jsonb_each(file_metadata)
+				         WHERE value->>'_manual_tag_source' = 'manual'
+				            OR key LIKE '_manual_%'),
+				       '{}'::jsonb
+				   )),
+				       updated_at = NOW()
+				 WHERE id = $1
+			`
+		}
+		tagsBytes, _ := encodeJSON(tags)
+		_, err := s.repo.GetDB().ExecContext(ctx, updateSQL, assetID, string(tagsBytes))
+		return err
+	}
+
+	// Default: merge — add/update only provided keys, keep everything else
+	tagsBytes, _ := encodeJSON(tags)
+	tagsJSON := string(tagsBytes)
+	var updateSQL string
+	if manualOverride {
+		updateSQL = `
+			UPDATE assets
+			   SET file_metadata = COALESCE(file_metadata, '{}'::jsonb) || $2::jsonb,
+			       updated_at = NOW()
+			 WHERE id = $1
+		`
+	} else {
+		// Build the merged JSONB without overwriting existing manual tags
+		updateSQL = `
+			UPDATE assets
+			   SET file_metadata = (COALESCE(file_metadata, '{}'::jsonb) || $2::jsonb)
+			                    || COALESCE(
+			                           (SELECT jsonb_object_agg(key, value)
+			                              FROM jsonb_each(COALESCE(file_metadata, '{}'::jsonb))
+			                             WHERE value->>'_manual_tag_source' = 'manual'),
+			                           '{}'::jsonb
+			                       ),
+			       updated_at = NOW()
+			 WHERE id = $1
+		`
+	}
+	_, err := s.repo.GetDB().ExecContext(ctx, updateSQL, assetID, tagsJSON)
+	return err
+}
+
+// encodeJSON marshals v to JSON bytes.
+func encodeJSON(v interface{}) ([]byte, error) {
+	return json.Marshal(v)
 }

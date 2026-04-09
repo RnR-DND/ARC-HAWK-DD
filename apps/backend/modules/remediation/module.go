@@ -6,6 +6,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/auth/middleware"
 	"github.com/arc-platform/backend/modules/remediation/api"
+	remservice "github.com/arc-platform/backend/modules/remediation/service"
 	"github.com/arc-platform/backend/modules/remediation/service"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
@@ -14,10 +15,11 @@ import (
 
 // RemediationModule implements the Module interface
 type RemediationModule struct {
-	db             *sql.DB
-	lineageSync    interfaces.LineageSync
-	service        *service.RemediationService
-	authMiddleware *middleware.AuthMiddleware
+	db                 *sql.DB
+	lineageSync        interfaces.LineageSync
+	service            *service.RemediationService
+	escalationService  *service.EscalationService
+	authMiddleware     *middleware.AuthMiddleware
 }
 
 // NewRemediationModule creates a new remediation module
@@ -44,6 +46,7 @@ func (m *RemediationModule) Initialize(deps *interfaces.ModuleDependencies) erro
 
 	// Initialize service with LineageSync instead of Neo4j driver
 	m.service = service.NewRemediationService(m.db, m.lineageSync)
+	m.escalationService = service.NewEscalationService(m.db)
 
 	// Initialize Auth Middleware for permission checks
 	repo := persistence.NewPostgresRepository(m.db)
@@ -57,6 +60,8 @@ func (m *RemediationModule) Initialize(deps *interfaces.ModuleDependencies) erro
 func (m *RemediationModule) RegisterRoutes(router *gin.RouterGroup) {
 	handler := api.NewRemediationHandler(m.service)
 	historyHandler := api.NewRemediationHistoryHandler(m.service)
+	exportHandler := api.NewRemediationExportHandler(m.service)
+	escalationHandler := api.NewEscalationHandler(m.escalationService)
 
 	// Create remediation group
 	g := router.Group("/remediation")
@@ -70,6 +75,29 @@ func (m *RemediationModule) RegisterRoutes(router *gin.RouterGroup) {
 		g.GET("/history/:assetId", handler.GetRemediationHistory)
 		g.GET("/actions/:findingId", handler.GetRemediationActions)
 		g.POST("/rollback/:id", handler.RollbackRemediation)
+
+		// Export: GET /remediation/export?format=pdf|xlsx
+		g.GET("/export", exportHandler.ExportReport)
+
+		// Escalation scheduler endpoints
+		escalation := g.Group("/escalation")
+		{
+			escalation.GET("/preview", escalationHandler.Preview)
+			escalation.POST("/run", escalationHandler.Run)
+		}
+
+		// SOP registry — machine-readable runbooks for all known issue types
+		g.GET("/sops", func(c *gin.Context) {
+			c.JSON(200, gin.H{"sops": remservice.ListSOPs()})
+		})
+		g.GET("/sops/:issue_type", func(c *gin.Context) {
+			sop := remservice.LookupSOP(remservice.IssueType(c.Param("issue_type")))
+			if sop == nil {
+				c.JSON(404, gin.H{"error": "SOP not found"})
+				return
+			}
+			c.JSON(200, sop)
+		})
 
 		// Dynamic route last
 		g.GET("/:id", handler.GetRemediationAction)

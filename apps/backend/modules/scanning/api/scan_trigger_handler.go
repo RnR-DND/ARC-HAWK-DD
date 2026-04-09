@@ -28,6 +28,7 @@ type ScanTriggerHandler struct {
 	websocketService any // WebSocket service for broadcasting
 	repo             *persistence.PostgresRepository
 	encryption       *encryption.EncryptionService
+	patternsService  *service.PatternsService
 }
 
 // Prometheus metrics
@@ -63,6 +64,7 @@ func NewScanTriggerHandler(scanService *service.ScanService, websocketService an
 		websocketService: websocketService,
 		repo:             repo,
 		encryption:       enc,
+		patternsService:  service.NewPatternsService(repo),
 	}
 }
 
@@ -169,6 +171,24 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		log.Printf("WARN: No runtime connection configs resolved for scan %s — scanner will use connection.yml fallback", scanID.String())
 	}
 
+	// Resolve custom patterns for this tenant
+	var customPatternsList []map[string]any
+	if h.patternsService != nil {
+		tenantID := persistence.DevSystemTenantID // fallback; real tenant injected via JWT in production
+		if patterns, pErr := h.patternsService.GetActivePatterns(ctx, tenantID); pErr == nil {
+			for _, p := range patterns {
+				customPatternsList = append(customPatternsList, map[string]any{
+					"name":         p.Name,
+					"display_name": p.DisplayName,
+					"regex":        p.Regex,
+					"category":     p.Category,
+				})
+			}
+		} else {
+			log.Printf("WARN: failed to load custom patterns for scan %s: %v", scanID, pErr)
+		}
+	}
+
 	// Build the HTTP payload expected by the python scanner API
 	payload := map[string]any{
 		"scan_id":            scanID.String(),
@@ -177,6 +197,8 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		"pii_types":          req.PIITypes,
 		"execution_mode":     req.ExecutionMode,
 		"connection_configs": connectionConfigs,
+		"custom_patterns":    customPatternsList,
+		"classification_mode": req.ClassificationMode,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -305,4 +327,24 @@ func (h *ScanTriggerHandler) markScanFailed(scanID uuid.UUID, reason string) {
 			wsService.BroadcastScanProgress(scanID.String(), 0, "failed", reason)
 		}
 	}
+}
+
+// GetScanDelta returns findings added/removed since the previous scan.
+// Returns 204 if there is no previous scan to compare against.
+func (h *ScanTriggerHandler) GetScanDelta(c *gin.Context) {
+	scanID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid scan ID"})
+		return
+	}
+	delta, err := h.scanService.GetScanDelta(c.Request.Context(), scanID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	if delta == nil {
+		c.Status(204)
+		return
+	}
+	c.JSON(200, delta)
 }

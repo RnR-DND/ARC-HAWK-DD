@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
-	"github.com/arc-platform/backend/modules/shared/domain/repository"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/google/uuid"
 )
@@ -61,152 +61,199 @@ func NewComplianceService(pgRepo *persistence.PostgresRepository, neo4jRepo *per
 	}
 }
 
-// GetComplianceOverview returns the DPDPA compliance dashboard
+// assetComplianceRow holds the result of a single aggregation join per asset.
+type assetComplianceRow struct {
+	assetID         uuid.UUID
+	assetName       string
+	assetPath       string
+	findingCount    int
+	hasCritical     bool
+	requiresConsent bool
+	maxSeverity     string
+	piiType         sql.NullString
+	dpdpaCategory   sql.NullString
+}
+
+// GetComplianceOverview returns the DPDPA compliance dashboard.
+// Uses a single aggregation JOIN instead of per-asset queries (fixes N+1 — P0-2).
 func (s *ComplianceService) GetComplianceOverview(ctx context.Context) (*ComplianceOverview, error) {
-	// Get all assets
-	assets, err := s.pgRepo.ListAssets(ctx, 10000, 0)
+	criticalPIITypes := map[string]bool{
+		"IN_AADHAAR":  true,
+		"IN_PAN":      true,
+		"IN_PASSPORT": true,
+		"CREDIT_CARD": true,
+	}
+
+	// Single JOIN query: assets → findings → classifications
+	// Returns one row per (asset, sub_category) pair so we can aggregate in Go.
+	const query = `
+		SELECT
+			a.id                                        AS asset_id,
+			a.name                                      AS asset_name,
+			COALESCE(a.path, '')                        AS asset_path,
+			COUNT(f.id)                                 AS finding_count,
+			BOOL_OR(f.severity IN ('Critical','Highest')) AS has_critical,
+			BOOL_OR(cl.requires_consent)                AS requires_consent,
+			MAX(CASE f.severity
+				WHEN 'Critical' THEN 4 WHEN 'Highest' THEN 4
+				WHEN 'High'     THEN 3
+				WHEN 'Medium'   THEN 2
+				ELSE 1 END)                             AS severity_rank,
+			cl.sub_category                             AS pii_type,
+			cl.dpdpa_category                           AS dpdpa_category
+		FROM assets a
+		LEFT JOIN findings f  ON f.asset_id = a.id
+		LEFT JOIN classifications cl ON cl.finding_id = f.id
+		GROUP BY a.id, a.name, a.path, cl.sub_category, cl.dpdpa_category
+		ORDER BY a.id
+	`
+
+	rows, err := s.pgRepo.GetDB().QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list assets: %w", err)
+		return nil, fmt.Errorf("compliance overview query failed: %w", err)
+	}
+	defer rows.Close()
+
+	type assetState struct {
+		name            string
+		path            string
+		findingCount    int
+		hasCritical     bool
+		requiresConsent bool
+		maxSeverityRank int
+		piiTypes        map[string]bool
 	}
 
-	overview := &ComplianceOverview{
-		TotalAssets:            len(assets),
-		CompliantAssets:        0,
-		NonCompliantAssets:     0,
-		RemediationQueue:       []RemediationItem{},
-		DPDPACategoryBreakdown: make(map[string]int),
-	}
-
-	// Critical PII types (India-specific)
-	criticalPIITypes := []string{"IN_AADHAAR", "IN_PAN", "IN_PASSPORT", "CREDIT_CARD"}
-	criticalAssets := make(map[uuid.UUID]bool)
-	consentRequiredAssets := make(map[uuid.UUID]bool)
-
-	criticalFindingsCount := 0
+	assetStates := make(map[uuid.UUID]*assetState)
+	dpdpaCategoryBreakdown := make(map[string]int)
 	consentPIITypes := make(map[string]bool)
+	criticalFindingsCount := 0
 
-	// Analyze each asset
-	for _, asset := range assets {
-		// Get findings for this asset
-		findings, err := s.pgRepo.ListFindings(ctx, repository.FindingFilters{
-			AssetID: &asset.ID,
-		}, 1000, 0)
-		if err != nil {
-			continue
+	for rows.Next() {
+		var (
+			assetID         uuid.UUID
+			assetName       string
+			assetPath       string
+			findingCount    int
+			hasCritical     bool
+			requiresConsent bool
+			severityRank    int
+			piiType         sql.NullString
+			dpdpaCategory   sql.NullString
+		)
+		if err := rows.Scan(&assetID, &assetName, &assetPath, &findingCount,
+			&hasCritical, &requiresConsent, &severityRank,
+			&piiType, &dpdpaCategory); err != nil {
+			return nil, fmt.Errorf("compliance overview scan failed: %w", err)
 		}
 
-		if len(findings) == 0 {
+		st, exists := assetStates[assetID]
+		if !exists {
+			st = &assetState{
+				name:     assetName,
+				path:     assetPath,
+				piiTypes: make(map[string]bool),
+			}
+			assetStates[assetID] = st
+		}
+
+		if findingCount > st.findingCount {
+			st.findingCount = findingCount
+		}
+		if hasCritical {
+			st.hasCritical = true
+		}
+		if requiresConsent {
+			st.requiresConsent = true
+		}
+		if severityRank > st.maxSeverityRank {
+			st.maxSeverityRank = severityRank
+		}
+		if piiType.Valid && piiType.String != "" {
+			st.piiTypes[piiType.String] = true
+			if criticalPIITypes[piiType.String] && hasCritical {
+				criticalFindingsCount++
+			}
+			if requiresConsent {
+				consentPIITypes[piiType.String] = true
+			}
+		}
+		if dpdpaCategory.Valid && dpdpaCategory.String != "" {
+			dpdpaCategoryBreakdown[dpdpaCategory.String]++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("compliance overview rows error: %w", err)
+	}
+
+	severityLabel := map[int]string{4: "Critical", 3: "High", 2: "Medium", 1: "Low", 0: "Low"}
+
+	overview := &ComplianceOverview{
+		TotalAssets:            len(assetStates),
+		RemediationQueue:       []RemediationItem{},
+		DPDPACategoryBreakdown: dpdpaCategoryBreakdown,
+	}
+
+	criticalAssetIDs := make(map[uuid.UUID]bool)
+	consentAssetIDs := make(map[uuid.UUID]bool)
+
+	for assetID, st := range assetStates {
+		if st.findingCount == 0 {
 			overview.CompliantAssets++
 			continue
 		}
-
 		overview.NonCompliantAssets++
 
-		// Analyze findings
-		assetPIITypes := make(map[string]bool)
-		hasCritical := false
-		requiresConsent := false
-		totalFindings := 0
-		highestSeverity := "Low"
-
-		for _, finding := range findings {
-			// Get classification
-			classifications, err := s.pgRepo.GetClassificationsByFindingID(ctx, finding.ID)
-			if err != nil || len(classifications) == 0 {
-				continue
-			}
-
-			classification := classifications[0]
-			piiType := classification.SubCategory
-
-			if piiType == "" {
-				continue
-			}
-
-			assetPIITypes[piiType] = true
-			totalFindings++
-
-			// Track highest severity
-			if finding.Severity == "Critical" {
-				highestSeverity = "Critical"
-			} else if finding.Severity == "High" && highestSeverity != "Critical" {
-				highestSeverity = "High"
-			} else if finding.Severity == "Medium" && highestSeverity != "Critical" && highestSeverity != "High" {
-				highestSeverity = "Medium"
-			}
-
-			// Check if critical
-			for _, criticalType := range criticalPIITypes {
-				if piiType == criticalType {
-					hasCritical = true
-					criticalAssets[asset.ID] = true
-					criticalFindingsCount++
-					break
-				}
-			}
-
-			// Check if requires consent
-			if classification.RequiresConsent {
-				requiresConsent = true
-				consentRequiredAssets[asset.ID] = true
-				consentPIITypes[piiType] = true
-			}
-
-			// Track DPDPA category
-			if classification.DPDPACategory != "" {
-				overview.DPDPACategoryBreakdown[classification.DPDPACategory]++
-			}
+		if st.hasCritical {
+			criticalAssetIDs[assetID] = true
+		}
+		if st.requiresConsent {
+			consentAssetIDs[assetID] = true
 		}
 
-		// Add to remediation queue if critical or requires consent
-		if hasCritical || requiresConsent {
-			piiTypesList := make([]string, 0, len(assetPIITypes))
-			for piiType := range assetPIITypes {
-				piiTypesList = append(piiTypesList, piiType)
+		if st.hasCritical || st.requiresConsent {
+			piiList := make([]string, 0, len(st.piiTypes))
+			for p := range st.piiTypes {
+				piiList = append(piiList, p)
 			}
-
 			priority := "medium"
-			if hasCritical {
+			if st.hasCritical {
 				priority = "critical"
-			} else if requiresConsent {
+			} else if st.requiresConsent {
 				priority = "high"
 			}
-
 			overview.RemediationQueue = append(overview.RemediationQueue, RemediationItem{
-				AssetID:      asset.ID,
-				AssetName:    asset.Name,
-				AssetPath:    asset.Path,
-				RiskLevel:    highestSeverity,
-				PIITypes:     piiTypesList,
-				FindingCount: totalFindings,
+				AssetID:      assetID,
+				AssetName:    st.name,
+				AssetPath:    st.path,
+				RiskLevel:    severityLabel[st.maxSeverityRank],
+				PIITypes:     piiList,
+				FindingCount: st.findingCount,
 				Priority:     priority,
 			})
 		}
 	}
 
-	// Calculate compliance score
 	if overview.TotalAssets > 0 {
 		overview.ComplianceScore = float64(overview.CompliantAssets) / float64(overview.TotalAssets) * 100
 	}
 
-	// Build critical exposure
+	criticalPIIList := []string{"IN_AADHAAR", "IN_PAN", "IN_PASSPORT", "CREDIT_CARD"}
 	overview.CriticalExposure = &CriticalExposure{
-		TotalAssets:      len(criticalAssets),
-		CriticalPIITypes: criticalPIITypes,
+		TotalAssets:      len(criticalAssetIDs),
+		CriticalPIITypes: criticalPIIList,
 		TotalFindings:    criticalFindingsCount,
 	}
 
-	// Build consent violations
-	consentPIITypesList := make([]string, 0, len(consentPIITypes))
-	for piiType := range consentPIITypes {
-		consentPIITypesList = append(consentPIITypesList, piiType)
+	consentPIIList := make([]string, 0, len(consentPIITypes))
+	for p := range consentPIITypes {
+		consentPIIList = append(consentPIIList, p)
 	}
-
 	overview.ConsentViolations = &ConsentViolations{
-		TotalAssets:      len(consentRequiredAssets),
-		RequiresConsent:  len(consentRequiredAssets),
-		MissingConsent:   len(consentRequiredAssets), // Assume all missing for now
-		AffectedPIITypes: consentPIITypesList,
+		TotalAssets:      len(consentAssetIDs),
+		RequiresConsent:  len(consentAssetIDs),
+		MissingConsent:   len(consentAssetIDs),
+		AffectedPIITypes: consentPIIList,
 	}
 
 	return overview, nil

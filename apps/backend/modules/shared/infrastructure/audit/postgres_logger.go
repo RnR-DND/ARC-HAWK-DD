@@ -2,7 +2,11 @@ package audit
 
 import (
 	"context"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -62,6 +66,37 @@ func (l *PostgresAuditLogger) Record(ctx context.Context, action, resourceType, 
 		CreatedAt:    time.Now(),
 		// IP and UserAgent could be extracted if passed in context, but typically handled by controller
 	}
+
+	// Compute chain hash: query the most recent entry for this tenant to get its entry_hash.
+	previousHash := "genesis"
+	if tenantID != (uuid.UUID{}) {
+		var prevHash sql.NullString
+		// Use the underlying DB directly via the repo's embedded db — fall back to genesis on any error.
+		if db := l.repo.GetDB(); db != nil {
+			_ = db.QueryRowContext(ctx,
+				`SELECT entry_hash FROM audit_logs WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 1`,
+				tenantID,
+			).Scan(&prevHash)
+			if prevHash.Valid && prevHash.String != "" {
+				previousHash = prevHash.String
+			}
+		}
+	}
+
+	// entry_hash = SHA256(previous_hash || action || resource_type || resource_id || metadata || created_at ISO8601)
+	raw := fmt.Sprintf("%s|%s|%s|%s|%s|%s",
+		previousHash,
+		auditLog.Action,
+		auditLog.ResourceType,
+		auditLog.ResourceID,
+		string(metadataJSON),
+		auditLog.CreatedAt.UTC().Format(time.RFC3339),
+	)
+	sum := sha256.Sum256([]byte(raw))
+	entryHash := hex.EncodeToString(sum[:])
+
+	auditLog.PreviousHash = previousHash
+	auditLog.EntryHash = entryHash
 
 	// Fire and forget (don't block main flow), or synchronous?
 	// Interface returns error, so synchronous is implied.

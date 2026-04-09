@@ -59,10 +59,16 @@ func NewScanService(repo *persistence.PostgresRepository) *ScanService {
 
 // TriggerScanRequest represents a scan trigger request
 type TriggerScanRequest struct {
-	Name          string   `json:"name" binding:"required,min=1,max=100"`
-	Sources       []string `json:"sources" binding:"required,min=1,dive,required"`
-	PIITypes      []string `json:"pii_types" binding:"required,min=1,dive,required"`
-	ExecutionMode string   `json:"execution_mode" binding:"required,oneof=sequential parallel"`
+	Name               string   `json:"name" binding:"required,min=1,max=100"`
+	Sources            []string `json:"sources" binding:"required,min=1,dive,required"`
+	PIITypes           []string `json:"pii_types" binding:"required,min=1,dive,required"`
+	ExecutionMode      string   `json:"execution_mode" binding:"required,oneof=sequential parallel"`
+	// ClassificationMode controls which detection engines the scanner uses.
+	// Options: "regex" (regex only), "ner" (regex+spaCy NER), "contextual" (regex+NER+contextual).
+	// Default (empty) = "contextual" (all engines enabled).
+	ClassificationMode string   `json:"classification_mode"`
+	// CustomPatterns are user-defined patterns appended to the scan; populated by backend at trigger time.
+	CustomPatterns     []map[string]any `json:"custom_patterns,omitempty"`
 }
 
 // CreateScanRun creates a new scan run entity
@@ -163,6 +169,104 @@ func (s *ScanService) GetScanRun(ctx context.Context, scanID uuid.UUID) (*entity
 // ListScanRuns retrieves a list of scan runs
 func (s *ScanService) ListScanRuns(ctx context.Context, limit, offset int) ([]*entity.ScanRun, error) {
 	return s.repo.ListScanRuns(ctx, limit, offset)
+}
+
+// ScanDelta holds findings added and removed between two consecutive scans.
+type ScanDelta struct {
+	ScanID     uuid.UUID   `json:"scan_id"`
+	PrevScanID uuid.UUID   `json:"prev_scan_id"`
+	NewFindings  int       `json:"new_findings"`
+	GoneFindings int       `json:"gone_findings"`
+	NetChange    int       `json:"net_change"`   // positive = more PII, negative = less PII
+	NewByType  map[string]int `json:"new_by_type"`
+	GoneByType map[string]int `json:"gone_by_type"`
+}
+
+// GetScanDelta compares findings in scanID against the previous completed scan
+// for the same sources. Returns nil if there is no previous scan to compare.
+func (s *ScanService) GetScanDelta(ctx context.Context, scanID uuid.UUID) (*ScanDelta, error) {
+	// Find the sources this scan covered
+	current, err := s.repo.GetScanRunByID(ctx, scanID)
+	if err != nil {
+		return nil, fmt.Errorf("scan not found: %w", err)
+	}
+
+	// Find the most recent completed scan before this one
+	const prevQuery = `
+		SELECT id FROM scan_runs
+		 WHERE status = 'completed'
+		   AND id != $1
+		   AND scan_started_at < (SELECT scan_started_at FROM scan_runs WHERE id = $1)
+		 ORDER BY scan_started_at DESC
+		 LIMIT 1
+	`
+	var prevID uuid.UUID
+	err = s.repo.GetDB().QueryRowContext(ctx, prevQuery, current.ID).Scan(&prevID)
+	if err != nil {
+		return nil, nil // No previous scan — caller returns 204
+	}
+
+	// Count findings per PII type in each scan
+	const findingsQuery = `
+		SELECT cl.sub_category AS pii_type, COUNT(*) AS cnt
+		  FROM findings f
+		  JOIN classifications cl ON cl.finding_id = f.id
+		 WHERE f.scan_run_id = $1
+		 GROUP BY cl.sub_category
+	`
+	countByType := func(id uuid.UUID) (map[string]int, error) {
+		rows, err := s.repo.GetDB().QueryContext(ctx, findingsQuery, id)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		m := map[string]int{}
+		for rows.Next() {
+			var t string
+			var c int
+			if err := rows.Scan(&t, &c); err != nil {
+				continue
+			}
+			m[t] = c
+		}
+		return m, rows.Err()
+	}
+
+	currMap, err := countByType(scanID)
+	if err != nil {
+		return nil, fmt.Errorf("current findings: %w", err)
+	}
+	prevMap, err := countByType(prevID)
+	if err != nil {
+		return nil, fmt.Errorf("prev findings: %w", err)
+	}
+
+	newByType := map[string]int{}
+	goneByType := map[string]int{}
+	allTypes := map[string]bool{}
+	for t := range currMap { allTypes[t] = true }
+	for t := range prevMap { allTypes[t] = true }
+
+	for t := range allTypes {
+		c, p := currMap[t], prevMap[t]
+		if c > p { newByType[t] = c - p }
+		if p > c { goneByType[t] = p - c }
+	}
+
+	totalNew := 0
+	for _, v := range newByType { totalNew += v }
+	totalGone := 0
+	for _, v := range goneByType { totalGone += v }
+
+	return &ScanDelta{
+		ScanID:     scanID,
+		PrevScanID: prevID,
+		NewFindings:  totalNew,
+		GoneFindings: totalGone,
+		NetChange:    totalNew - totalGone,
+		NewByType:  newByType,
+		GoneByType: goneByType,
+	}, nil
 }
 
 // CheckAllScanTimeouts checks all active scans for timeout.
