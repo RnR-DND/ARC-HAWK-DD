@@ -2,10 +2,14 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/arc-platform/backend/modules/auth/entity"
 	"github.com/arc-platform/backend/modules/auth/service"
@@ -44,11 +48,73 @@ func NewAuthMiddleware(repo *persistence.PostgresRepository, db *sql.DB) *AuthMi
 	}
 }
 
+// authenticateAPIKey checks the X-API-Key header and validates it against the
+// api_keys table (migration 000028). Returns true and sets gin context values
+// if the key is valid, active, and not expired.
+func (m *AuthMiddleware) authenticateAPIKey(c *gin.Context) bool {
+	apiKey := c.GetHeader("X-API-Key")
+	if apiKey == "" {
+		return false
+	}
+
+	// Hash the presented key
+	h := sha256.Sum256([]byte(apiKey))
+	keyHash := hex.EncodeToString(h[:])
+
+	var (
+		keyID    uuid.UUID
+		tenantID uuid.UUID
+		scopes   []string
+		expiresAt sql.NullTime
+		revoked  bool
+	)
+
+	err := m.postgresRepo.GetDB().QueryRowContext(c.Request.Context(), `
+		SELECT id, tenant_id, scopes, expires_at, revoked
+		FROM api_keys
+		WHERE key_hash = $1
+	`, keyHash).Scan(&keyID, &tenantID, &scopes, &expiresAt, &revoked)
+	if err != nil {
+		return false
+	}
+
+	if revoked {
+		return false
+	}
+	if expiresAt.Valid && time.Now().After(expiresAt.Time) {
+		return false
+	}
+
+	// Update last_used_at (fire-and-forget — don't block the request)
+	go func() {
+		if _, err := m.postgresRepo.GetDB().ExecContext(context.Background(), `
+			UPDATE api_keys SET last_used_at = NOW() WHERE id = $1
+		`, keyID); err != nil {
+			log.Printf("WARN: failed to update api_keys.last_used_at for %s: %v", keyID, err)
+		}
+	}()
+
+	c.Set("user_id", uuid.Nil)
+	c.Set("user_email", "apikey@service.internal")
+	c.Set("user_role", "service")
+	c.Set("tenant_id", tenantID)
+	c.Set("api_key_id", keyID)
+	c.Set("api_key_scopes", scopes)
+	c.Set("authenticated", true)
+	return true
+}
+
 func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
 		if m.skipAuthPaths[path] {
+			c.Next()
+			return
+		}
+
+		// Check API key first — allows service-to-service calls without a JWT
+		if m.authenticateAPIKey(c) {
 			c.Next()
 			return
 		}

@@ -49,6 +49,7 @@ describe('MetricCards', () => {
 
   it('renders large numbers with locale formatting', () => {
     render(<MetricCards totalPII={1500000} highRiskFindings={0} assetsHit={0} actionsRequired={0} />);
-    expect(screen.getByText('1,500,000')).toBeInTheDocument();
+    // Use the actual runtime locale to avoid environment-specific mismatches
+    expect(screen.getByText((1500000).toLocaleString())).toBeInTheDocument();
   });
 });

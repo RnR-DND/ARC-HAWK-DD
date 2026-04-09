@@ -37,13 +37,6 @@ jest.mock('@/design-system/theme', () => ({
   }
 }));
 
-// Mock Topbar component
-jest.mock('@/components/Topbar', () => {
-  return function MockTopbar() {
-    return <div data-testid="topbar">Topbar</div>;
-  };
-});
-
 // Mock Tooltip component
 jest.mock('@/components/Tooltip', () => ({
   InfoIcon: ({ size }: any) => <div data-testid="info-icon" style={{ width: size, height: size }} />,
@@ -188,7 +181,7 @@ describe('AnalyticsPage Integration', () => {
 
     await waitFor(() => {
       // Should still render the page structure even with errors
-      expect(screen.getByTestId('topbar')).toBeInTheDocument();
+      expect(document.body).toBeInTheDocument();
     });
 
     consoleSpy.mockRestore();

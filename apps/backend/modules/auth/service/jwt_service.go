@@ -254,8 +254,10 @@ func (s *JWTService) cleanupExpiredTokens() {
 	defer ticker.Stop()
 	for range ticker.C {
 		if s.db != nil {
-			_, _ = s.db.ExecContext(context.Background(),
-				`DELETE FROM token_blacklist WHERE expires_at < NOW()`)
+			if _, err := s.db.ExecContext(context.Background(),
+				`DELETE FROM token_blacklist WHERE expires_at < NOW()`); err != nil {
+				log.Printf("WARN: token_blacklist cleanup failed: %v", err)
+			}
 		}
 	}
 }

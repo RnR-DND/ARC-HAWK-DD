@@ -46,8 +46,18 @@ export default function Home() {
     const [isAddSourceOpen, setIsAddSourceOpen] = useState(false);
     const [isScanConfigOpen, setIsScanConfigOpen] = useState(false);
 
-    // WebSocket for real-time updates
-    const { lastMessage, isConnected: wsConnected } = useWebSocket({ url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws' });
+    // WebSocket for real-time updates.
+    // Normalize the env var so operators can set NEXT_PUBLIC_WS_URL without a scheme
+    // (e.g. "host:8080") and still get a valid ws:// or wss:// URL.
+    const wsUrl = (() => {
+        const raw = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws';
+        if (/^wss?:\/\//.test(raw)) return raw;
+        if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+            return `wss://${raw}`;
+        }
+        return `ws://${raw}`;
+    })();
+    const { lastMessage, isConnected: wsConnected } = useWebSocket({ url: wsUrl });
     const [liveFindings, setLiveFindings] = useState<any[]>([]);
 
     useEffect(() => {

@@ -10,6 +10,7 @@ import re
 import subprocess
 import threading
 import requests
+import redis as redis_lib
 from flask import Flask, request, jsonify
 from datetime import datetime
 
@@ -22,10 +23,144 @@ logging.basicConfig(
 )
 logger = logging.getLogger('arc-hawk-scanner')
 
-# Global state for tracking scans
-active_scans = {}
+# ---------------------------------------------------------------------------
+# Prometheus metrics (Phase 13)
+# ---------------------------------------------------------------------------
+try:
+    from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+    _PROM_AVAILABLE = True
+
+    scan_jobs_total = Counter(
+        'arc_hawk_scan_jobs_total',
+        'Total scan jobs triggered',
+        ['status'],  # running | completed | failed
+    )
+    pii_fields_detected_total = Counter(
+        'arc_hawk_pii_fields_detected_total',
+        'Total PII fields detected across all scans',
+        ['pii_type'],
+    )
+    classification_latency_ms = Histogram(
+        'arc_hawk_classification_latency_ms',
+        'Time spent in classification pipeline per scan (ms)',
+        buckets=[100, 500, 1000, 5000, 15000, 60000, 300000],
+    )
+    llm_fallback_total = Counter(
+        'arc_hawk_llm_fallback_total',
+        'Findings that fell back from Layer 3 LLM to Layer 1/2',
+    )
+    active_scans_gauge = Gauge(
+        'arc_hawk_active_scans',
+        'Number of scans currently running',
+    )
+    ingest_chunk_errors_total = Counter(
+        'arc_hawk_ingest_chunk_errors_total',
+        'Failed chunk ingestion attempts',
+    )
+except ImportError:
+    _PROM_AVAILABLE = False
+    logger.warning("prometheus_client not installed — metrics endpoint disabled")
+
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Prometheus metrics scrape endpoint."""
+    if not _PROM_AVAILABLE:
+        return "prometheus_client not installed", 503
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://backend:8080')
+
+# ---------------------------------------------------------------------------
+# OpenTelemetry tracing (Phase 13) — no-op if not configured
+# ---------------------------------------------------------------------------
+try:
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+    _otel_provider = TracerProvider()
+    _otel_exporter = ConsoleSpanExporter() if os.getenv("OTEL_CONSOLE_EXPORT") else None
+    if _otel_exporter:
+        _otel_provider.add_span_processor(BatchSpanProcessor(_otel_exporter))
+    trace.set_tracer_provider(_otel_provider)
+    _tracer = trace.get_tracer("arc-hawk-scanner")
+    _OTEL_AVAILABLE = True
+except ImportError:
+    _OTEL_AVAILABLE = False
+    _tracer = None
+
+# ---------------------------------------------------------------------------
+# Tenacity circuit breaker (Phase 13) — wraps backend HTTP calls
+# ---------------------------------------------------------------------------
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    import requests as _requests_mod
+
+    def _is_transient_error(exc: Exception) -> bool:
+        """Only retry on connection/timeout errors, not 4xx HTTP errors."""
+        return isinstance(exc, (
+            _requests_mod.exceptions.ConnectionError,
+            _requests_mod.exceptions.Timeout,
+        ))
+
+    _circuit_breaker_retry = retry(
+        reraise=True,
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((_requests_mod.exceptions.ConnectionError, _requests_mod.exceptions.Timeout)),
+    )
+    _TENACITY_AVAILABLE = True
+except ImportError:
+    _TENACITY_AVAILABLE = False
+    _circuit_breaker_retry = lambda f: f  # no-op decorator
+
+# ---------------------------------------------------------------------------
+# Redis-backed scan state — replaces the in-process dict that was not
+# thread-safe under gunicorn multi-worker (P0-3 fix).
+# Keys are stored as "scan:{scan_id}" with a 24-hour TTL.
+# Falls back to an in-process dict if Redis is unreachable (dev/test only).
+# ---------------------------------------------------------------------------
+_REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+_SCAN_TTL_SECONDS = 86400  # 24 hours
+
+try:
+    _redis = redis_lib.from_url(_REDIS_URL, decode_responses=True, socket_connect_timeout=2)
+    _redis.ping()
+    logger.info(f"Scan state backend: Redis at {_REDIS_URL}")
+    _redis_available = True
+except Exception as _e:
+    logger.warning(f"Redis unavailable ({_e}), falling back to in-process dict (not safe for multi-worker)")
+    _redis = None
+    _redis_available = False
+    _fallback_scans: dict = {}
+
+
+def _scan_key(scan_id: str) -> str:
+    return f"scan:{scan_id}"
+
+
+def scan_state_get(scan_id: str) -> dict | None:
+    """Return the state dict for a scan, or None if not found."""
+    if _redis_available:
+        raw = _redis.get(_scan_key(scan_id))
+        return json.loads(raw) if raw else None
+    return _fallback_scans.get(scan_id)
+
+
+def scan_state_set(scan_id: str, state: dict) -> None:
+    """Persist scan state (full replacement)."""
+    if _redis_available:
+        _redis.setex(_scan_key(scan_id), _SCAN_TTL_SECONDS, json.dumps(state))
+    else:
+        _fallback_scans[scan_id] = state
+
+
+def scan_state_update(scan_id: str, updates: dict) -> None:
+    """Merge updates into existing scan state."""
+    state = scan_state_get(scan_id) or {}
+    state.update(updates)
+    scan_state_set(scan_id, state)
 
 @app.before_request
 def log_request_info():
@@ -57,13 +192,16 @@ def trigger_scan():
         config = request.get_json()
         scan_id = config.get('scan_id') or str(uuid.uuid4())
         
-        # Mark scan as running
-        active_scans[scan_id] = {
+        # Mark scan as running (stored in Redis, safe for multi-worker)
+        scan_state_set(scan_id, {
             'status': 'running',
             'started_at': datetime.now().isoformat(),
-            'config': config
-        }
-        
+            'config': config,
+        })
+        if _PROM_AVAILABLE:
+            scan_jobs_total.labels(status='running').inc()
+            active_scans_gauge.inc()
+
         # Execute scan in background thread
         thread = threading.Thread(target=execute_scan, args=(scan_id, config))
         thread.start()
@@ -83,8 +221,9 @@ def trigger_scan():
 @app.route('/scan/<scan_id>/status', methods=['GET'])
 def get_scan_status(scan_id):
     """Get status of a specific scan."""
-    if scan_id in active_scans:
-        return jsonify(active_scans[scan_id])
+    state = scan_state_get(scan_id)
+    if state is not None:
+        return jsonify(state)
     return jsonify({'status': 'not_found'}), 404
 
 
@@ -194,6 +333,8 @@ def execute_scan(scan_id, config):
     """
     try:
         sources = config.get('sources', [])
+        classification_mode = config.get('classification_mode', 'contextual')
+        custom_patterns = config.get('custom_patterns', [])
 
         # Create output file for scan results
         output_file = f'/tmp/scan_output_{scan_id}.json'
@@ -258,7 +399,7 @@ def execute_scan(scan_id, config):
         # Debug: log the YAML so we can diagnose scanner issues
         logger.info(f"Connection YAML for scan {scan_id}:\n{yaml.dump(connection_data, default_flow_style=False)}")
             
-        # Build scan command using the native CLI entrypoint. 
+        # Build scan command using the native CLI entrypoint.
         # 'all' tells the CLI to execute the pipeline over every data source type found in the YAML.
         cmd = [
             'hawk_scanner',
@@ -266,6 +407,11 @@ def execute_scan(scan_id, config):
             '--json', output_file,
             '--connection', connection_config_path
         ]
+        # classification_mode controls which detection engines are used:
+        # 'regex' = regex+validators only (fast), 'ner' = adds spaCy NER,
+        # 'contextual' (default) = all engines enabled.
+        if classification_mode and classification_mode != 'contextual':
+            cmd += ['--classification-mode', classification_mode]
             
         logger.info(f"Executing: {' '.join(cmd)}")
 
@@ -321,11 +467,16 @@ def execute_scan(scan_id, config):
         else:
             logger.info(f"Scan {scan_id}: {status_message}")
 
-        # Update scan status
-        active_scans[scan_id]['status'] = 'completed'
-        active_scans[scan_id]['completed_at'] = datetime.now().isoformat()
-        active_scans[scan_id]['diagnostics'] = diagnostics
-        active_scans[scan_id]['status_message'] = status_message
+        # Update scan status in Redis
+        scan_state_update(scan_id, {
+            'status': 'completed',
+            'completed_at': datetime.now().isoformat(),
+            'diagnostics': diagnostics,
+            'status_message': status_message,
+        })
+        if _PROM_AVAILABLE:
+            scan_jobs_total.labels(status='completed').inc()
+            active_scans_gauge.dec()
 
         # Notify backend of completion with diagnostics
         try:
@@ -335,6 +486,7 @@ def execute_scan(scan_id, config):
                     'status': 'completed',
                     'message': status_message,
                     'diagnostics': diagnostics,
+                    'classification_mode': classification_mode,
                 },
                 timeout=10
             )
@@ -343,8 +495,10 @@ def execute_scan(scan_id, config):
 
     except Exception as e:
         logger.error(f"Scan {scan_id} failed: {e}")
-        active_scans[scan_id]['status'] = 'failed'
-        active_scans[scan_id]['error'] = str(e)
+        scan_state_update(scan_id, {'status': 'failed', 'error': str(e)})
+        if _PROM_AVAILABLE:
+            scan_jobs_total.labels(status='failed').inc()
+            active_scans_gauge.dec()
 
         # Notify backend so the scan doesn't stay "running" forever
         try:
@@ -357,16 +511,133 @@ def execute_scan(scan_id, config):
             logger.warning(f"Failed to notify backend of scan failure: {notify_err}")
 
 
+_CUSTOM_PATTERN_MAX_LEN = 512
+_CUSTOM_PATTERN_MAX_TEXT_LEN = 50_000
+# Rough catastrophic-backtracking heuristic: nested quantifiers like (a+)+, (a*)*,
+# (a+)*, (a|b)+ inside another quantifier. Not exhaustive, but catches the classic
+# ReDoS shapes. Patterns that trip this are rejected at compile time; operators who
+# need complex patterns should use the backend validator service instead.
+_REDOS_SHAPES = __import__('re').compile(
+    r'(\([^)]*[+*][^)]*\)[+*]|\([^)]*\|[^)]*\)[+*])'
+)
+_custom_pattern_cache: dict = {}
+
+
+def _compile_custom_pattern_safely(name: str, pattern_regex: str):
+    """Compile a user-supplied regex with guardrails against catastrophic backtracking.
+
+    Returns a compiled pattern or None if the pattern is rejected. Rejections are
+    logged and cached to avoid re-warning on every finding.
+    """
+    import re as _re
+    cache_key = (name, pattern_regex)
+    cached = _custom_pattern_cache.get(cache_key)
+    if cached is not None:
+        return cached if cached is not False else None
+
+    if not pattern_regex or len(pattern_regex) > _CUSTOM_PATTERN_MAX_LEN:
+        logger.warning(
+            f"Custom pattern '{name}' rejected: length {len(pattern_regex)} exceeds "
+            f"{_CUSTOM_PATTERN_MAX_LEN} chars"
+        )
+        _custom_pattern_cache[cache_key] = False
+        return None
+
+    if _REDOS_SHAPES.search(pattern_regex):
+        logger.warning(
+            f"Custom pattern '{name}' rejected: contains nested quantifier shape "
+            f"associated with catastrophic backtracking (ReDoS risk)"
+        )
+        _custom_pattern_cache[cache_key] = False
+        return None
+
+    try:
+        compiled = _re.compile(pattern_regex)
+    except _re.error as compile_err:
+        logger.warning(f"Custom pattern '{name}' failed to compile: {compile_err}")
+        _custom_pattern_cache[cache_key] = False
+        return None
+
+    _custom_pattern_cache[cache_key] = compiled
+    return compiled
+
+
+def _apply_custom_patterns(raw_findings: list, custom_patterns: list) -> list:
+    """Run user-defined regex patterns against sample_text in each finding row.
+
+    Returns extra finding dicts (same shape as hawk_scanner findings) for every match.
+
+    Guardrails applied to user-supplied regex:
+      - reject patterns over _CUSTOM_PATTERN_MAX_LEN chars
+      - reject patterns matching known ReDoS shapes (nested quantifiers)
+      - truncate input text to _CUSTOM_PATTERN_MAX_TEXT_LEN before matching
+      - compiled patterns are cached by (name, regex) tuple to avoid recompile
+    """
+    if not custom_patterns:
+        return []
+
+    # Precompile all patterns up-front so a bad pattern is rejected once, not
+    # per-finding. Rejected patterns are dropped from this scan.
+    compiled_patterns = []
+    for cp in custom_patterns:
+        compiled = _compile_custom_pattern_safely(
+            cp.get('name', 'CUSTOM'), cp.get('regex', '')
+        )
+        if compiled is not None:
+            compiled_patterns.append((cp, compiled))
+
+    if not compiled_patterns:
+        return []
+
+    extra = []
+    for f in raw_findings:
+        text = f.get('sample_text', '') or f.get('value', '') or ''
+        if not text:
+            continue
+        if len(text) > _CUSTOM_PATTERN_MAX_TEXT_LEN:
+            text = text[:_CUSTOM_PATTERN_MAX_TEXT_LEN]
+        for cp, compiled in compiled_patterns:
+            try:
+                matches = compiled.findall(text)
+            except Exception as cp_err:
+                logger.warning(f"Custom pattern '{cp.get('name')}' match error: {cp_err}")
+                continue
+            if not matches:
+                continue
+            extra.append({
+                'pattern_name': cp.get('name', 'CUSTOM'),
+                'matches': matches[:5],
+                'sample_text': text[:200],
+                'confidence_score': 0.75,
+                'file_path': f.get('file_path', ''),
+                'column': f.get('column', ''),
+                'table': f.get('table', ''),
+                'host': f.get('host', ''),
+                '_custom': True,
+                '_display_name': cp.get('display_name', cp.get('name', 'CUSTOM')),
+                '_category': cp.get('category', 'Custom'),
+            })
+    return extra
+
+
 def ingest_results(scan_id, results, config=None):
     """Send scan results to backend for ingestion."""
     try:
         logger.info(f"Raw results keys: {list(results.keys())}")
+        custom_patterns = (config or {}).get('custom_patterns', [])
 
         # Transform results to VerifiedScanInput format
         verified_findings = []
         # Process all sources
         for source_type, findings in results.items():
             logger.info(f"Found {len(findings)} {source_type} findings")
+
+            # Apply custom patterns against each finding's text
+            if custom_patterns:
+                extra = _apply_custom_patterns(findings, custom_patterns)
+                if extra:
+                    logger.info(f"Custom patterns added {len(extra)} extra findings for {source_type}")
+                    findings = list(findings) + extra
 
             for f in findings:
                 # Map pattern name to PII Type
@@ -428,7 +699,7 @@ def ingest_results(scan_id, results, config=None):
                 'PHONE': 'IN_PHONE', 'PASSPORT': 'IN_PASSPORT', 'VOTER_ID': 'IN_VOTER_ID',
                 'DRIVING_LICENSE': 'IN_DRIVING_LICENSE', 'CREDIT_CARD': 'CREDIT_CARD',
                 'UPI_ID': 'IN_UPI', 'BANK_ACCOUNT': 'IN_BANK_ACCOUNT', 'GST': 'IN_GST',
-                'IFSC': 'IN_IFSC',
+                'IFSC': 'IN_IFSC', 'GSTIN': 'IN_GST',
             }
             allowed = set()
             for t in requested_pii_types:
@@ -445,6 +716,33 @@ def ingest_results(scan_id, results, config=None):
         if len(verified_findings) == 0:
             logger.info(f"Scan {scan_id} completed with zero findings — nothing to ingest")
             return
+
+        # Layer 3 LLM classification — run Claude on ambiguous-confidence findings.
+        # Findings with confidence in [0.65, 0.80] (or DPDPA-sensitive categories)
+        # are batched and sent to Claude for contextual classification.
+        # On API error or budget exhaustion, findings fall back to Layer 1/2 result.
+        try:
+            from sdk.llm_classifier import get_classifier
+            # Pass the Redis client if available (for caching)
+            _redis_for_llm = _redis if _redis_available else None
+            llm = get_classifier(redis_client=_redis_for_llm)
+            # Identify which findings need LLM classification
+            needs_llm = [f for f in verified_findings if llm.should_invoke(f)]
+            if needs_llm:
+                logger.info(f"[scan={scan_id}] Routing {len(needs_llm)}/{len(verified_findings)} "
+                            f"findings to Layer 3 LLM classifier")
+                # Classify — results are merged back by list position
+                classified = llm.classify_batch(needs_llm, scan_id=scan_id)
+                # Merge classified results back into verified_findings
+                llm_idx = 0
+                for i, f in enumerate(verified_findings):
+                    if llm.should_invoke(f) and llm_idx < len(classified):
+                        verified_findings[i] = classified[llm_idx]
+                        llm_idx += 1
+        except ImportError:
+            pass  # llm_classifier module not available in this environment
+        except Exception as llm_err:
+            logger.warning(f"[scan={scan_id}] Layer 3 LLM classification skipped: {llm_err}")
 
         # Smart chunking: overlap ensures PII near boundaries isn't lost
         # and related findings from the same asset stay together in at
@@ -472,10 +770,17 @@ def ingest_results(scan_id, results, config=None):
 
                 if response.ok:
                     logger.info(f"Chunk {idx + 1} ingested successfully")
+                    if _PROM_AVAILABLE:
+                        for f in chunk:
+                            pii_fields_detected_total.labels(pii_type=f.get('pii_type', 'UNKNOWN')).inc()
                 else:
                     logger.error(f"Chunk {idx + 1} failed: {response.status_code} - {response.text}")
+                    if _PROM_AVAILABLE:
+                        ingest_chunk_errors_total.inc()
             except Exception as chunk_err:
                 logger.error(f"Chunk {idx + 1} transport error: {chunk_err}")
+                if _PROM_AVAILABLE:
+                    ingest_chunk_errors_total.inc()
 
             # Pause between chunks to let backend commit and GC
             if idx < len(chunks) - 1:
@@ -588,6 +893,18 @@ def validate_pii_format(pii_type: str, value: str) -> bool:
         d = _extract_digits(value)
         return 9 <= len(d) <= 18
 
+    if pii_type == 'IN_GST':
+        v = value.strip().upper()
+        if len(v) != 15:
+            return False
+        try:
+            state = int(v[:2])
+            if state < 1 or state > 37:
+                return False
+        except ValueError:
+            return False
+        return bool(_PAN_RE.match(v[2:12]))
+
     return True  # Unknown type — don't reject
 
 
@@ -636,7 +953,7 @@ def _smart_chunk(findings: list, chunk_size: int = 2000, overlap: int = 200) -> 
 
 
 def map_pattern_to_pii_type(pattern_name):
-    """Map hawk_scanner pattern names to backend PII types (all 11 India locked types)."""
+    """Map hawk_scanner pattern names to backend PII types."""
     name = pattern_name.lower()
     if 'pan' in name: return 'IN_PAN'
     if 'aadhaar' in name: return 'IN_AADHAAR'
@@ -649,6 +966,10 @@ def map_pattern_to_pii_type(pattern_name):
     if 'bank' in name or 'account' in name: return 'IN_BANK_ACCOUNT'
     if 'voter' in name: return 'IN_VOTER_ID'
     if 'driving' in name or 'license' in name or 'licence' in name: return 'IN_DRIVING_LICENSE'
+    if 'gst' in name or 'gstin' in name: return 'IN_GST'
+    # Custom user-defined patterns: prefix with CUSTOM_ so backend can identify them
+    if name.startswith('custom_') or name.startswith('usr_'):
+        return pattern_name.upper()
     # Return None for types not in the backend's locked PII whitelist — caller must skip them
     return None
 
