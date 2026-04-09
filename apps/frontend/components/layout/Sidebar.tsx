@@ -157,20 +157,20 @@ export function Sidebar() {
             </ScrollArea>
 
             {/* Footer */}
-            <div className="p-4 border-t">
+            <div className="p-3 border-t">
                 <Button
                     asChild
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="w-full justify-start gap-2 text-xs"
+                    className="w-full justify-start gap-2 text-xs text-muted-foreground hover:text-foreground"
                 >
                     <a
                         href="https://www.digitalindia.gov.in/press_release/dpdp-act-2023-upholds-privacy-while-preserving-transparency-under-rti/"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
-                        <span>📖</span>
-                        <span>DPDPA Guide</span>
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>DPDPA 2023 Act</span>
                     </a>
                 </Button>
             </div>
