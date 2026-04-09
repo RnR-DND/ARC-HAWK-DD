@@ -8,8 +8,10 @@ Complete API reference for the ARC-Hawk Backend. Base URL: `http://localhost:808
 - [Response Format](#response-format)
 - [Error Handling](#error-handling)
 - [Scanning API](#scanning-api)
+- [Custom Patterns API](#custom-patterns-api)
 - [Findings API](#findings-api)
 - [Assets API](#assets-api)
+- [Discovery API](#discovery-api)
 - [Lineage API](#lineage-api)
 - [Connections API](#connections-api)
 - [Compliance API](#compliance-api)
@@ -1504,6 +1506,110 @@ See [CHANGELOG.md](../../CHANGELOG.md) for API version history.
 
 ---
 
+---
+
+## Custom Patterns API
+
+Manage user-defined PII patterns that extend the built-in 11 PII types.
+
+> Patterns are validated against ReDoS heuristics at submission time. Patterns longer than 512 characters or containing nested quantifiers are rejected.
+
+### List Patterns
+
+```http
+GET /api/v1/patterns
+```
+
+**Response:**
+```json
+{
+  "patterns": [
+    {
+      "id": "pattern-uuid-123",
+      "name": "Employee ID",
+      "regex": "EMP-\\d{6}",
+      "description": "Internal employee identifier format",
+      "created_at": "2026-04-09T08:00:00Z"
+    }
+  ]
+}
+```
+
+### Create Pattern
+
+```http
+POST /api/v1/patterns
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "Employee ID",
+  "regex": "EMP-\\d{6}",
+  "description": "Internal employee identifier format"
+}
+```
+
+**Validation errors (400):**
+- Pattern exceeds 512 characters
+- Pattern contains nested quantifiers (ReDoS risk)
+- Pattern fails `re.compile()` (invalid regex)
+- Name is blank or duplicate
+
+### Delete Pattern
+
+```http
+DELETE /api/v1/patterns/:id
+```
+
+Returns 204 on success. Patterns are removed from subsequent scans immediately (hot-reload — no restart needed).
+
+---
+
+## Discovery API
+
+Asset-level risk inventory with time-series scoring.
+
+### Get Discovery Summary
+
+```http
+GET /api/v1/discovery
+```
+
+Returns per-source finding counts, risk scores, and spike indicators.
+
+**Response:**
+```json
+{
+  "assets": [
+    {
+      "asset_id": "asset-uuid-123",
+      "asset_type": "database",
+      "source_name": "prod-postgres",
+      "risk_score": 87,
+      "finding_count": 1420,
+      "spike_detected": true,
+      "last_scanned": "2026-04-09T07:00:00Z"
+    }
+  ],
+  "heatmap": {
+    "rows": [...],
+    "columns": ["PAN", "Aadhaar", "Email", "Phone"]
+  }
+}
+```
+
+### Get Asset Risk History
+
+```http
+GET /api/v1/discovery/:asset_id/history
+```
+
+Returns time-series risk scores for the given asset.
+
+---
+
 **API Version**: 1.0  
-**Last Updated**: January 2026  
-**Documentation Version**: 2.1.0
+**Last Updated**: April 2026  
+**Documentation Version**: 3.0.0

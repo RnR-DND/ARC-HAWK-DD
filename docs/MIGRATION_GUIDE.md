@@ -1,4 +1,89 @@
-# Migration Guide: v2.0 → v2.1.0
+# Migration Guide
+
+---
+
+## v2.1 → v3.0.0
+
+### Overview
+
+v3.0.0 adds 9 new Postgres migrations, a custom patterns engine, DPDPA compliance expansion, enterprise discovery, and 14 new scanner sources.
+
+**Migration Time**: ~10 minutes  
+**Downtime Required**: Rolling (migrations are additive, no column drops)  
+**Rollback Available**: Yes (each migration has a `.down.sql`)
+
+### Breaking Changes
+
+- `DELETE /api/v1/scans/:id` now requires `user_role == "admin"`. Non-admin callers receive HTTP 403. Update any automation that deletes scans.
+
+### Step 1: Run Postgres Migrations
+
+```bash
+cd apps/backend
+
+# Using golang-migrate
+migrate -path migrations_versioned -database "postgres://..." up
+
+# Or run each file manually in order:
+# 000025_custom_patterns.up.sql
+# 000026_retention_policies.up.sql
+# 000027_encrypt_pii_samples.up.sql
+# 000028_api_keys.up.sql
+# 000029_audit_log_chain.up.sql
+# 000030_consent_records.up.sql
+# 000031_risk_score_history.up.sql
+# 000032_custom_patterns_hardening.up.sql
+# 000033_asset_dpdpa_fields.up.sql
+```
+
+All migrations are additive. No data loss. No lock issues on Postgres 11+.
+
+### Step 2: Update Environment Variables
+
+New optional env vars (all have defaults):
+
+```env
+# Encryption key for PII samples at rest (32-byte hex)
+PII_ENCRYPTION_KEY=your-32-byte-hex-key
+
+# Max custom pattern length (default: 512)
+CUSTOM_PATTERN_MAX_LEN=512
+```
+
+### Step 3: Deploy Backend + Scanner
+
+```bash
+# Backend
+cd apps/backend
+go build -o arc-backend cmd/server/main.go
+./arc-backend
+
+# Scanner (install new dependencies)
+cd apps/scanner
+pip install -r requirements.txt
+```
+
+### Step 4: Verify
+
+```bash
+# Patterns API
+curl http://localhost:8080/api/v1/patterns
+
+# Discovery API
+curl http://localhost:8080/api/v1/discovery
+
+# Confirm DELETE /scans/:id returns 403 for non-admin tokens
+```
+
+### Rollback
+
+```bash
+migrate -path migrations_versioned -database "postgres://..." down 9
+```
+
+---
+
+## v2.0 → v2.1.0
 
 ## Overview
 

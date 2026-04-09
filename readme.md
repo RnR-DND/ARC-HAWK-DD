@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Production Status](https://img.shields.io/badge/status-development-yellow)](./TODO.md)
-[![Version](https://img.shields.io/badge/version-2.1.0-blue)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue)](./CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](./LICENSE)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen)](apps/backend)
 [![Node.js](https://img.shields.io/badge/node-18+-green)](apps/frontend)
@@ -114,7 +114,7 @@ ARC-Hawk uses a modern, distributed architecture with **Intelligence-at-Edge** p
 ### Core Components
 
 1. **Frontend (Next.js 14)**: Real-time dashboard with ReactFlow visualization for lineage, compliance tracking, and remediation actions
-2. **Backend (Go/Gin)**: Modular monolith with 8 business modules (Assets, Scanning, Lineage, Compliance, Masking, Analytics, Connections, Remediation)
+2. **Backend (Go/Gin)**: Modular monolith with 10 business modules (Assets, Scanning, Lineage, Compliance, Discovery, Remediation, Masking, Analytics, Connections, Auth)
 3. **Orchestrator (Temporal)**: Manages long-running workflows with reliable retries and state management
 4. **Scanner (Python)**: High-performance PII detection engine with SDK-based validation
 5. **Storage**:
@@ -153,11 +153,28 @@ Unified interface for scanning across diverse data sources:
 | **Filesystem** | ✅ Production | Local, network mounts, archives |
 | **AWS S3** | ✅ Ready | Buckets, prefixes, multipart |
 | **Google Cloud Storage** | ✅ Ready | Buckets, objects |
+| **Azure Blob Storage** | ✅ Ready | Containers, blobs |
 | **PostgreSQL** | ✅ Production | Tables, columns, row sampling |
 | **MySQL** | ✅ Ready | Tables, columns |
 | **MongoDB** | ✅ Ready | Collections, documents |
 | **Redis** | ✅ Ready | Keys, values |
+| **MSSQL** | ✅ Ready | Tables, columns |
+| **SQLite** | ✅ Ready | Tables, columns (local dev) |
+| **BigQuery** | ✅ Ready | Datasets, tables, partitions |
+| **Redshift** | ✅ Ready | Schemas, tables |
+| **Snowflake** | ✅ Ready | Databases, schemas, tables |
+| **AWS Kinesis** | ✅ Ready | Stream snapshot sampling |
+| **Kafka** | ✅ Ready | Topic snapshot sampling |
 | **Slack** | ✅ Ready | Message history |
+| **Salesforce** | ✅ Ready | Objects, fields |
+| **HubSpot** | ✅ Ready | Contacts, companies, deals |
+| **Jira** | ✅ Ready | Issues, comments |
+| **MS Teams** | ✅ Ready | Message history |
+| **Avro** | ✅ Ready | Schema + record scanning |
+| **Parquet** | ✅ Ready | Column-level scanning |
+| **PPTX** | ✅ Ready | Slide text extraction |
+| **HTML** | ✅ Ready | Text and attribute scanning |
+| **Email (.eml/.msg)** | ✅ Ready | Headers, body, attachments |
 | **Firebase** | 🔄 Beta | Realtime DB, Firestore |
 | **Google Drive** | 🔄 Beta | Documents, sheets |
 
@@ -183,11 +200,30 @@ PII Type (e.g., "Aadhaar", "PAN")
 - **Audit Trail**: Full history of all remediation actions
 - **One-Click Actions**: Execute remediation directly from findings
 
+### 🔎 Enterprise Data Discovery
+Inventory and risk-score all data assets across your infrastructure:
+
+- **Asset Risk Scoring**: Time-series risk scores with spike detection and trend analysis
+- **Discovery Heatmap**: Visual breakdown of PII exposure by asset type and data category
+- **Semantic Lineage**: Track exactly how sensitive fields flow between systems
+- **Upstream Inventory**: Per-source finding aggregates with configurable thresholds
+
+### 🧩 Custom PII Patterns
+Define your own PII types beyond the built-in 11:
+
+- **CRUD API**: Create, list, and delete patterns at `/api/v1/patterns`
+- **ReDoS Protection**: Patterns with nested quantifiers or >512 chars are rejected at submission
+- **Per-Scan Hot-Reload**: New patterns apply to the next scan — no service restart needed
+- **Inline Validation**: Pattern errors surface in the scan config UI before a scan starts
+
 ### ⚖️ Compliance & Governance
 Built-in support for **DPDPA 2023** (India's Digital Personal Data Protection Act):
 
+- **Obligation Mapping**: Automatically maps PII findings to DPDPA provisions
+- **Gap Reports**: Export compliance gap reports in PDF or JSON
 - **Consent Tracking**: Track consent status for each PII instance
-- **Retention Policies**: Automated retention period monitoring
+- **Retention Policies**: Automated retention period monitoring with violation alerts
+- **Audit Log Chain**: Hash-linked audit entries for tamper-evident logging
 - **Compliance Reports**: Generate audit-ready reports
 - **Data Principal Rights**: Support for access, correction, and deletion requests
 
@@ -213,8 +249,10 @@ ARC-Hawk includes **150+ pages** of comprehensive documentation:
 
 ### Operations
 - [**Deployment Guide**](./docs/deployment/guide.md) - Deployment procedures
-- [**Migration Guide**](./docs/MIGRATION_GUIDE.md) - Upgrade procedures (v2.0 → v2.1)
+- [**Migration Guide**](./docs/MIGRATION_GUIDE.md) - Upgrade procedures (v2.1 → v3.0)
 - [**Failure Modes**](./docs/FAILURE_MODES.md) - Troubleshooting guide
+- [**CHANGELOG.md**](./CHANGELOG.md) - Version history and release notes
+- [**RISK.md**](./RISK.md) - Risk assessments, blast radius, and deferred work
 - [**TODO.md**](./TODO.md) - Known issues and roadmap
 
 ### Development
@@ -246,7 +284,7 @@ go build -o arc-backend cmd/server/main.go
 ```
 
 **Key Directories:**
-- `modules/` - 8 business modules (assets, scanning, lineage, compliance, etc.)
+- `modules/` - 10 business modules (assets, scanning, lineage, compliance, discovery, remediation, etc.)
 - `pkg/` - Shared packages (validation, normalization)
 - `cmd/server/` - Application entry point
 
