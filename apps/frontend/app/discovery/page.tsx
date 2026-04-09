@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, Suspense } from 'react';
 import {
     LineChart,
     Line,
@@ -41,7 +41,7 @@ function riskLabel(score: number): string {
     return 'Low';
 }
 
-export default function DiscoveryOverviewPage() {
+function DiscoveryOverviewPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -453,4 +453,12 @@ function humanizeEvent(t: string): string {
         default:
             return t;
     }
+}
+
+export default function DiscoveryOverviewPage() {
+    return (
+        <Suspense fallback={<div className="p-8 space-y-4">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-xl animate-pulse" />)}</div>}>
+            <DiscoveryOverviewPageInner />
+        </Suspense>
+    );
 }
