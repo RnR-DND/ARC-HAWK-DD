@@ -143,20 +143,31 @@ export default function ScansPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${scan.status === 'completed'
-                                            ? 'bg-green-50 text-green-700 border-green-200'
-                                            : scan.status === 'failed'
-                                                ? 'bg-red-50 text-red-700 border-red-200'
-                                                : 'bg-blue-50 text-blue-700 border-blue-200'
-                                            }`}>
-                                            {scan.status === 'completed' ? (
-                                                <CheckCircle className="w-3 h-3" />
-                                            ) : scan.status === 'failed' ? (
-                                                <AlertCircle className="w-3 h-3" />
-                                            ) : (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                        <div className="flex flex-col gap-1">
+                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border w-fit ${scan.status === 'completed'
+                                                ? 'bg-green-50 text-green-700 border-green-200'
+                                                : scan.status === 'failed'
+                                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                                    : scan.status === 'running'
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                        : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                }`}>
+                                                {scan.status === 'completed' ? (
+                                                    <CheckCircle className="w-3 h-3" />
+                                                ) : scan.status === 'failed' ? (
+                                                    <AlertCircle className="w-3 h-3" />
+                                                ) : scan.status === 'running' ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                    <Clock className="w-3 h-3" />
+                                                )}
+                                                <span className="capitalize">{scan.status}</span>
+                                            </div>
+                                            {scan.status === 'failed' && (
+                                                <span className="text-[10px] text-slate-400 leading-tight">
+                                                    Scanner timeout (10 min). Check source connectivity.
+                                                </span>
                                             )}
-                                            <span className="capitalize">{scan.status}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">
