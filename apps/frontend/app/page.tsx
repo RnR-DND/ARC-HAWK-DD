@@ -26,15 +26,15 @@ const FALLBACK_DATA: DashboardData = {
 // Skeleton component for loading state
 const DashboardSkeleton = () => (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
-        <div className="h-20 bg-white rounded-xl shadow-sm animate-pulse" />
+        <div className="h-20 bg-slate-100 rounded-xl animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-32 bg-white rounded-xl shadow-sm animate-pulse" />
+                <div key={i} className="h-32 bg-slate-100 rounded-xl animate-pulse" />
             ))}
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-            <div className="xl:col-span-2 h-96 bg-white rounded-xl shadow-sm animate-pulse" />
-            <div className="h-96 bg-white rounded-xl shadow-sm animate-pulse" />
+            <div className="xl:col-span-2 h-96 bg-slate-100 rounded-xl animate-pulse" />
+            <div className="h-96 bg-slate-100 rounded-xl animate-pulse" />
         </div>
     </div>
 );
