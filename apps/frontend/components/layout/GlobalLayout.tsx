@@ -31,20 +31,20 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Top Bar */}
                 <motion.header
-                    className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm sticky top-0 z-50"
+                    className="bg-white border-b border-slate-200 sticky top-0 z-50"
                 >
-                    <div className="flex items-center justify-between px-6 py-4">
+                    <div className="flex items-center justify-between px-6 py-3">
                         {/* Left: Brand & Title */}
                         <div className="flex items-center gap-6">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-gradient-to-br from-blue-600 to-purple-700 rounded-lg shadow-md shadow-blue-500/20">
-                                    <Shield className="w-6 h-6 text-white" />
+                                <div className="p-2 bg-blue-600 rounded-lg">
+                                    <Shield className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">
+                                    <h1 className="text-base font-bold text-slate-900 tracking-tight">
                                         ARC-Hawk
                                     </h1>
-                                    <p className="text-xs text-slate-500 font-medium tracking-wide">Enterprise PII Governance</p>
+                                    <p className="text-[11px] text-slate-400 font-medium tracking-wide uppercase">Enterprise PII Governance</p>
                                 </div>
                             </div>
                         </div>
@@ -92,7 +92,7 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                                         <Button variant="ghost" className="gap-3 h-auto pl-2 pr-4 hover:bg-slate-50 rounded-full border border-transparent hover:border-slate-200">
                                             <Avatar className="h-8 w-8 ring-2 ring-white shadow-sm">
                                                 <AvatarImage src="" />
-                                                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-700 text-white text-xs">
+                                                <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold">
                                                     AU
                                                 </AvatarFallback>
                                             </Avatar>
