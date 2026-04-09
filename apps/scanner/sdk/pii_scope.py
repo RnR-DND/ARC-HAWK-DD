@@ -1,7 +1,7 @@
 """
 Locked PII Scope - Intelligence-at-Edge Architecture
 ====================================================
-Only these 11 India PII types are allowed for processing.
+Only these 12 India PII types are allowed for processing.
 All other PII types must be rejected by the scanner.
 
 Language: English only
@@ -14,7 +14,7 @@ from typing import Set
 # ==================================================================================
 # LOCKED PII SCOPE - Non-negotiable
 # ==================================================================================
-# These 11 PII types are the ONLY ones the system is certified to handle.
+# These 12 PII types are the ONLY ones the system is certified to handle.
 # Adding new types requires legal/compliance review.
 # ==================================================================================
 
@@ -30,6 +30,7 @@ LOCKED_PII_TYPES: Set[str] = {
     "EMAIL_ADDRESS",       # Email Address
     "IN_VOTER_ID",         # Voter ID (EPIC - Electors Photo Identity Card)
     "IN_DRIVING_LICENSE",  # Indian Driving License
+    "IN_GST",              # GST Identification Number (GSTIN) — DPDPA compliance
 }
 
 

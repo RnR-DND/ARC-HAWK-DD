@@ -33,6 +33,7 @@ type ScanningModule struct {
 	scanStatusHandler     *api.ScanStatusHandler
 	dashboardHandler      *api.DashboardHandler
 	patternsHandler       *api.PatternsHandler
+	agentSyncHandler      *api.AgentSyncHandler
 
 	// Dependencies
 	deps *interfaces.ModuleDependencies
@@ -104,7 +105,10 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 
 	// Custom patterns
 	m.patternsService = service.NewPatternsService(repo)
-	m.patternsHandler = api.NewPatternsHandler(m.patternsService)
+	m.patternsHandler = api.NewPatternsHandler(m.patternsService, deps.AuditLogger)
+
+	// Agent sync (idempotent batch ingestion from EDR agents)
+	m.agentSyncHandler = api.NewAgentSyncHandler(repo)
 
 	// Start background ticker to check for stuck/timed-out scans every 5 minutes
 	m.stopTimeout = make(chan struct{})
@@ -175,10 +179,21 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		patterns.POST("", m.patternsHandler.CreatePattern)
 		patterns.PUT("/:id", m.patternsHandler.UpdatePattern)
 		patterns.DELETE("/:id", m.patternsHandler.DeletePattern)
+		// Stats, false-positive feedback, and test-suite sub-resources.
+		// Static sub-paths must be registered before generic /:id to prevent router conflicts.
+		patterns.GET("/:id/stats", m.patternsHandler.GetPatternStats)
+		patterns.POST("/:id/false-positive", m.patternsHandler.RecordFalsePositive)
+		patterns.POST("/:id/test", m.patternsHandler.TestPattern)
 	}
 
 	// Dashboard
 	router.GET("/dashboard/metrics", m.dashboardHandler.GetDashboardMetrics)
+
+	// Agent sync — idempotent batch ingestion from EDR agents
+	agent := router.Group("/agent")
+	{
+		agent.POST("/sync", m.agentSyncHandler.Sync)
+	}
 
 	log.Printf("📡 Scanning & Classification routes registered")
 }

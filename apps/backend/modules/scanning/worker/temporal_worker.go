@@ -7,6 +7,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/scanning/activities"
 	"github.com/arc-platform/backend/modules/scanning/workflows"
+	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
@@ -19,7 +20,7 @@ type TemporalWorker struct {
 }
 
 // NewTemporalWorker creates and starts a new Temporal worker
-func NewTemporalWorker(temporalAddress string, db *sql.DB, neo4jDriver neo4j.DriverWithContext) (*TemporalWorker, error) {
+func NewTemporalWorker(temporalAddress string, db *sql.DB, neo4jDriver neo4j.DriverWithContext, lineageSync interfaces.LineageSync, auditLogger interfaces.AuditLogger) (*TemporalWorker, error) {
 	// Create Temporal client
 	c, err := client.Dial(client.Options{
 		HostPort: temporalAddress,
@@ -35,9 +36,10 @@ func NewTemporalWorker(temporalAddress string, db *sql.DB, neo4jDriver neo4j.Dri
 	w.RegisterWorkflow(workflows.ScanLifecycleWorkflow)
 	w.RegisterWorkflow(workflows.RemediationWorkflow)
 	w.RegisterWorkflow(workflows.PolicyEvaluationWorkflow)
+	w.RegisterWorkflow(workflows.StreamingSupervisorWorkflow)
 
 	// Register activities
-	scanActivities := activities.NewScanActivities(db, neo4jDriver)
+	scanActivities := activities.NewScanActivities(db, neo4jDriver, lineageSync, auditLogger)
 	w.RegisterActivity(scanActivities.TransitionScanState)
 	w.RegisterActivity(scanActivities.IngestScanFindings)
 	w.RegisterActivity(scanActivities.SyncToNeo4j)

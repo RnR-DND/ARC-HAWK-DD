@@ -119,8 +119,11 @@ func (h *ScanTriggerHandler) TriggerScan(c *gin.Context) {
 	// Record successful trigger
 	scanTriggerCounter.WithLabelValues("all_sources", fmt.Sprintf("%v", req.PIITypes), req.ExecutionMode).Inc()
 
+	// Extract tenant ID before goroutine — Gin context must not be used inside goroutines.
+	tenantID := tenantIDFromCtx(c)
+
 	// Trigger background scan
-	go h.executeScan(scanRun.ID, &req)
+	go h.executeScan(scanRun.ID, &req, tenantID)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Scan triggered successfully",
@@ -145,7 +148,23 @@ func (h *ScanTriggerHandler) validateRequest(req *service.TriggerScanRequest) er
 	return nil
 }
 
-func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerScanRequest) {
+// tenantIDFromCtx extracts the tenant UUID from the Gin context.
+// Must be called on the HTTP goroutine (before go h.executeScan).
+func tenantIDFromCtx(c *gin.Context) uuid.UUID {
+	if v, ok := c.Get("tenant_id"); ok {
+		switch t := v.(type) {
+		case uuid.UUID:
+			return t
+		case string:
+			if id, err := uuid.Parse(t); err == nil {
+				return id
+			}
+		}
+	}
+	return persistence.DevSystemTenantID
+}
+
+func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerScanRequest, tenantID uuid.UUID) {
 	// Apply a 15-minute context timeout so this goroutine cannot run forever
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
@@ -171,10 +190,9 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		log.Printf("WARN: No runtime connection configs resolved for scan %s — scanner will use connection.yml fallback", scanID.String())
 	}
 
-	// Resolve custom patterns for this tenant
+	// Resolve custom patterns for this tenant (tenantID was captured from Gin context before goroutine spawn)
 	var customPatternsList []map[string]any
 	if h.patternsService != nil {
-		tenantID := persistence.DevSystemTenantID // fallback; real tenant injected via JWT in production
 		if patterns, pErr := h.patternsService.GetActivePatterns(ctx, tenantID); pErr == nil {
 			for _, p := range patterns {
 				customPatternsList = append(customPatternsList, map[string]any{

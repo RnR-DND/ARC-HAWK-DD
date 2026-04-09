@@ -1,0 +1,85 @@
+{{- if .Values.celeryWorkers.enabled }}
+{{- $root := . }}
+{{- range $queueName, $queueConfig := .Values.celeryWorkers.queues }}
+{{- $component := printf "celery-worker-%s" (replace "_" "-" $queueName) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" $root }}-{{ replace "_" "-" $queueName }}-worker
+  labels:
+    {{- include "arc-hawk-dd.labels" $root | nindent 4 }}
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" $root "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ $queueConfig.replicaCount | default $root.Values.celeryWorkers.defaults.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" $root "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "arc-hawk-dd.selectorLabels" (dict "root" $root "component" $component) | nindent 8 }}
+    spec:
+      {{- with $root.Values.global.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: celery-worker
+          image: {{ include "arc-hawk-dd.image" (dict "root" $root "repo" $root.Values.scanner.image.repository "tag" $root.Values.scanner.image.tag) }}
+          imagePullPolicy: {{ $root.Values.celeryWorkers.defaults.imagePullPolicy | default $root.Values.scanner.image.pullPolicy }}
+          command:
+            - celery
+            - -A
+            - app.tasks.celery_app
+            - worker
+            - -Q
+            - {{ $queueName }}
+            - --concurrency={{ $queueConfig.concurrency | default $root.Values.celeryWorkers.defaults.concurrency }}
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "arc-hawk-dd.fullname" $root }}-scanner-secrets
+                  key: REDIS_URL
+            - name: BACKEND_URL
+              value: {{ $root.Values.scanner.env.BACKEND_URL | quote }}
+          resources:
+            {{- $resources := $queueConfig.resources | default $root.Values.celeryWorkers.defaults.resources }}
+            {{- toYaml $resources | nindent 12 }}
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - app.tasks.celery_app
+                - inspect
+                - ping
+                - --timeout=10
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 15
+          readinessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - app.tasks.celery_app
+                - inspect
+                - ping
+                - --timeout=10
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 15
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
+{{- end }}

@@ -1,0 +1,248 @@
+# Default deny-all ingress and egress for the hawk namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-default-deny
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Allow DNS resolution for all hawk pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-allow-dns
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow ARC namespace -> hawk ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-allow-arc-ingress
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: ingress
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: arc
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 3000
+---
+# Allow nginx ingress controller -> hawk services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-allow-ingress-controller
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hawk
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 3000
+---
+# Allow intra-hawk pod-to-pod communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-allow-intra-namespace
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hawk
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: hawk
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: hawk
+---
+# Allow hawk -> Keycloak
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-allow-keycloak-egress
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hawk
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: keycloak
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8443
+---
+# Allow hawk -> external connector targets (egress only)
+# Scanner and celery workers need outbound access to cloud services, databases, SaaS APIs
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-allow-external-egress
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          - scanner
+          - celery
+  policyTypes:
+    - Egress
+  egress:
+    # HTTPS to external connector targets (cloud storage, SaaS, etc.)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+        # Database connectors
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 3306
+        - protocol: TCP
+          port: 1433
+        - protocol: TCP
+          port: 1521
+        # Kafka/Kinesis streaming
+        - protocol: TCP
+          port: 9092
+        - protocol: TCP
+          port: 9093
+---
+# Allow backend -> external (ARC platform, webhooks, SMTP)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-allow-backend-external-egress
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+        # SMTP
+        - protocol: TCP
+          port: 587
+        - protocol: TCP
+          port: 465
+---
+# Allow Prometheus scraping from monitoring namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hawk-allow-prometheus-scrape
+  namespace: hawk
+  labels:
+    app.kubernetes.io/part-of: hawk
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: hawk
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 3000
+        - protocol: TCP
+          port: 9808

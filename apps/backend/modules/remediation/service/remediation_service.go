@@ -18,17 +18,19 @@ import (
 type RemediationService struct {
 	db               *sql.DB
 	lineageSync      interfaces.LineageSync
+	auditLogger      interfaces.AuditLogger
 	connectorFactory *connectors.ConnectorFactory
 }
 
 // NewRemediationService creates a new remediation service
-func NewRemediationService(db *sql.DB, lineageSync interfaces.LineageSync) *RemediationService {
+func NewRemediationService(db *sql.DB, lineageSync interfaces.LineageSync, auditLogger interfaces.AuditLogger) *RemediationService {
 	if lineageSync == nil {
 		lineageSync = &interfaces.NoOpLineageSync{}
 	}
 	return &RemediationService{
 		db:               db,
 		lineageSync:      lineageSync,
+		auditLogger:      auditLogger,
 		connectorFactory: &connectors.ConnectorFactory{},
 	}
 }
@@ -138,12 +140,15 @@ func (s *RemediationService) ExecuteRemediation(ctx context.Context, findingID s
 		}
 	}
 
-	// 11. Record audit log
-	s.recordAuditLog(ctx, "REMEDIATION_EXECUTED", userID, "remediation_action", actionID, map[string]interface{}{
-		"finding_id":  findingID,
-		"action_type": actionType,
-		"asset_name":  finding.AssetName,
-	})
+	// 11. Record audit log via shared interface (hash-chained)
+	if s.auditLogger != nil {
+		_ = s.auditLogger.Record(ctx, "REMEDIATION_EXECUTED", "remediation_action", actionID, map[string]interface{}{
+			"finding_id":  findingID,
+			"action_type": actionType,
+			"asset_name":  finding.AssetName,
+			"user_id":     userID,
+		})
+	}
 
 	return actionID, nil
 }
@@ -204,10 +209,12 @@ func (s *RemediationService) RollbackRemediation(ctx context.Context, actionID s
 		return fmt.Errorf("failed to set effective_until: %w", err)
 	}
 
-	// 9. Record audit log
-	s.recordAuditLog(ctx, "REMEDIATION_ROLLED_BACK", "system", "remediation_action", actionID, map[string]interface{}{
-		"finding_id": action.FindingID,
-	})
+	// 9. Record audit log via shared interface (hash-chained)
+	if s.auditLogger != nil {
+		_ = s.auditLogger.Record(ctx, "REMEDIATION_ROLLED_BACK", "remediation_action", actionID, map[string]interface{}{
+			"finding_id": action.FindingID,
+		})
+	}
 
 	return nil
 }
@@ -595,12 +602,3 @@ func (s *RemediationService) GetRemediationAction(ctx context.Context, actionID 
 	return &action, nil
 }
 
-func (s *RemediationService) recordAuditLog(ctx context.Context, eventType string, userID string, resourceType string, resourceID string, metadata map[string]interface{}) {
-	metadataJSON, _ := json.Marshal(metadata)
-
-	s.db.ExecContext(ctx, `
-		INSERT INTO audit_logs 
-		(event_type, event_time, user_id, resource_type, resource_id, action, metadata)
-		VALUES ($1, NOW(), $2, $3, $4, $5, $6)
-	`, eventType, userID, resourceType, resourceID, eventType, metadataJSON)
-}

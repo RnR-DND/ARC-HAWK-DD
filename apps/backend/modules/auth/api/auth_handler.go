@@ -8,6 +8,7 @@ import (
 	"github.com/arc-platform/backend/modules/auth/entity"
 	"github.com/arc-platform/backend/modules/auth/service"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -16,13 +17,15 @@ type AuthHandler struct {
 	userService *service.UserService
 	jwtService  *service.JWTService
 	repo        *persistence.PostgresRepository
+	auditLogger interfaces.AuditLogger
 }
 
-func NewAuthHandler(repo *persistence.PostgresRepository, db *sql.DB) *AuthHandler {
+func NewAuthHandler(repo *persistence.PostgresRepository, db *sql.DB, auditLogger interfaces.AuditLogger) *AuthHandler {
 	return &AuthHandler{
 		userService: service.NewUserService(repo, db),
 		jwtService:  service.NewJWTService(db),
 		repo:        repo,
+		auditLogger: auditLogger,
 	}
 }
 
@@ -90,6 +93,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	user, accessToken, refreshToken, err := h.userService.Authenticate(c.Request.Context(), req.Email, req.Password, req.TenantID)
 	if err != nil {
+		if h.auditLogger != nil {
+			_ = h.auditLogger.Record(c.Request.Context(), "LOGIN_FAILED", "user", req.Email, map[string]interface{}{
+				"ip":        c.ClientIP(),
+				"tenant_id": req.TenantID,
+				"reason":    err.Error(),
+			})
+		}
 		status := http.StatusUnauthorized
 		message := "Invalid credentials"
 		if err == service.ErrUserInactive {
@@ -100,6 +110,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			Message: message,
 		})
 		return
+	}
+
+	if h.auditLogger != nil {
+		_ = h.auditLogger.Record(c.Request.Context(), "LOGIN_SUCCESS", "user", user.ID.String(), map[string]interface{}{
+			"ip":        c.ClientIP(),
+			"tenant_id": req.TenantID,
+			"email":     req.Email,
+		})
 	}
 
 	c.JSON(http.StatusOK, LoginResponse{
@@ -161,6 +179,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			Message: "Failed to generate tokens",
 		})
 		return
+	}
+
+	if h.auditLogger != nil {
+		_ = h.auditLogger.Record(c.Request.Context(), "USER_REGISTERED", "user", user.ID.String(), map[string]interface{}{
+			"ip":          c.ClientIP(),
+			"tenant_id":   tenant.ID.String(),
+			"tenant_slug": req.TenantSlug,
+			"email":       req.Email,
+		})
 	}
 
 	c.JSON(http.StatusCreated, LoginResponse{
@@ -280,6 +307,12 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 			Message: message,
 		})
 		return
+	}
+
+	if h.auditLogger != nil {
+		_ = h.auditLogger.Record(c.Request.Context(), "PASSWORD_CHANGED", "user", userID.(uuid.UUID).String(), map[string]interface{}{
+			"ip": c.ClientIP(),
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{

@@ -18,8 +18,14 @@ class CreditCardRecognizer(PatternRecognizer):
     
     PATTERNS = [
         Pattern(
-            name="Credit Card (Visa/MC/Amex/Discover)",
-            regex=r"\b(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b",
+            name="Credit Card (Visa/MC/Amex/Discover/JCB/Diners)",
+            # Fixed: last group is \d{3,4} to capture 15-digit Amex (and Diners)
+            # Added: JCB 3528-3589, Diners Club 2131/1800
+            regex=(
+                r"\b(?:4[0-9]{3}|5[1-5][0-9]{2}|3[47][0-9]{2}|"
+                r"6(?:011|5[0-9]{2})|35[2-8][0-9]|(?:2131|1800))"
+                r"[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{3,4}\b"
+            ),
             score=0.3
         ),
     ]

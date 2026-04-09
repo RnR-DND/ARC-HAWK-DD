@@ -7,15 +7,16 @@ This command aggregates results from multiple data source types.
 
 Supported sources:
 - filesystem (fs)
-- postgresql, mysql, mongodb, redis, couchdb
-- mssql, sqlite, snowflake, redshift, bigquery
-- s3, gcs, azure_blob
+- postgresql, mysql, mssql, sqlite, snowflake, redshift, oracle (relational)
+- mongodb, redis, couchdb (NoSQL)
+- s3, gcs, azure_blob (cloud object stores)
+- bigquery, parquet, avro, orc (big data / analytics)
 - kafka, kinesis (streaming snapshot)
-- slack, ms_teams
+- slack, ms_teams (collaboration)
 - firebase
-- pptx, html, parquet, orc, avro (file formats)
-- email (eml/msg)
+- pptx, html, email (file formats)
 - salesforce, jira, hubspot (SaaS)
+- scanned_images (OCR via pytesseract + OpenCV)
 """
 
 import sys
@@ -38,6 +39,7 @@ SUPPORTED_COMMANDS = [
     'sqlite',
     'snowflake',
     'redshift',
+    'oracle',
     # NoSQL
     'mongodb',
     'redis',
@@ -50,6 +52,7 @@ SUPPORTED_COMMANDS = [
     'bigquery',
     'parquet',
     'avro',
+    'orc',
     # Streaming (snapshot scans)
     'kafka',
     'kinesis',
@@ -65,6 +68,8 @@ SUPPORTED_COMMANDS = [
     'pptx',
     'html_files',
     'email_files',
+    # Image / OCR
+    'scanned_images',
 ]
 
 

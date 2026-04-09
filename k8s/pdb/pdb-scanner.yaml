@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pdb-scanner
+  namespace: hawk
+  labels:
+    app.kubernetes.io/name: arc-hawk-dd
+    app.kubernetes.io/component: scanner
+    app.kubernetes.io/part-of: arc-hawk-dd
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: arc-hawk-dd
+      app.kubernetes.io/component: scanner

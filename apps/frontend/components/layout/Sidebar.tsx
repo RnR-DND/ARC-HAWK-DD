@@ -12,7 +12,10 @@ import {
     Shield,
     History,
     Settings,
-    Compass
+    Compass,
+    ClipboardList,
+    Regex,
+    Plug
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -28,10 +31,13 @@ const navigation = [
     { name: 'Lineage', href: '/lineage', icon: GitBranch, shortcut: '6' },
     { name: 'Remediation', href: '/remediation', icon: Shield, shortcut: '7' },
     { name: 'History', href: '/history', icon: History, shortcut: '8' },
+    { name: 'Audit Logs', href: '/audit', icon: ClipboardList, shortcut: '9' },
 ];
 
 const systemNav = [
     { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Regex Patterns', href: '/settings/regex', icon: Regex },
+    { name: 'Connectors', href: '/settings/connectors', icon: Plug },
 ];
 
 export function Sidebar() {

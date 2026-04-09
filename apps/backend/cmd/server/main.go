@@ -214,7 +214,7 @@ func main() {
 		log.Printf("⏰ Initializing Temporal Worker (address: %s)...", temporalAddress)
 
 		var err error
-		temporalWorker, err = worker.NewTemporalWorker(temporalAddress, db, neo4jRepo.GetDriver())
+		temporalWorker, err = worker.NewTemporalWorker(temporalAddress, db, neo4jRepo.GetDriver(), baseDeps.LineageSync, auditLogger)
 		if err != nil {
 			log.Printf("⚠️  Warning: Failed to initialize Temporal Worker: %v", err)
 			log.Println("   Temporal workflows will not be available")
@@ -376,7 +376,7 @@ func main() {
 	log.Println("\n🛣️  Registering Module Routes...")
 	log.Println(strings.Repeat("=", 70))
 
-	apiV1 := router.Group("/api/v1", authMiddleware)
+	apiV1 := router.Group("/api/v1", authMiddleware, middleware.PolicyMiddleware(db))
 	for _, module := range registry.GetAll() {
 		module.RegisterRoutes(apiV1)
 	}

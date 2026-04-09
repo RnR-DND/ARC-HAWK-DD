@@ -1,0 +1,90 @@
+{{- if .Values.monitoring.alerts.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-alerts
+  labels:
+    {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+    release: {{ .Values.monitoring.alerts.releaseLabel | default "prometheus" }}
+spec:
+  groups:
+    - name: arc-hawk-dd.celery
+      rules:
+        - alert: DLQDepthHigh
+          expr: |
+            celery_queue_length{queue=~".*\\.dlq"} > {{ .Values.monitoring.alerts.thresholds.dlqDepth }}
+          for: 5m
+          labels:
+            severity: warning
+            team: hawk
+          annotations:
+            summary: "Dead-letter queue depth exceeds {{ .Values.monitoring.alerts.thresholds.dlqDepth }}"
+            description: "Queue {{`{{ $labels.queue }}`}} has {{`{{ $value }}`}} messages in the DLQ for more than 5 minutes."
+
+    - name: arc-hawk-dd.scanning
+      rules:
+        - alert: ScanFailureRateHigh
+          expr: |
+            (
+              sum(rate(scan_tasks_failed_total[5m]))
+              /
+              (sum(rate(scan_tasks_completed_total[5m])) + sum(rate(scan_tasks_failed_total[5m])))
+            ) > {{ .Values.monitoring.alerts.thresholds.scanFailureRate }}
+          for: 5m
+          labels:
+            severity: critical
+            team: hawk
+          annotations:
+            summary: "Scan failure rate exceeds threshold ({{ .Values.monitoring.alerts.thresholds.scanFailureRate }})"
+            description: "Scan failure rate is {{`{{ $value | humanizePercentage }}`}} over the last 5 minutes."
+
+        - alert: ScannerAPILatencyP99High
+          expr: |
+            histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service="scanner"}[5m])) by (le))
+            > {{ .Values.monitoring.alerts.thresholds.scannerLatencyP99Seconds }}
+          for: 5m
+          labels:
+            severity: warning
+            team: hawk
+          annotations:
+            summary: "Scanner API P99 latency exceeds {{ .Values.monitoring.alerts.thresholds.scannerLatencyP99Seconds }}s"
+            description: "Scanner API P99 latency is {{`{{ $value }}`}}s over the last 5 minutes."
+
+    - name: arc-hawk-dd.agents
+      rules:
+        - alert: AgentOffline
+          expr: |
+            time() - max(agent_last_heartbeat_timestamp) by (agent_id) > {{ .Values.monitoring.alerts.thresholds.agentOfflineSeconds }}
+          for: 10m
+          labels:
+            severity: warning
+            team: hawk
+          annotations:
+            summary: "Agent offline for more than 24 hours"
+            description: "Agent {{`{{ $labels.agent_id }}`}} has not sent a heartbeat in {{`{{ $value | humanizeDuration }}`}}."
+
+    - name: arc-hawk-dd.risk
+      rules:
+        - alert: RiskTierChange
+          expr: |
+            changes(data_asset_risk_tier[1h]) > 0
+          labels:
+            severity: info
+            team: hawk
+          annotations:
+            summary: "Risk tier change detected"
+            description: "Asset {{`{{ $labels.asset_id }}`}} risk tier changed to {{`{{ $labels.risk_tier }}`}}."
+
+    - name: arc-hawk-dd.pods
+      rules:
+        - alert: PodRestartFrequent
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}"}[15m]) > {{ .Values.monitoring.alerts.thresholds.podRestartCount }}
+          for: 1m
+          labels:
+            severity: warning
+            team: hawk
+          annotations:
+            summary: "Pod restarting frequently"
+            description: "Pod {{`{{ $labels.namespace }}`}}/{{`{{ $labels.pod }}`}} has restarted {{`{{ $value }}`}} times in the last 15 minutes."
+{{- end }}

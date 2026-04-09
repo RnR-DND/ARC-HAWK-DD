@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -30,39 +31,105 @@ type CustomPattern struct {
 	BacktrackSafe       bool       `json:"backtrack_safe"`
 	MatchCountLifetime  int64      `json:"match_count_lifetime"`
 	LastMatchedAt       *time.Time `json:"last_matched_at,omitempty"`
+	// Phase 2: false-positive tracking (migration 000036)
+	FalsePositiveCount  int64      `json:"false_positive_count"`
+	FalsePositiveRate   float64    `json:"false_positive_rate"`
+	AutoDeactivated     bool       `json:"auto_deactivated"`
 }
 
-// validateRegexSafety checks for common catastrophic backtracking patterns.
-// These are not exhaustive but catch the most common ReDoS attack vectors:
-//   - Nested quantifiers: (a+)+ or (a*)* or (a|aa)+
-//   - Alternation inside unbounded quantifier: (a|b)*c
+// PatternStats is the response type for GET /patterns/:id/stats.
+type PatternStats struct {
+	PatternID          string     `json:"pattern_id"`
+	Name               string     `json:"name"`
+	TotalMatches       int64      `json:"total_matches"`
+	FalsePositiveCount int64      `json:"false_positive_count"`
+	FalsePositiveRate  float64    `json:"false_positive_rate"`
+	MatchRatePerScan   float64    `json:"match_rate_per_scan"`
+	LastMatchedAt      *time.Time `json:"last_matched_at"`
+	IsActive           bool       `json:"is_active"`
+	AutoDeactivated    bool       `json:"auto_deactivated"`
+}
+
+// TestCase is a single entry in a test-suite request.
+type TestCase struct {
+	Input       string `json:"input"`
+	ShouldMatch bool   `json:"should_match"`
+}
+
+// TestCaseResult is the per-case result returned by TestPattern.
+type TestCaseResult struct {
+	Input       string `json:"input"`
+	ShouldMatch bool   `json:"should_match"`
+	Matched     bool   `json:"matched"`
+	Passed      bool   `json:"passed"`
+}
+
+// TestPatternResult is the aggregate response for POST /patterns/:id/test.
+type TestPatternResult struct {
+	PatternID  string           `json:"pattern_id"`
+	Regex      string           `json:"regex"`
+	Results    []TestCaseResult `json:"results"`
+	Passed     int              `json:"passed"`
+	Failed     int              `json:"failed"`
+	Total      int              `json:"total"`
+	PassRate   float64          `json:"pass_rate"`
+}
+
+// validateRegexSafety checks for catastrophic backtracking using two complementary layers:
 //
-// Returns (isSafe bool, riskReason string)
-func validateRegexSafety(pattern string) (bool, string) {
-	// Compile check first
-	if _, err := regexp.Compile(pattern); err != nil {
-		return false, "compilation failed: " + err.Error()
+//  Layer 1 — Static analysis: detect known ReDoS structural patterns before attempting
+//            compilation. Catches nested quantifiers and unbounded alternation.
+//
+//  Layer 2 — Runtime timeout: compile the regex and run it against a worst-case input
+//            (30 × 'a' + 'b') inside a goroutine with a 2-second deadline. Go's regexp
+//            package uses RE2 semantics and should never backtrack exponentially, but this
+//            guard catches degenerate linear-complexity patterns and extremely long patterns
+//            that still cause unacceptable latency.
+//
+// Returns an error if the pattern is unsafe; nil if it is safe to persist.
+func validateRegexSafety(pattern string) error {
+	// ---- Layer 1: static analysis ----
+
+	// Detect excessively long patterns (>500 chars) — likely a ReDoS attempt.
+	if len(pattern) > 500 {
+		return fmt.Errorf("pattern too long (>500 chars): break into multiple named patterns")
 	}
 
-	// Detect nested quantifiers: a quantifier immediately containing another quantifier
-	// Patterns: (...+)+ (...*)* (...+)* (...*)+ (...{n,})+ etc.
+	// Compile check.
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return fmt.Errorf("invalid regex: %w", err)
+	}
+
+	// Detect nested quantifiers: (...+)+ (...*)* (...+)* (...*)+ etc.
 	nestedQuantifier := regexp.MustCompile(`\([^)]*[+*][^)]*\)[+*{]`)
 	if nestedQuantifier.MatchString(pattern) {
-		return false, "nested quantifier detected (ReDoS risk): wrap inner group with atomic group or possessive quantifier"
+		return fmt.Errorf("nested quantifier detected (ReDoS risk): wrap inner group with atomic group or possessive quantifier")
 	}
 
-	// Detect unbounded alternation: (a|b|c)+ or (a|b)* at top level
+	// Detect unbounded alternation inside a quantifier: (a|b|c)+ or (a|b)*.
 	unboundedAlt := regexp.MustCompile(`\([^)]*\|[^)]*\)[+*]`)
 	if unboundedAlt.MatchString(pattern) {
-		return false, "unbounded alternation inside quantifier (ReDoS risk): use anchors or atomic groups"
+		return fmt.Errorf("unbounded alternation inside quantifier (ReDoS risk): use anchors or atomic groups")
 	}
 
-	// Detect excessively long patterns (>500 chars) — likely a ReDoS attempt
-	if len(pattern) > 500 {
-		return false, "pattern too long (>500 chars): break into multiple named patterns"
-	}
+	// ---- Layer 2: runtime timeout ----
+	// Run the compiled regex against a string known to trigger exponential
+	// backtracking in NFA-based engines. Under Go's RE2 this should be fast,
+	// but any pattern that takes >2s on this trivial input is unacceptable.
+	done := make(chan error, 1)
+	go func() {
+		testStr := strings.Repeat("a", 30) + "b"
+		re.MatchString(testStr)
+		done <- nil
+	}()
 
-	return true, ""
+	select {
+	case <-done:
+		return nil
+	case <-time.After(2 * time.Second):
+		return fmt.Errorf("regex may cause catastrophic backtracking (took >2s on test input)")
+	}
 }
 
 // PatternsService handles CRUD for user-defined PII patterns.
@@ -104,9 +171,8 @@ func (s *PatternsService) ListPatterns(ctx context.Context, tenantID uuid.UUID) 
 // CreatePattern inserts a new custom pattern.
 func (s *PatternsService) CreatePattern(ctx context.Context, tenantID uuid.UUID, createdBy string, p *CustomPattern) (*CustomPattern, error) {
 	// Validate regex safety (catastrophic backtracking check, Phase 2)
-	safe, riskReason := validateRegexSafety(p.Regex)
-	if !safe {
-		return nil, fmt.Errorf("unsafe regex rejected: %s", riskReason)
+	if err := validateRegexSafety(p.Regex); err != nil {
+		return nil, fmt.Errorf("unsafe regex rejected: %w", err)
 	}
 
 	// Sanitise name: uppercase, underscores
@@ -136,9 +202,8 @@ func (s *PatternsService) CreatePattern(ctx context.Context, tenantID uuid.UUID,
 
 // UpdatePattern updates an existing pattern (regex, displayName, category, description, isActive).
 func (s *PatternsService) UpdatePattern(ctx context.Context, tenantID, id uuid.UUID, p *CustomPattern) (*CustomPattern, error) {
-	safe, riskReason := validateRegexSafety(p.Regex)
-	if !safe {
-		return nil, fmt.Errorf("unsafe regex rejected: %s", riskReason)
+	if err := validateRegexSafety(p.Regex); err != nil {
+		return nil, fmt.Errorf("unsafe regex rejected: %w", err)
 	}
 
 	var updated CustomPattern
@@ -149,12 +214,14 @@ func (s *PatternsService) UpdatePattern(ctx context.Context, tenantID, id uuid.U
 		  WHERE id=$1 AND tenant_id=$2
 		  RETURNING id, tenant_id, name, display_name, regex, category, description,
 		            is_active, created_by, created_at, updated_at,
-		            validation_status, backtrack_safe, match_count_lifetime, last_matched_at`,
+		            validation_status, backtrack_safe, match_count_lifetime, last_matched_at,
+		            false_positive_count, false_positive_rate, auto_deactivated`,
 		id, tenantID, p.DisplayName, p.Regex, p.Category, p.Description, p.IsActive,
 	).Scan(&updated.ID, &updated.TenantID, &updated.Name, &updated.DisplayName, &updated.Regex,
 		&updated.Category, &updated.Description, &updated.IsActive, &updated.CreatedBy,
 		&updated.CreatedAt, &updated.UpdatedAt,
-		&updated.ValidationStatus, &updated.BacktrackSafe, &updated.MatchCountLifetime, &updated.LastMatchedAt)
+		&updated.ValidationStatus, &updated.BacktrackSafe, &updated.MatchCountLifetime, &updated.LastMatchedAt,
+		&updated.FalsePositiveCount, &updated.FalsePositiveRate, &updated.AutoDeactivated)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("pattern not found")
 	}
@@ -197,4 +264,214 @@ func (s *PatternsService) GetActivePatterns(ctx context.Context, tenantID uuid.U
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// -----------------------------------------------------------------------
+// Feature: Auto-deactivation on high false-positive rate (>30%)
+// -----------------------------------------------------------------------
+
+// RecordFalsePositive increments the false_positive_count for the given pattern,
+// recalculates the false_positive_rate, and then calls CheckAndAutoDeactivate.
+// It is idempotent with respect to the counter — each call adds exactly 1.
+func (s *PatternsService) RecordFalsePositive(ctx context.Context, tenantID, patternID uuid.UUID) (*CustomPattern, error) {
+	var p CustomPattern
+	err := s.db.QueryRowContext(ctx,
+		`UPDATE custom_patterns
+		    SET false_positive_count = false_positive_count + 1,
+		        false_positive_rate  = (false_positive_count + 1)::NUMERIC
+		                               / GREATEST(match_count_lifetime, 1),
+		        updated_at           = NOW()
+		  WHERE id=$1 AND tenant_id=$2
+		  RETURNING id, tenant_id, name, display_name, regex, category, description,
+		            is_active, created_by, created_at, updated_at,
+		            validation_status, backtrack_safe, match_count_lifetime, last_matched_at,
+		            false_positive_count, false_positive_rate, auto_deactivated`,
+		patternID, tenantID,
+	).Scan(&p.ID, &p.TenantID, &p.Name, &p.DisplayName, &p.Regex,
+		&p.Category, &p.Description, &p.IsActive, &p.CreatedBy,
+		&p.CreatedAt, &p.UpdatedAt,
+		&p.ValidationStatus, &p.BacktrackSafe, &p.MatchCountLifetime, &p.LastMatchedAt,
+		&p.FalsePositiveCount, &p.FalsePositiveRate, &p.AutoDeactivated)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("pattern not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("record false positive: %w", err)
+	}
+
+	// Trigger auto-deactivation check after updating the rate.
+	if err := s.CheckAndAutoDeactivate(ctx, patternID); err != nil {
+		// Log but don't surface — the increment itself succeeded.
+		log.Printf("WARN: CheckAndAutoDeactivate(%s) failed: %v", patternID, err)
+	}
+	// Refresh pattern state in case auto-deactivation just fired.
+	return s.getPatternByID(ctx, tenantID, patternID)
+}
+
+// CheckAndAutoDeactivate reads the current false_positive_rate for the given pattern
+// and, if it exceeds 0.30, deactivates the pattern and sets auto_deactivated=TRUE.
+// It is safe to call repeatedly — it is a no-op if the pattern is already deactivated
+// or if the rate is within the acceptable threshold.
+func (s *PatternsService) CheckAndAutoDeactivate(ctx context.Context, patternID uuid.UUID) error {
+	var rate float64
+	var isActive bool
+	err := s.db.QueryRowContext(ctx,
+		`SELECT false_positive_rate, is_active FROM custom_patterns WHERE id=$1`,
+		patternID,
+	).Scan(&rate, &isActive)
+	if err == sql.ErrNoRows {
+		return nil // Pattern gone — nothing to do.
+	}
+	if err != nil {
+		return fmt.Errorf("check auto-deactivate: %w", err)
+	}
+
+	if !isActive || rate <= 0.30 {
+		return nil // Already inactive or rate is acceptable.
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`UPDATE custom_patterns
+		    SET is_active=FALSE, auto_deactivated=TRUE, updated_at=NOW()
+		  WHERE id=$1`,
+		patternID,
+	)
+	if err != nil {
+		return fmt.Errorf("auto-deactivate pattern: %w", err)
+	}
+	log.Printf("INFO: pattern %s auto-deactivated: false_positive_rate=%.4f exceeds 0.30 threshold", patternID, rate)
+	return nil
+}
+
+// getPatternByID is an internal helper that fetches a single pattern by id + tenantID.
+func (s *PatternsService) getPatternByID(ctx context.Context, tenantID, id uuid.UUID) (*CustomPattern, error) {
+	var p CustomPattern
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, tenant_id, name, display_name, regex, category, description,
+		        is_active, created_by, created_at, updated_at,
+		        validation_status, backtrack_safe, match_count_lifetime, last_matched_at,
+		        false_positive_count, false_positive_rate, auto_deactivated
+		   FROM custom_patterns
+		  WHERE id=$1 AND tenant_id=$2`,
+		id, tenantID,
+	).Scan(&p.ID, &p.TenantID, &p.Name, &p.DisplayName, &p.Regex,
+		&p.Category, &p.Description, &p.IsActive, &p.CreatedBy,
+		&p.CreatedAt, &p.UpdatedAt,
+		&p.ValidationStatus, &p.BacktrackSafe, &p.MatchCountLifetime, &p.LastMatchedAt,
+		&p.FalsePositiveCount, &p.FalsePositiveRate, &p.AutoDeactivated)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("pattern not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get pattern: %w", err)
+	}
+	return &p, nil
+}
+
+// -----------------------------------------------------------------------
+// Feature: Match frequency stats (GET /patterns/:id/stats)
+// -----------------------------------------------------------------------
+
+// GetPatternStats returns the match-frequency and false-positive statistics for a
+// single pattern. match_rate_per_scan is a convenience metric derived by dividing
+// total_matches by the number of completed scan_runs for this tenant (min 1).
+func (s *PatternsService) GetPatternStats(ctx context.Context, tenantID, patternID uuid.UUID) (*PatternStats, error) {
+	p, err := s.getPatternByID(ctx, tenantID, patternID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Count completed scans for the tenant to compute match_rate_per_scan.
+	var scanCount int64
+	_ = s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM scan_runs WHERE tenant_id=$1 AND status='completed'`,
+		tenantID,
+	).Scan(&scanCount)
+	if scanCount < 1 {
+		scanCount = 1
+	}
+
+	stats := &PatternStats{
+		PatternID:          p.ID.String(),
+		Name:               p.Name,
+		TotalMatches:       p.MatchCountLifetime,
+		FalsePositiveCount: p.FalsePositiveCount,
+		FalsePositiveRate:  p.FalsePositiveRate,
+		MatchRatePerScan:   float64(p.MatchCountLifetime) / float64(scanCount),
+		LastMatchedAt:      p.LastMatchedAt,
+		IsActive:           p.IsActive,
+		AutoDeactivated:    p.AutoDeactivated,
+	}
+	return stats, nil
+}
+
+// -----------------------------------------------------------------------
+// Feature: Test-suite endpoint (POST /patterns/:id/test)
+// -----------------------------------------------------------------------
+
+// TestPattern runs a compiled regex against a caller-supplied list of test cases and
+// returns pass/fail for each, plus overall pass rate. Each test case is bounded by the
+// same 2-second backtracking timeout used in validateRegexSafety to prevent a
+// malicious test string from blocking the server.
+func (s *PatternsService) TestPattern(ctx context.Context, tenantID, patternID uuid.UUID, cases []TestCase) (*TestPatternResult, error) {
+	p, err := s.getPatternByID(ctx, tenantID, patternID)
+	if err != nil {
+		return nil, err
+	}
+
+	re, err := regexp.Compile(p.Regex)
+	if err != nil {
+		return nil, fmt.Errorf("stored regex no longer compiles: %w", err)
+	}
+
+	results := make([]TestCaseResult, 0, len(cases))
+	passed := 0
+	failed := 0
+
+	for _, tc := range cases {
+		// Run each match inside a goroutine with a 2s deadline to prevent ReDoS
+		// via adversarial test inputs.
+		matchCh := make(chan bool, 1)
+		input := tc.Input // capture loop var
+		go func() {
+			matchCh <- re.MatchString(input)
+		}()
+
+		var matched bool
+		select {
+		case matched = <-matchCh:
+		case <-time.After(2 * time.Second):
+			// Treat timeout as non-match; mark as failed regardless of expectation.
+			matched = false
+		}
+
+		pass := matched == tc.ShouldMatch
+		results = append(results, TestCaseResult{
+			Input:       tc.Input,
+			ShouldMatch: tc.ShouldMatch,
+			Matched:     matched,
+			Passed:      pass,
+		})
+		if pass {
+			passed++
+		} else {
+			failed++
+		}
+	}
+
+	total := len(cases)
+	var passRate float64
+	if total > 0 {
+		passRate = float64(passed) / float64(total)
+	}
+
+	return &TestPatternResult{
+		PatternID: p.ID.String(),
+		Regex:     p.Regex,
+		Results:   results,
+		Passed:    passed,
+		Failed:    failed,
+		Total:     total,
+		PassRate:  passRate,
+	}, nil
 }

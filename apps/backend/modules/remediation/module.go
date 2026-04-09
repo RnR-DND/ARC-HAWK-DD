@@ -44,8 +44,8 @@ func (m *RemediationModule) Initialize(deps *interfaces.ModuleDependencies) erro
 		log.Printf("⚠️  LineageSync not available - using NoOp implementation")
 	}
 
-	// Initialize service with LineageSync instead of Neo4j driver
-	m.service = service.NewRemediationService(m.db, m.lineageSync)
+	// Initialize service with LineageSync + AuditLogger (shared hash-chained interface)
+	m.service = service.NewRemediationService(m.db, m.lineageSync, deps.AuditLogger)
 	m.escalationService = service.NewEscalationService(m.db)
 
 	// Initialize Auth Middleware for permission checks

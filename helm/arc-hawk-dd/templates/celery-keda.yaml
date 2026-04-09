@@ -1,0 +1,28 @@
+{{- if and .Values.celeryWorkers.enabled .Values.celeryWorkers.keda.enabled }}
+{{- $root := . }}
+{{- range $queueName, $queueConfig := .Values.celeryWorkers.queues }}
+{{- $component := printf "celery-worker-%s" (replace "_" "-" $queueName) }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" $root }}-{{ replace "_" "-" $queueName }}-worker-scaler
+  labels:
+    {{- include "arc-hawk-dd.labels" $root | nindent 4 }}
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" $root "component" $component) | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "arc-hawk-dd.fullname" $root }}-{{ replace "_" "-" $queueName }}-worker
+  pollingInterval: {{ $root.Values.celeryWorkers.keda.pollingInterval }}
+  cooldownPeriod: {{ $root.Values.celeryWorkers.keda.cooldownPeriod }}
+  minReplicaCount: {{ $queueConfig.minReplicas | default $root.Values.celeryWorkers.keda.minReplicaCount }}
+  maxReplicaCount: {{ $queueConfig.maxReplicas | default $root.Values.celeryWorkers.keda.maxReplicaCount }}
+  triggers:
+    - type: redis
+      metadata:
+        address: {{ $root.Values.celeryWorkers.keda.redisAddress }}
+        listName: {{ $queueName }}
+        listLength: {{ $root.Values.celeryWorkers.keda.listLength | quote }}
+        activationListLength: "1"
+{{- end }}
+{{- end }}

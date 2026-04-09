@@ -14,7 +14,7 @@ import (
 
 func TestListPatterns_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewPatternsHandler(nil) // Real handler requires full service setup
+	handler := NewPatternsHandler(nil, nil) // Real handler requires full service setup
 	// TODO: Wire real database context for integration test
 	// GET /api/v1/patterns should return a list of CustomPattern objects
 	assert.NotNil(t, handler)

@@ -4,23 +4,32 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
+	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/google/uuid"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 // ScanActivities contains all scan-related Temporal activities
 type ScanActivities struct {
-	db    *sql.DB
-	neo4j neo4j.DriverWithContext
+	db          *sql.DB
+	neo4j       neo4j.DriverWithContext
+	lineageSync interfaces.LineageSync
+	auditLogger interfaces.AuditLogger
 }
 
 // NewScanActivities creates a new ScanActivities instance
-func NewScanActivities(db *sql.DB, neo4jDriver neo4j.DriverWithContext) *ScanActivities {
+func NewScanActivities(db *sql.DB, neo4jDriver neo4j.DriverWithContext, lineageSync interfaces.LineageSync, auditLogger interfaces.AuditLogger) *ScanActivities {
+	if lineageSync == nil {
+		lineageSync = &interfaces.NoOpLineageSync{}
+	}
 	return &ScanActivities{
-		db:    db,
-		neo4j: neo4jDriver,
+		db:          db,
+		neo4j:       neo4jDriver,
+		lineageSync: lineageSync,
+		auditLogger: auditLogger,
 	}
 }
 
@@ -86,25 +95,44 @@ func (a *ScanActivities) IngestScanFindings(ctx context.Context, scanID string) 
 	return count, nil
 }
 
-// SyncToNeo4j synchronizes lineage to graph database
+// SyncToNeo4j synchronizes lineage for all assets affected by the scan.
 func (a *ScanActivities) SyncToNeo4j(ctx context.Context, scanID string) error {
-	// TODO: Integrate with existing lineage sync logic
-	// This is a placeholder for now
-	session := a.neo4j.NewSession(ctx, neo4j.SessionConfig{})
-	defer session.Close(ctx)
-
-	// Example: Create Scan node
-	_, err := session.Run(ctx, `
-		MERGE (s:Scan {id: $scanID})
-		SET s.synced_at = datetime()
-	`, map[string]interface{}{
-		"scanID": scanID,
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to sync to Neo4j: %w", err)
+	if !a.lineageSync.IsAvailable() {
+		log.Printf("INFO: lineage sync not configured — skipping Neo4j sync for scan %s", scanID)
+		return nil
 	}
 
+	// Collect the distinct asset IDs that have findings from this scan.
+	rows, err := a.db.QueryContext(ctx,
+		`SELECT DISTINCT asset_id::text FROM findings WHERE scan_run_id = $1 AND asset_id IS NOT NULL`,
+		scanID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to query assets for scan %s: %w", scanID, err)
+	}
+	defer rows.Close()
+
+	var failedAssets []string
+	for rows.Next() {
+		var assetIDStr string
+		if err := rows.Scan(&assetIDStr); err != nil {
+			continue
+		}
+		assetID, err := uuid.Parse(assetIDStr)
+		if err != nil {
+			continue
+		}
+		if syncErr := a.lineageSync.SyncAssetToNeo4j(ctx, assetID); syncErr != nil {
+			log.Printf("WARN: lineage sync failed for asset %s (scan %s): %v", assetIDStr, scanID, syncErr)
+			failedAssets = append(failedAssets, assetIDStr)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("row iteration error for scan %s: %w", scanID, err)
+	}
+	if len(failedAssets) > 0 {
+		return fmt.Errorf("lineage sync failed for %d assets in scan %s: %v", len(failedAssets), scanID, failedAssets)
+	}
 	return nil
 }
 
@@ -163,19 +191,17 @@ func (a *ScanActivities) ExecuteRemediation(ctx context.Context, findingID strin
 		return "", fmt.Errorf("failed to update remediation status: %w", err)
 	}
 
-	// Record audit log
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO audit_logs 
-		(event_type, event_time, user_id, resource_type, resource_id, action)
-		VALUES ('REMEDIATION_EXECUTED', NOW(), $1, 'remediation_action', $2, $3)
-	`, userID, actionID, actionType)
-	if err != nil {
-		tx.Rollback()
-		return "", fmt.Errorf("failed to record audit log: %w", err)
-	}
-
 	if err := tx.Commit(); err != nil {
 		return "", fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Record audit log via shared interface (outside transaction — non-blocking)
+	if a.auditLogger != nil {
+		_ = a.auditLogger.Record(ctx, "REMEDIATION_EXECUTED", "remediation_action", actionID, map[string]interface{}{
+			"finding_id":  findingID,
+			"action_type": actionType,
+			"user_id":     userID,
+		})
 	}
 
 	return actionID, nil

@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hawk-postgres
+  namespace: hawk
+  labels:
+    app.kubernetes.io/name: hawk-postgres
+    app.kubernetes.io/component: postgres
+    app.kubernetes.io/part-of: hawk
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hawk-postgres
+  namespaceSelector:
+    matchNames:
+      - hawk
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 15s
+      honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "pg_.*"
+          action: keep
+        - sourceLabels: [__name__]
+          regex: "citus_.*"
+          action: keep

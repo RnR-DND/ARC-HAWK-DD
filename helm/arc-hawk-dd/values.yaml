@@ -259,6 +259,100 @@ ingress:
   tls: []
 
 # ---------------------------------------------------------------------------
+# Celery Workers (per-queue configuration)
+# ---------------------------------------------------------------------------
+celeryWorkers:
+  enabled: true
+  defaults:
+    replicaCount: 2
+    concurrency: 4
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests: { cpu: "500m", memory: "1Gi" }
+      limits:   { cpu: "2",    memory: "2Gi" }
+  keda:
+    enabled: true
+    pollingInterval: 15
+    cooldownPeriod: 120
+    minReplicaCount: 2
+    maxReplicaCount: 20
+    listLength: 50
+    redisAddress: "redis.hawk.svc.cluster.local:6379"
+  queues:
+    scan_default:
+      replicaCount: 2
+      concurrency: 4
+    classify:
+      replicaCount: 2
+      concurrency: 4
+    ingest_streaming:
+      replicaCount: 2
+      concurrency: 4
+    ingest_cloud:
+      replicaCount: 2
+      concurrency: 4
+    ingest_agent:
+      replicaCount: 2
+      concurrency: 4
+    remediation:
+      replicaCount: 2
+      concurrency: 4
+    escalation:
+      replicaCount: 2
+      concurrency: 2
+
+# ---------------------------------------------------------------------------
+# Network Policy
+# ---------------------------------------------------------------------------
+networkPolicy:
+  enabled: false
+  arcNamespace: arc
+  keycloakPort: 8180
+  externalEgressPorts:
+    - 443
+    - 80
+    - 5432
+    - 3306
+    - 1433
+    - 27017
+
+# ---------------------------------------------------------------------------
+# Pod Disruption Budgets
+# ---------------------------------------------------------------------------
+podDisruptionBudgets:
+  enabled: true
+  budgets:
+    postgresql:
+      minAvailable: 1
+    neo4j:
+      minAvailable: 2
+    redis:
+      minAvailable: 2
+    backend:
+      minAvailable: 2
+    scanner:
+      minAvailable: 2
+
+# ---------------------------------------------------------------------------
+# Monitoring (ServiceMonitors & Alerts)
+# ---------------------------------------------------------------------------
+monitoring:
+  serviceMonitors:
+    enabled: false
+    interval: "15s"
+    scrapeTimeout: "10s"
+    releaseLabel: "prometheus"
+  alerts:
+    enabled: false
+    releaseLabel: "prometheus"
+    thresholds:
+      dlqDepth: 100
+      scanFailureRate: 0.05
+      scannerLatencyP99Seconds: 5
+      agentOfflineSeconds: 86400
+      podRestartCount: 3
+
+# ---------------------------------------------------------------------------
 # Service Account & RBAC
 # ---------------------------------------------------------------------------
 serviceAccount:

@@ -1,0 +1,22 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: celery-worker-ingest-cloud-scaler
+  namespace: hawk
+  labels:
+    app.kubernetes.io/name: arc-hawk-dd
+    app.kubernetes.io/component: celery-worker-ingest-cloud
+spec:
+  scaleTargetRef:
+    name: celery-worker-ingest-cloud
+  pollingInterval: 15
+  cooldownPeriod: 120
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.hawk.svc.cluster.local:6379
+        listName: ingest_cloud
+        listLength: "50"
+        activationListLength: "1"

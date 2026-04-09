@@ -1,0 +1,113 @@
+{{- if .Values.networkPolicy.enabled }}
+---
+# Default deny-all ingress and egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-default-deny
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Allow ARC namespace to reach hawk pods on ports 80 and 443
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-allow-arc-ingress
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.arcNamespace }}
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443
+---
+# Allow intra-namespace pod-to-pod communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-allow-intra-namespace
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+---
+# Allow egress to Keycloak
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-allow-egress-keycloak
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.keycloakPort }}
+---
+# Allow egress to external connector targets
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-allow-egress-external
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "arc-hawk-dd.name" . }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        {{- range .Values.networkPolicy.externalEgressPorts }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+---
+# Allow DNS egress (required for all pods)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-allow-egress-dns
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}

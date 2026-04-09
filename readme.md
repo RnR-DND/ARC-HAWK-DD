@@ -77,6 +77,33 @@ npm run dev
 - **Temporal UI**: `http://localhost:8088` (Workflows)
 - **Neo4j Browser**: `http://localhost:7474` (Graph DB)
 
+### Install the Hawk Agent
+
+The agent runs on the machine where your data lives and streams scan results back to the platform.
+
+```bash
+# macOS
+curl -Lo hawk-agent-mac https://releases.arc-hawk.io/latest/hawk-agent-mac
+chmod +x hawk-agent-mac
+sudo HAWK_SERVER_URL=http://localhost:8080 HAWK_AGENT_ID=my-agent HAWK_AGENT_CLIENT_SECRET=secret ./hawk-agent-mac
+```
+
+See [docs/agent-install.md](./docs/agent-install.md) for Linux (systemd), Windows (Task Scheduler), config file options, and offline buffer details.
+
+### Add a Custom PII Pattern
+
+Define your own PII types beyond the built-in 11 in under a minute.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/patterns \
+  -H "Content-Type: application/json" \
+  -d '{"name": "employee_id", "display_name": "Employee ID", "regex": "EMP-[0-9]{6}", "category": "HR"}'
+```
+
+The pattern is validated for ReDoS safety on write and picked up by the scanner within 60 seconds — no restart needed.
+
+See [docs/custom-regex.md](./docs/custom-regex.md) for validation rules, test runner usage, sensitivity levels, auto-deactivation, and bulk import/export.
+
 ---
 
 ## 🏗️ Architecture

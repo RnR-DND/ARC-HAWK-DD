@@ -16,12 +16,17 @@ class IndianPassportRecognizer(PatternRecognizer):
     
     PATTERNS = [
         Pattern(
-            name="Passport (A1234567)",
-            regex=r"(?i)\b[A-Z][0-9]{7}\b",
-            score=0.5
+            name="Indian Passport (improved format)",
+            # [A-PR-WY]: excludes Q, X, Z (not issued as first letter by MEA)
+            # [1-9]: second char is non-zero digit
+            # [0-9]{5}: five digits
+            # [1-9]: seventh char non-zero digit
+            # [A-Za-z]: final check letter
+            regex=r"(?i)\b[A-PR-WYa-pr-wy][1-9][0-9]{5}[1-9][A-Za-z]\b",
+            score=0.75   # Improved from 0.5: more specific format
         ),
     ]
-    
+
     CONTEXT = [
         "passport",
         "travel",
@@ -29,6 +34,9 @@ class IndianPassportRecognizer(PatternRecognizer):
         "passport number",
         "passport no",
         "travel document",
+        "passport_no",
+        "pp_no",
+        "passport_number",
     ]
     
     def __init__(self):

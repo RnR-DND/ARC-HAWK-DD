@@ -1,0 +1,230 @@
+# Custom Regex Patterns
+
+ARC-Hawk ships with 11 built-in India-specific PII types. You can extend detection with your own patterns — for example, employee IDs, internal account codes, or domain-specific identifiers.
+
+---
+
+## 1. Create a Pattern
+
+### Via the UI
+
+1. Go to **Settings > Custom Patterns** (path: `/settings/regex`).
+2. Click **Add Pattern**.
+3. Fill in:
+   - **Name** — internal identifier, auto-uppercased and snake_cased (e.g., `employee_id` → `EMPLOYEE_ID`).
+   - **Display Name** — human-readable label shown in the findings UI.
+   - **Regex** — Go-compatible regular expression (RE2 syntax).
+   - **Category** — logical grouping (e.g., `HR`, `Finance`, `Custom`).
+   - **Sensitivity** — `high`, `medium`, or `low` (see below).
+   - **Description** — optional. Shown in compliance reports.
+4. Click **Validate** to run the inline safety check before saving.
+5. Click **Save**.
+
+### Via API
+
+```bash
+curl -X POST http://localhost:8080/api/v1/patterns \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "employee_id",
+    "display_name": "Employee ID",
+    "regex": "EMP-[0-9]{6}",
+    "category": "HR",
+    "description": "Internal employee identifier format EMP-XXXXXX",
+    "sensitivity": "medium"
+  }'
+```
+
+Successful response (HTTP 201):
+```json
+{
+  "data": {
+    "id": "a1b2c3d4-...",
+    "name": "EMPLOYEE_ID",
+    "display_name": "Employee ID",
+    "regex": "EMP-[0-9]{6}",
+    "is_active": true,
+    "validation_status": "valid",
+    "backtrack_safe": true,
+    "created_at": "2026-04-09T00:00:00Z"
+  }
+}
+```
+
+**Required fields:** `name`, `regex`.
+
+---
+
+## 2. Validation
+
+Every pattern is validated before it is persisted. Validation runs in two layers:
+
+**Layer 1 — Static analysis (synchronous)**
+
+- Pattern length must be 500 characters or fewer. Longer patterns are rejected immediately.
+- The regex must compile successfully under Go's RE2 engine.
+- Nested quantifiers (e.g., `([a-z]+)+`) are rejected — they are a structural indicator of catastrophic backtracking even in RE2.
+- Unbounded alternation inside a quantifier (e.g., `(foo|bar)+`) is rejected.
+
+**Layer 2 — Runtime timeout (2-second deadline)**
+
+- The compiled regex is run against a worst-case adversarial input (`"aaa...ab"`, 31 characters) in a separate goroutine.
+- If the match takes longer than 2 seconds the pattern is rejected as potentially unsafe.
+
+If validation fails, the API returns HTTP 400 with a specific error message indicating which rule was violated. The pattern is **not stored**.
+
+---
+
+## 3. Test a Pattern
+
+Use the inline test runner to verify your pattern before (or after) saving.
+
+### Via the UI
+
+After saving, open the pattern and click **Test**. Enter sample strings and toggle whether each should match. The runner executes the regex in the browser (quick preview) and then against the backend validator for a definitive result.
+
+### Via API
+
+```bash
+curl -X POST http://localhost:8080/api/v1/patterns/{pattern_id}/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "test_cases": [
+      {"input": "EMP-123456", "should_match": true},
+      {"input": "EMP-12345",  "should_match": false},
+      {"input": "emp-123456", "should_match": false}
+    ]
+  }'
+```
+
+Response:
+```json
+{
+  "data": {
+    "pattern_id": "a1b2c3d4-...",
+    "regex": "EMP-[0-9]{6}",
+    "results": [
+      {"input": "EMP-123456", "should_match": true,  "matched": true,  "passed": true},
+      {"input": "EMP-12345",  "should_match": false, "matched": false, "passed": true},
+      {"input": "emp-123456", "should_match": false, "matched": false, "passed": true}
+    ],
+    "passed": 3,
+    "failed": 0,
+    "total": 3,
+    "pass_rate": 1.0
+  }
+}
+```
+
+---
+
+## 4. Sensitivity Levels
+
+| Level | Use when | Effect |
+|-------|----------|--------|
+| `high` | The data is always sensitive regardless of context (e.g., government IDs, payment card data, health records). | Findings flagged `HIGH` severity; trigger compliance gaps in DPDPA Sec 4/6 checks; included in all alert thresholds. |
+| `medium` | The data is sensitive in most contexts but may appear in legitimate non-PII scenarios (e.g., internal IDs that could leak organisational structure). | Findings flagged `MEDIUM` severity; included in compliance reports but with lower alert priority. |
+| `low` | The data is mildly sensitive or context-dependent (e.g., product codes that occasionally contain names). | Findings flagged `LOW` severity; useful for discovery and auditing but not for compliance enforcement. |
+
+When in doubt, start with `medium`. You can change the sensitivity at any time via a `PUT /api/v1/patterns/{id}` request or the UI.
+
+---
+
+## 5. Auto-Deactivation
+
+Patterns are automatically deactivated when their **false positive rate exceeds 30%**.
+
+The false positive rate is computed as:
+```
+false_positive_rate = false_positive_count / match_count_lifetime
+```
+
+Where `false_positive_count` is incremented each time a reviewer marks a finding generated by this pattern as `false_positive` in the review workflow.
+
+When a pattern is auto-deactivated:
+- `auto_deactivated = true` and `is_active = false` are set on the pattern record.
+- New scans skip the pattern.
+- Existing findings are not removed.
+- An audit log entry is written (`PATTERN_AUTO_DEACTIVATED`).
+- The pattern can be manually re-activated via `PUT /api/v1/patterns/{id}` with `"is_active": true` after you refine the regex.
+
+To check the false positive rate for a pattern:
+
+```bash
+curl http://localhost:8080/api/v1/patterns/{pattern_id}/stats
+```
+
+---
+
+## 6. Hot-Reload
+
+The scanner picks up new and updated patterns **within 60 seconds** of the change being saved — no service restart is required.
+
+When a scan is triggered, the scan trigger handler fetches all active patterns for the tenant and injects them into the scan configuration payload sent to the scanner worker. The scanner uses them for that scan run.
+
+This means:
+- Patterns created or enabled between scans take effect on the very next scan run.
+- Patterns disabled or deleted are excluded from the next scan run.
+- There is no cache to flush manually.
+
+---
+
+## 7. Import and Export
+
+### Export all patterns for a tenant
+
+```bash
+curl http://localhost:8080/api/v1/patterns \
+  | jq '.data' > patterns-export.json
+```
+
+### Import from JSON
+
+Use a shell loop or a small script to POST each pattern from the export file:
+
+```bash
+jq -c '.[]' patterns-export.json | while read -r pattern; do
+  curl -X POST http://localhost:8080/api/v1/patterns \
+    -H "Content-Type: application/json" \
+    -d "$pattern"
+done
+```
+
+### Bulk JSON format
+
+Each entry in the array must follow the same schema accepted by `POST /api/v1/patterns`:
+
+```json
+[
+  {
+    "name": "EMPLOYEE_ID",
+    "display_name": "Employee ID",
+    "regex": "EMP-[0-9]{6}",
+    "category": "HR",
+    "description": "Internal employee identifier",
+    "sensitivity": "medium"
+  },
+  {
+    "name": "VENDOR_CODE",
+    "display_name": "Vendor Code",
+    "regex": "VND[A-Z]{2}[0-9]{4}",
+    "category": "Finance",
+    "sensitivity": "low"
+  }
+]
+```
+
+Fields not present in the export (e.g., `id`, `tenant_id`, `created_at`) are ignored on import — new IDs are assigned.
+
+---
+
+## API Reference Summary
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/patterns` | List all patterns for the tenant |
+| `POST` | `/api/v1/patterns` | Create a pattern (validates on write) |
+| `PUT` | `/api/v1/patterns/{id}` | Update regex, sensitivity, active state |
+| `DELETE` | `/api/v1/patterns/{id}` | Delete a pattern |
+| `POST` | `/api/v1/patterns/{id}/test` | Run test cases against a pattern |
+| `GET` | `/api/v1/patterns/{id}/stats` | False positive rate and match statistics |

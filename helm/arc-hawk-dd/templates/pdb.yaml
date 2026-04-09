@@ -1,0 +1,18 @@
+{{- if .Values.podDisruptionBudgets.enabled }}
+{{- $root := . }}
+{{- range $component, $pdbConfig := .Values.podDisruptionBudgets.budgets }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" $root }}-pdb-{{ $component }}
+  labels:
+    {{- include "arc-hawk-dd.labels" $root | nindent 4 }}
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" $root "component" $component) | nindent 4 }}
+spec:
+  minAvailable: {{ $pdbConfig.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" $root "component" $component) | nindent 6 }}
+{{- end }}
+{{- end }}

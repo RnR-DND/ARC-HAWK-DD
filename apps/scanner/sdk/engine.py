@@ -117,11 +117,11 @@ class SharedAnalyzerEngine:
         Args:
             analyzer: AnalyzerEngine instance to register recognizers with
         """
-        print("[SDK] Registering custom recognizers for 11 locked PIIs...")
+        print("[SDK] Registering custom recognizers for 12 locked PIIs...")
         
         # Import all custom recognizers
         from sdk.recognizers.aadhaar import AadhaarRecognizer
-        from sdk.recognizers.pan import PANRecognizer  
+        from sdk.recognizers.pan import PANRecognizer
         from sdk.recognizers.credit_card import CreditCardRecognizer
         from sdk.recognizers.passport import IndianPassportRecognizer
         from sdk.recognizers.upi import UPIRecognizer
@@ -131,7 +131,8 @@ class SharedAnalyzerEngine:
         from sdk.recognizers.email import EmailRecognizer
         from sdk.recognizers.voter_id import VoterIDRecognizer
         from sdk.recognizers.driving_license import DrivingLicenseRecognizer
-        
+        from sdk.recognizers.gst import GSTRecognizer
+
         # Register each recognizer
         recognizers = [
             AadhaarRecognizer(),
@@ -145,6 +146,7 @@ class SharedAnalyzerEngine:
             EmailRecognizer(),
             VoterIDRecognizer(),
             DrivingLicenseRecognizer(),
+            GSTRecognizer(),   # Added: IN_GST is now in locked scope
         ]
         
         for recognizer in recognizers:
