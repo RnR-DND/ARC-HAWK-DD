@@ -1,0 +1,59 @@
+{{- if .Values.scanner.enabled }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-scanner-secrets
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  REDIS_URL: {{ .Values.scanner.env.REDIS_URL | quote }}
+  ANTHROPIC_API_KEY: {{ .Values.scanner.env.ANTHROPIC_API_KEY | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-scanner
+  labels:
+    {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "scanner") | nindent 4 }}
+spec:
+  replicas: {{ .Values.scanner.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "scanner") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "scanner") | nindent 8 }}
+    spec:
+      containers:
+        - name: scanner
+          image: {{ include "arc-hawk-dd.image" (dict "root" . "repo" .Values.scanner.image.repository "tag" .Values.scanner.image.tag) }}
+          imagePullPolicy: {{ .Values.scanner.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.scanner.service.port }}
+          env:
+            - name: BACKEND_URL
+              value: {{ .Values.scanner.env.BACKEND_URL | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "arc-hawk-dd.fullname" . }}-scanner-secrets
+          resources: {{- toYaml .Values.scanner.resources | nindent 12 }}
+          livenessProbe: {{- toYaml .Values.scanner.livenessProbe | nindent 12 }}
+          readinessProbe: {{- toYaml .Values.scanner.readinessProbe | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scanner
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.scanner.service.type }}
+  selector:
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "scanner") | nindent 4 }}
+  ports:
+    - port: {{ .Values.scanner.service.port }}
+      targetPort: {{ .Values.scanner.service.port }}
+      name: http
+{{- end }}

@@ -354,13 +354,14 @@ func (r *PostgresRepository) CreateAuditLog(ctx context.Context, log *authentity
 		log.EventType = "SCAN_EVENT"
 	}
 	query := `
-		INSERT INTO audit_logs (id, event_type, tenant_id, user_id, action, resource_type, resource_id, ip_address, user_agent, metadata, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO audit_logs (id, event_type, tenant_id, user_id, action, resource_type, resource_id, ip_address, user_agent, metadata, created_at, previous_hash, entry_hash)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING created_at
 	`
 	return r.db.QueryRowContext(ctx, query,
 		log.ID, log.EventType, log.TenantID, log.UserID, log.Action, log.ResourceType,
 		log.ResourceID, log.IPAddress, log.UserAgent, log.Metadata, log.CreatedAt,
+		log.PreviousHash, log.EntryHash,
 	).Scan(&log.CreatedAt)
 }
 

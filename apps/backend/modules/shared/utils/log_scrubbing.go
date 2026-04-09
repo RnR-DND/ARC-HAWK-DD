@@ -177,6 +177,16 @@ func shouldScrubKey(key string) bool {
 	return false
 }
 
+// SanitizeForLog is the single call-site for safe logging of values that may
+// contain PII (sample text, user input, DB values). It applies DefaultScrubConfig
+// so callers don't need to manage configuration.
+//
+// Usage:
+//   log.Printf("finding sample: %s", utils.SanitizeForLog(finding.SampleText))
+func SanitizeForLog(s string) string {
+	return ScrubPII(s, &DefaultScrubConfig)
+}
+
 type LogMessage struct {
 	Level     string                 `json:"level"`
 	Message   string                 `json:"message"`

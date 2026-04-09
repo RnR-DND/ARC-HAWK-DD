@@ -1,0 +1,15 @@
+apiVersion: v2
+name: arc-hawk-dd
+description: ARC-HAWK-DD — DPDPA-Compliant Intelligent Data Discovery & Governance Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - dpdpa
+  - data-discovery
+  - pii
+  - compliance
+  - governance
+maintainers:
+  - name: ARC-HAWK Team
+home: https://github.com/arc-platform/arc-hawk-dd

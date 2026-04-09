@@ -1,0 +1,267 @@
+# Default values for arc-hawk-dd Helm chart.
+# Override per environment with values.prod.yaml.
+
+global:
+  imageRegistry: ""          # e.g. "registry.example.com/" — prepended to all images
+  imagePullSecrets: []
+  storageClass: ""           # leave empty to use cluster default
+
+# ---------------------------------------------------------------------------
+# Backend (Go API)
+# ---------------------------------------------------------------------------
+backend:
+  enabled: true
+  image:
+    repository: arc-platform/backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests: { cpu: "250m", memory: "256Mi" }
+    limits:   { cpu: "1",    memory: "512Mi" }
+  service:
+    type: ClusterIP
+    port: 8080
+  env:
+    AUTH_REQUIRED: "true"
+    LOG_LEVEL: "info"
+  # Secrets — set via --set or external secrets manager
+  secrets:
+    DATABASE_URL: ""
+    JWT_SECRET: ""
+    ENCRYPTION_KEY: ""       # 32 bytes, base64-encoded
+    NEO4J_URI: ""
+    NEO4J_USER: ""
+    NEO4J_PASSWORD: ""
+    REDIS_URL: ""
+    TEMPORAL_HOST: ""
+  livenessProbe:
+    httpGet: { path: /health, port: 8080 }
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readinessProbe:
+    httpGet: { path: /health, port: 8080 }
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+# ---------------------------------------------------------------------------
+# Frontend (Next.js)
+# ---------------------------------------------------------------------------
+frontend:
+  enabled: true
+  image:
+    repository: arc-platform/frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    NEXT_PUBLIC_API_URL: "http://backend:8080"
+  livenessProbe:
+    httpGet: { path: /, port: 3000 }
+    initialDelaySeconds: 20
+    periodSeconds: 30
+  readinessProbe:
+    httpGet: { path: /, port: 3000 }
+    initialDelaySeconds: 15
+    periodSeconds: 10
+
+# ---------------------------------------------------------------------------
+# Scanner (Python/Flask)
+# ---------------------------------------------------------------------------
+scanner:
+  enabled: true
+  image:
+    repository: arc-platform/scanner
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits:   { cpu: "2",    memory: "2Gi" }
+  service:
+    type: ClusterIP
+    port: 8000
+  env:
+    REDIS_URL: ""
+    ANTHROPIC_API_KEY: ""
+    BACKEND_URL: "http://backend:8080"
+  livenessProbe:
+    httpGet: { path: /health, port: 8000 }
+    initialDelaySeconds: 30
+    periodSeconds: 20
+  readinessProbe:
+    httpGet: { path: /health, port: 8000 }
+    initialDelaySeconds: 20
+    periodSeconds: 10
+
+# ---------------------------------------------------------------------------
+# PostgreSQL
+# ---------------------------------------------------------------------------
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15-alpine"
+  persistence:
+    enabled: true
+    size: 50Gi
+  auth:
+    database: archawk
+    username: archawk
+    password: ""             # set via --set postgresql.auth.password=<secret>
+  resources:
+    requests: { cpu: "500m", memory: "512Mi" }
+    limits:   { cpu: "2",    memory: "2Gi" }
+  livenessProbe:
+    exec:
+      command: ["pg_isready", "-U", "archawk"]
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# ---------------------------------------------------------------------------
+# Redis
+# ---------------------------------------------------------------------------
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+  persistence:
+    enabled: false           # Redis is used for ephemeral state; disable for HA clusters
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }
+  livenessProbe:
+    exec:
+      command: ["redis-cli", "ping"]
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+# ---------------------------------------------------------------------------
+# Neo4j (Data Lineage)
+# ---------------------------------------------------------------------------
+neo4j:
+  enabled: true
+  image:
+    repository: neo4j
+    tag: "5.15-community"
+  persistence:
+    enabled: true
+    size: 20Gi
+  auth:
+    password: ""             # set via --set neo4j.auth.password=<secret>
+  resources:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits:   { cpu: "2",    memory: "2Gi" }
+  livenessProbe:
+    httpGet: { path: /, port: 7474 }
+    initialDelaySeconds: 60
+    periodSeconds: 20
+
+# ---------------------------------------------------------------------------
+# Temporal (Workflow Engine)
+# ---------------------------------------------------------------------------
+temporal:
+  enabled: true
+  image:
+    repository: temporalio/auto-setup
+    tag: "1.22.0"
+  resources:
+    requests: { cpu: "250m", memory: "512Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+  ui:
+    enabled: true
+    image:
+      repository: temporalio/ui
+      tag: "2.21.0"
+    service:
+      type: ClusterIP
+      port: 8080
+
+# ---------------------------------------------------------------------------
+# Presidio (ML PII Detection — Layer 2)
+# ---------------------------------------------------------------------------
+presidio:
+  enabled: true
+  image:
+    repository: mcr.microsoft.com/presidio-analyzer
+    tag: "latest"
+  resources:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits:   { cpu: "2",    memory: "2Gi" }
+  service:
+    type: ClusterIP
+    port: 3000
+  livenessProbe:
+    httpGet: { path: /health, port: 3000 }
+    initialDelaySeconds: 30
+    periodSeconds: 20
+
+# ---------------------------------------------------------------------------
+# Prometheus (Metrics)
+# ---------------------------------------------------------------------------
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: "latest"
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests: { cpu: "250m", memory: "256Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+  service:
+    type: ClusterIP
+    port: 9090
+
+# ---------------------------------------------------------------------------
+# Grafana (Dashboards)
+# ---------------------------------------------------------------------------
+grafana:
+  enabled: true
+  image:
+    repository: grafana/grafana
+    tag: "latest"
+  persistence:
+    enabled: true
+    size: 5Gi
+  adminPassword: ""          # set via --set grafana.adminPassword=<secret>
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  service:
+    type: ClusterIP
+    port: 3000
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: arc-hawk.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /
+          pathType: Prefix
+          service: frontend
+  tls: []
+
+# ---------------------------------------------------------------------------
+# Service Account & RBAC
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

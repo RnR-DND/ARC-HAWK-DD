@@ -1,0 +1,252 @@
+{{/* Temporal */}}
+{{- if .Values.temporal.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-temporal
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "temporal") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "temporal") | nindent 8 }}
+    spec:
+      containers:
+        - name: temporal
+          image: "{{ .Values.temporal.image.repository }}:{{ .Values.temporal.image.tag }}"
+          ports:
+            - containerPort: 7233
+              name: grpc
+          env:
+            - name: DB
+              value: postgresql
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "arc-hawk-dd.fullname" . }}-postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "arc-hawk-dd.fullname" . }}-postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_SEEDS
+              value: postgresql
+          resources: {{- toYaml .Values.temporal.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "temporal") | nindent 4 }}
+  ports:
+    - port: 7233
+      targetPort: 7233
+      name: grpc
+---
+{{- if .Values.temporal.ui.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-temporal-ui
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "temporal-ui") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "temporal-ui") | nindent 8 }}
+    spec:
+      containers:
+        - name: temporal-ui
+          image: "{{ .Values.temporal.ui.image.repository }}:{{ .Values.temporal.ui.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.temporal.ui.service.port }}
+          env:
+            - name: TEMPORAL_ADDRESS
+              value: "temporal:7233"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-ui
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "temporal-ui") | nindent 4 }}
+  ports:
+    - port: {{ .Values.temporal.ui.service.port }}
+      targetPort: {{ .Values.temporal.ui.service.port }}
+{{- end }}
+{{- end }}
+
+{{/* Presidio */}}
+{{- if .Values.presidio.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-presidio
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "presidio") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "presidio") | nindent 8 }}
+    spec:
+      containers:
+        - name: presidio
+          image: "{{ .Values.presidio.image.repository }}:{{ .Values.presidio.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.presidio.service.port }}
+          resources: {{- toYaml .Values.presidio.resources | nindent 12 }}
+          livenessProbe: {{- toYaml .Values.presidio.livenessProbe | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: presidio
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "presidio") | nindent 4 }}
+  ports:
+    - port: {{ .Values.presidio.service.port }}
+      targetPort: {{ .Values.presidio.service.port }}
+{{- end }}
+
+{{/* Prometheus */}}
+{{- if .Values.prometheus.enabled }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-prometheus
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  serviceName: prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "prometheus") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "prometheus") | nindent 8 }}
+    spec:
+      containers:
+        - name: prometheus
+          image: "{{ .Values.prometheus.image.repository }}:{{ .Values.prometheus.image.tag }}"
+          args: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=30d"]
+          ports:
+            - containerPort: {{ .Values.prometheus.service.port }}
+          resources: {{- toYaml .Values.prometheus.resources | nindent 12 }}
+          {{- if .Values.prometheus.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /prometheus
+          {{- end }}
+  {{- if .Values.prometheus.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.prometheus.persistence.size }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "prometheus") | nindent 4 }}
+  ports:
+    - port: {{ .Values.prometheus.service.port }}
+      targetPort: {{ .Values.prometheus.service.port }}
+{{- end }}
+
+{{/* Grafana */}}
+{{- if .Values.grafana.enabled }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-grafana-secret
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  GF_SECURITY_ADMIN_PASSWORD: {{ .Values.grafana.adminPassword | quote }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-grafana
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  serviceName: grafana
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "grafana") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "grafana") | nindent 8 }}
+    spec:
+      containers:
+        - name: grafana
+          image: "{{ .Values.grafana.image.repository }}:{{ .Values.grafana.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.grafana.service.port }}
+          envFrom:
+            - secretRef:
+                name: {{ include "arc-hawk-dd.fullname" . }}-grafana-secret
+          resources: {{- toYaml .Values.grafana.resources | nindent 12 }}
+          {{- if .Values.grafana.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/grafana
+          {{- end }}
+  {{- if .Values.grafana.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: {{ .Values.grafana.persistence.size }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "grafana") | nindent 4 }}
+  ports:
+    - port: {{ .Values.grafana.service.port }}
+      targetPort: {{ .Values.grafana.service.port }}
+{{- end }}

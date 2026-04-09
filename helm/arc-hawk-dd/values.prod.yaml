@@ -1,0 +1,58 @@
+# Production overrides for arc-hawk-dd Helm chart.
+# Usage: helm upgrade --install arc-hawk-dd ./helm/arc-hawk-dd \
+#          -f helm/arc-hawk-dd/values.prod.yaml \
+#          --set backend.secrets.DATABASE_URL="..." \
+#          --set backend.secrets.ENCRYPTION_KEY="..." \
+#          --set postgresql.auth.password="..."
+
+backend:
+  replicaCount: 3
+  resources:
+    requests: { cpu: "500m", memory: "512Mi" }
+    limits:   { cpu: "2",    memory: "1Gi" }
+  env:
+    AUTH_REQUIRED: "true"
+    LOG_LEVEL: "warn"
+
+frontend:
+  replicaCount: 3
+
+scanner:
+  replicaCount: 2
+  resources:
+    requests: { cpu: "1", memory: "2Gi" }
+    limits:   { cpu: "4", memory: "4Gi" }
+
+postgresql:
+  persistence:
+    size: 200Gi
+  resources:
+    requests: { cpu: "1", memory: "2Gi" }
+    limits:   { cpu: "4", memory: "8Gi" }
+
+redis:
+  persistence:
+    enabled: true
+    size: 10Gi
+
+neo4j:
+  persistence:
+    size: 100Gi
+
+ingress:
+  enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  hosts:
+    - host: arc-hawk.your-domain.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /
+          pathType: Prefix
+          service: frontend
+  tls:
+    - secretName: arc-hawk-tls
+      hosts: [arc-hawk.your-domain.com]

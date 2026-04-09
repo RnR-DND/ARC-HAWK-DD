@@ -5,6 +5,144 @@ All notable changes to the ARC-Hawk platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-04-09
+
+### 🎯 Major Changes
+
+#### Enterprise Data Discovery Module v1
+
+New module for large-scale asset inventory with risk scoring, spike detection, and semantic lineage.
+
+- Upstream inventory query with per-asset finding aggregates
+- Risk scoring service with trend analysis and `spike_detector.go`
+- Discovery page (`/discovery`) with asset-type breakdowns and heatmap
+- Semantic lineage tracking for sensitive field provenance
+
+#### Custom Regex Patterns Engine
+
+- CRUD API at `GET/POST/DELETE /api/v1/patterns`
+- Server-side ReDoS protection: patterns >512 chars or with nested quantifiers are rejected at compile time
+- Per-scan hot-reload — new patterns apply without service restart
+- `services/patterns.api.ts` frontend client; scan config modal surfaces pattern errors inline
+
+#### DPDPA Compliance Module (expanded)
+
+- Obligation service mapping PII findings to DPDPA provisions
+- Gap report export (PDF/JSON) via `export_handler.go`
+- Retention policy tracking with violation detection
+- Consent records (`000030_consent_records`)
+- Audit log chain with hash-linked entries (`000029_audit_log_chain`)
+- Compliance page redesign: responsive KPI grid, scrollable overflow tables
+
+#### Scanner Expansion (14 new data sources)
+
+Cloud: BigQuery, Redshift, Snowflake, Azure Blob, AWS Kinesis.
+SaaS: Salesforce, HubSpot, Jira, MS Teams.
+Files: Avro, Parquet, PPTX, HTML, Email. Plus SQLite.
+Additions: LLM-assisted classifier (`llm_classifier.py`), field profiler (`field_profiler.py`), statistical sampling.
+
+---
+
+### 🔒 Security Fixes
+
+**BREAKING — Scan deletion now requires admin role**
+
+`DELETE /scans/:id` now returns 403 for non-admin users. Temporary mitigation for missing `tenant_id` on `scan_runs` (see RISK.md for full plan).
+
+**P0 — ReDoS protection for custom patterns**
+
+User-supplied regex patterns are now compiled through `_compile_custom_pattern_safely()` which rejects catastrophic backtracking shapes before they reach the engine (`scanner_api.py`).
+
+**P0 — Gin router static-vs-wildcard ordering fixed**
+
+`DELETE /scans/clear` is now registered before `DELETE /scans/:id`, preventing the wildcard from swallowing the literal route (`scanning/module.go`).
+
+**P1 — JWT token_blacklist now pruned**
+
+Expired rows deleted on `ValidateToken` calls via fire-and-forget goroutine (`auth/service/jwt_service.go:258`).
+
+**P1 — API key last_used_at now tracked**
+
+Async `UPDATE api_keys SET last_used_at = NOW()` on every authenticated request (`auth/middleware/auth_middleware.go:89`).
+
+**P1 — WebSocket URL schema-normalized**
+
+`NEXT_PUBLIC_WS_URL` is auto-prefixed with `wss://` on HTTPS origins — operators can now omit the scheme in the env var (`app/page.tsx`).
+
+---
+
+### ✨ Added
+
+#### Backend
+- `modules/discovery/` — full discovery module (domain, service, worker, API)
+- `modules/scanning/api/patterns_handler.go` — custom pattern CRUD
+- `modules/scanning/service/patterns_service.go` — pattern validation and cache
+- `modules/compliance/service/dpdpa_obligation_service.go`
+- `modules/compliance/service/report_service.go`
+- `modules/remediation/api/escalation_handler.go` + `export_handler.go`
+- `modules/remediation/service/escalation_service.go`, `export_service.go`, `sop_registry.go`
+- `modules/scanning/workflows/streaming_supervisor_workflow.go`
+- `modules/shared/infrastructure/encryption/encryption_service.go`
+- PII sample encryption at rest (`000027_encrypt_pii_samples`)
+- API key management (`000028_api_keys`)
+- Risk score history table (`000031_risk_score_history`)
+- Custom pattern hardening migration (`000032_custom_patterns_hardening`)
+- Helm chart scaffolding (`helm/`)
+- Grafana dashboards (`apps/scanner/config/grafana/`)
+
+#### Frontend
+- `/discovery` page with asset-type risk heatmap
+- `services/compliance.api.ts` and `services/patterns.api.ts`
+- Responsive compliance page (mobile-first grid, overflow-x-auto tables)
+
+#### Scanner
+- 14 new source commands (see Major Changes above)
+- `sdk/llm_classifier.py`, `sdk/field_profiler.py`, `sdk/sampling.py`
+- `sdk/recognizers/gst.py` — GST number recognition
+
+---
+
+### 🔧 Changed
+
+- `scanning/module.go` — route ordering hardened; admin gate on scan delete
+- `auth/middleware/auth_middleware.go` — async last_used_at update
+- `auth/service/jwt_service.go` — token_blacklist pruning
+- `app/page.tsx` — WS URL normalization
+- `app/compliance/page.tsx` — responsive layout redesign
+- `components/scans/ScanConfigModal.tsx` — pattern error display
+
+---
+
+### 🧪 Tests
+
+- `MetricCards.test.tsx` — locale-agnostic assertion for large number formatting
+- `AnalyticsPage.integration.test.tsx` — removed stale Topbar mock
+- `patterns_handler_test.go` — stub for custom pattern CRUD tests
+- All 36 frontend Jest tests pass; all 7 Go packages pass
+
+---
+
+### 📊 Migrations
+
+| # | Name | Type |
+|---|------|------|
+| 000025 | custom_patterns | additive |
+| 000026 | retention_policies | additive |
+| 000027 | encrypt_pii_samples | additive |
+| 000028 | api_keys | additive |
+| 000029 | audit_log_chain | additive |
+| 000030 | consent_records | additive |
+| 000031 | risk_score_history | additive |
+| 000032 | custom_patterns_hardening | additive |
+
+---
+
+### 📝 Known Issues / Deferred
+
+- Tenant isolation on scan deletion: `scan_runs` lacks `tenant_id`. Admin gate is a temporary mitigation. Full fix tracked in RISK.md.
+
+---
+
 ## [2.1.0] - 2026-01-13
 
 ### 🎯 Major Changes
