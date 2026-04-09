@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     LineChart,
     Line,
@@ -11,6 +11,7 @@ import {
     CartesianGrid,
 } from 'recharts';
 import { discoveryApi, OverviewSummary, Snapshot, DriftEvent } from '@/services/discoveryApi';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 /**
  * Discovery Overview — the front door of the Data Discovery Module.
@@ -26,7 +27,24 @@ import { discoveryApi, OverviewSummary, Snapshot, DriftEvent } from '@/services/
  *   4. Click "Take Snapshot Now" → POST /snapshots/trigger then refresh
  *   5. Click "Generate Board Report" → POST /reports/generate, poll status, open download URL
  */
+// Risk tier helpers for the heatmap
+function riskColor(score: number): string {
+    if (score >= 80) return '#ef4444'; // Critical
+    if (score >= 60) return '#f97316'; // High
+    if (score >= 40) return '#eab308'; // Medium
+    return '#22c55e';                  // Low
+}
+function riskLabel(score: number): string {
+    if (score >= 80) return 'Critical';
+    if (score >= 60) return 'High';
+    if (score >= 40) return 'Medium';
+    return 'Low';
+}
+
 export default function DiscoveryOverviewPage() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
     const [overview, setOverview] = useState<OverviewSummary | null>(null);
     const [latestSnapshot, setLatestSnapshot] = useState<Snapshot | null>(null);
     const [drifts, setDrifts] = useState<DriftEvent[]>([]);
@@ -34,6 +52,23 @@ export default function DiscoveryOverviewPage() {
     const [error, setError] = useState<string | null>(null);
     const [snapshotInProgress, setSnapshotInProgress] = useState(false);
     const [reportStatus, setReportStatus] = useState<string | null>(null);
+
+    // Chart filters — persisted in URL params for shareable views
+    const [snapshotLimit, setSnapshotLimit] = useState<number>(
+        parseInt(searchParams?.get('snapshots') ?? '4', 10)
+    );
+    const [sourceFilter, setSourceFilter] = useState<string>(
+        searchParams?.get('source') ?? ''
+    );
+    const [riskFilter, setRiskFilter] = useState<string>(
+        searchParams?.get('risk') ?? ''
+    );
+
+    const updateUrlParam = (key: string, value: string) => {
+        const params = new URLSearchParams(searchParams?.toString() ?? '');
+        if (value) params.set(key, value); else params.delete(key);
+        router.replace(`?${params.toString()}`, { scroll: false });
+    };
 
     const fetchAll = async () => {
         setLoading(true);
@@ -158,14 +193,70 @@ export default function DiscoveryOverviewPage() {
                 />
             </section>
 
+            {/* Chart filters bar */}
+            <section className="mb-4 flex flex-wrap items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm">
+                <span className="text-gray-500 font-medium">Filters:</span>
+                <label className="flex items-center gap-1 text-gray-700">
+                    Snapshots:
+                    <select
+                        value={snapshotLimit}
+                        onChange={e => {
+                            const v = parseInt(e.target.value, 10);
+                            setSnapshotLimit(v);
+                            updateUrlParam('snapshots', String(v));
+                        }}
+                        className="ml-1 px-2 py-1 rounded border border-gray-300 text-sm bg-white">
+                        {[4, 8, 12, 24].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                </label>
+                <label className="flex items-center gap-1 text-gray-700">
+                    Source:
+                    <input
+                        value={sourceFilter}
+                        placeholder="e.g. postgresql"
+                        onChange={e => {
+                            setSourceFilter(e.target.value);
+                            updateUrlParam('source', e.target.value);
+                        }}
+                        className="ml-1 px-2 py-1 rounded border border-gray-300 text-sm bg-white w-32"
+                    />
+                </label>
+                <label className="flex items-center gap-1 text-gray-700">
+                    Risk tier:
+                    <select
+                        value={riskFilter}
+                        onChange={e => {
+                            setRiskFilter(e.target.value);
+                            updateUrlParam('risk', e.target.value);
+                        }}
+                        className="ml-1 px-2 py-1 rounded border border-gray-300 text-sm bg-white">
+                        <option value="">All</option>
+                        <option value="Critical">Critical (&ge;80)</option>
+                        <option value="High">High (&ge;60)</option>
+                        <option value="Medium">Medium (&ge;40)</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </label>
+                {(sourceFilter || riskFilter || snapshotLimit !== 4) && (
+                    <button
+                        onClick={() => {
+                            setSnapshotLimit(4); setSourceFilter(''); setRiskFilter('');
+                            router.replace('?', { scroll: false });
+                        }}
+                        className="text-xs text-blue-600 hover:underline">
+                        Clear filters
+                    </button>
+                )}
+            </section>
+
             {/* Trend chart */}
             <section className="mb-8 p-4 bg-white rounded-lg border border-gray-200">
                 <h2 className="text-sm font-semibold text-gray-700 mb-3">
-                    PII Trend (last 4 snapshots)
+                    PII Trend (last {snapshotLimit} snapshots)
                 </h2>
                 {overview?.trend_quarters && overview.trend_quarters.length > 0 ? (
                     <ResponsiveContainer width="100%" height={220}>
-                        <LineChart data={overview.trend_quarters}>
+                        <LineChart data={overview.trend_quarters.slice(-snapshotLimit)}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
                             <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                             <YAxis tick={{ fontSize: 11 }} />
@@ -193,32 +284,75 @@ export default function DiscoveryOverviewPage() {
                 )}
             </section>
 
-            {/* Hotspots + Drift side by side */}
+            {/* Hotspots heatmap + Drift side by side */}
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="p-4 bg-white rounded-lg border border-gray-200">
-                    <h2 className="text-sm font-semibold text-gray-700 mb-3">Top Risk Hotspots</h2>
-                    {overview?.top_hotspots && overview.top_hotspots.length > 0 ? (
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="text-left text-xs text-gray-500 border-b">
-                                    <th className="py-2">Asset</th>
-                                    <th className="py-2">PII</th>
-                                    <th className="py-2 text-right">Score</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {overview.top_hotspots.map((h) => (
-                                    <tr key={h.asset_id} className="border-b border-gray-100">
-                                        <td className="py-2">{h.asset_name || h.asset_id.slice(0, 8)}</td>
-                                        <td className="py-2 text-gray-600">{h.classification}</td>
-                                        <td className="py-2 text-right font-mono">{h.score.toFixed(1)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <div className="text-sm text-gray-500 py-4">No hotspots yet.</div>
-                    )}
+                    <h2 className="text-sm font-semibold text-gray-700 mb-4">PII Density Heatmap</h2>
+                    {(() => {
+                        const maxScore = 100;
+                        const hotspots = (overview?.top_hotspots ?? [])
+                            .filter(h => !sourceFilter || (h.classification ?? '').toLowerCase().includes(sourceFilter.toLowerCase()))
+                            .filter(h => !riskFilter || riskLabel(h.score) === riskFilter);
+                        return hotspots.length > 0 ? (
+                            <div className="space-y-3">
+                                {hotspots.map(h => {
+                                    const color = riskColor(h.score);
+                                    const pct = Math.max(4, Math.round((h.score / maxScore) * 100));
+                                    return (
+                                        <div key={h.asset_id}>
+                                            <div className="flex justify-between text-xs mb-1">
+                                                <span className="text-gray-800 font-medium truncate max-w-[60%]">
+                                                    {h.asset_name || h.asset_id.slice(0, 8)}
+                                                </span>
+                                                <span className="flex items-center gap-2">
+                                                    <span className="text-gray-500">{h.classification}</span>
+                                                    <span
+                                                        style={{ color, fontWeight: 700 }}
+                                                        className="font-mono">
+                                                        {h.score.toFixed(1)}
+                                                    </span>
+                                                    <span
+                                                        style={{
+                                                            backgroundColor: `${color}20`,
+                                                            color,
+                                                            fontSize: '10px',
+                                                            fontWeight: 700,
+                                                            padding: '1px 6px',
+                                                            borderRadius: '999px',
+                                                        }}>
+                                                        {riskLabel(h.score)}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    style={{
+                                                        width: `${pct}%`,
+                                                        height: '100%',
+                                                        backgroundColor: color,
+                                                        borderRadius: '999px',
+                                                        transition: 'width 0.4s ease',
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div className="flex gap-4 mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                                    {[['#ef4444', 'Critical ≥80'], ['#f97316', 'High ≥60'], ['#eab308', 'Medium ≥40'], ['#22c55e', 'Low']].map(([c, l]) => (
+                                        <span key={l} className="flex items-center gap-1">
+                                            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: c, display: 'inline-block' }} />
+                                            {l}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-sm text-gray-500 py-4">
+                                {sourceFilter || riskFilter ? 'No hotspots match the current filters.' : 'No hotspots yet.'}
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 <div className="p-4 bg-white rounded-lg border border-gray-200">

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { theme, getRiskColor } from '@/design-system/theme';
 import Tooltip, { InfoIcon } from '@/components/Tooltip';
+import { complianceApi, type RetentionViolation, type DPDPAGapReport, type SectionSummary } from '@/services/compliance.api';
 
 interface ComplianceOverview {
     compliance_score: number;
@@ -58,7 +59,7 @@ export default function CompliancePage() {
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
-            <div className="container" style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
+            <div className="container max-w-screen-2xl mx-auto" style={{ padding: '32px' }}>
                 {/* Header */}
                 <div style={{ marginBottom: '32px' }}>
                     <h2 style={{ fontSize: '24px', fontWeight: 700, color: theme.colors.text.primary, marginBottom: '8px' }}>
@@ -70,7 +71,7 @@ export default function CompliancePage() {
                 </div>
 
                 {/* KPI Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <KPICard
                         title="Compliance Score"
                         value={`${Math.round(data.compliance_score)}%`}
@@ -101,6 +102,12 @@ export default function CompliancePage() {
                     />
                 </div>
 
+                {/* DPDPA Obligation Checklist */}
+                <DPDPAObligationChecklist />
+
+                {/* Retention Policy Violations */}
+                <RetentionSection />
+
                 {/* Main Content Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
                     {/* Remediation Queue */}
@@ -117,6 +124,7 @@ export default function CompliancePage() {
                             </p>
                         </div>
 
+                        <div className="overflow-x-auto">
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead style={{ backgroundColor: theme.colors.background.tertiary }}>
                                 <tr>
@@ -182,6 +190,7 @@ export default function CompliancePage() {
                                 )}
                             </tbody>
                         </table>
+                        </div>{/* overflow-x-auto */}
                     </div>
 
                     {/* Breakdown View */}
@@ -273,6 +282,341 @@ function CategoryBar({ label, count, color }: any) {
             <div style={{ height: '6px', backgroundColor: theme.colors.background.tertiary, borderRadius: '3px', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: '60%', backgroundColor: color, borderRadius: '3px' }} />
             </div>
+        </div>
+    );
+}
+
+function RetentionSection() {
+    const [violations, setViolations] = useState<RetentionViolation[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showSetPolicy, setShowSetPolicy] = useState<string | null>(null);
+    const [policyForm, setPolicyForm] = useState({ policy_days: 365, policy_name: 'DPDPA Default', policy_basis: 'DPDPA Section 8(7)' });
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        complianceApi.getRetentionViolations().then(v => {
+            setViolations(v);
+            setLoading(false);
+        });
+    }, []);
+
+    const handleSetPolicy = async (assetId: string) => {
+        try {
+            setSaving(true);
+            await complianceApi.setRetentionPolicy(assetId, policyForm);
+            setShowSetPolicy(null);
+            const updated = await complianceApi.getRetentionViolations();
+            setViolations(updated);
+        } catch (e) {
+            console.error('Failed to set retention policy', e);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div style={{
+            backgroundColor: theme.colors.background.card,
+            borderRadius: '12px',
+            border: `1px solid ${theme.colors.border.default}`,
+            overflow: 'hidden',
+            marginBottom: '24px'
+        }}>
+            <div style={{ padding: '24px', borderBottom: `1px solid ${theme.colors.border.default}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: theme.colors.text.primary, margin: 0 }}>Data Retention Policies</h3>
+                    <p style={{ fontSize: '13px', color: theme.colors.text.secondary, marginTop: '6px' }}>
+                        Findings that have exceeded their retention period and require deletion per DPDPA.
+                    </p>
+                </div>
+                <span style={{ fontSize: '13px', color: violations.length > 0 ? theme.colors.risk.critical : theme.colors.risk.low, fontWeight: 700, backgroundColor: violations.length > 0 ? `${theme.colors.risk.critical}15` : `${theme.colors.risk.low}15`, padding: '4px 12px', borderRadius: '999px' }}>
+                    {loading ? '…' : `${violations.length} Violations`}
+                </span>
+            </div>
+
+            {loading ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: theme.colors.text.secondary }}>Loading retention data…</div>
+            ) : violations.length === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: theme.colors.text.secondary }}>
+                    ✅ No retention violations. All data is within policy limits.
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead style={{ backgroundColor: theme.colors.background.tertiary }}>
+                        <tr>
+                            {['Asset', 'PII Type', 'Detected', 'Policy (days)', 'Due Date', 'Overdue', 'Action'].map(h => (
+                                <th key={h} style={{ padding: '12px 20px', textAlign: 'left', fontSize: '11px', color: theme.colors.text.secondary, textTransform: 'uppercase' }}>{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {violations.map(v => (
+                            <React.Fragment key={v.finding_id}>
+                                <tr style={{ borderBottom: `1px solid ${theme.colors.border.default}` }}>
+                                    <td style={{ padding: '14px 20px', fontWeight: 600, color: theme.colors.text.primary }}>{v.asset_name}</td>
+                                    <td style={{ padding: '14px 20px' }}>
+                                        <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', backgroundColor: theme.colors.background.tertiary, color: theme.colors.text.secondary }}>{v.pii_type}</span>
+                                    </td>
+                                    <td style={{ padding: '14px 20px', fontSize: '13px', color: theme.colors.text.muted }}>{new Date(v.first_detected_at).toLocaleDateString()}</td>
+                                    <td style={{ padding: '14px 20px', fontSize: '13px', color: theme.colors.text.secondary }}>{v.retention_policy_days}d</td>
+                                    <td style={{ padding: '14px 20px', fontSize: '13px', color: theme.colors.risk.high }}>{new Date(v.deletion_due_at).toLocaleDateString()}</td>
+                                    <td style={{ padding: '14px 20px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: theme.colors.risk.critical }}>{v.days_overdue} days</span>
+                                    </td>
+                                    <td style={{ padding: '14px 20px' }}>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button onClick={() => setShowSetPolicy(showSetPolicy === v.asset_id ? null : v.asset_id)}
+                                                style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 600, color: theme.colors.primary.DEFAULT, backgroundColor: 'transparent', border: `1px solid ${theme.colors.primary.DEFAULT}`, borderRadius: '6px', cursor: 'pointer' }}>
+                                                Set Policy
+                                            </button>
+                                            <a href="/remediation" style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 600, color: 'white', backgroundColor: theme.colors.risk.critical, border: 'none', borderRadius: '6px', textDecoration: 'none', display: 'inline-block' }}>
+                                                Remediate
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {showSetPolicy === v.asset_id && (
+                                    <tr style={{ backgroundColor: `${theme.colors.primary.DEFAULT}08` }}>
+                                        <td colSpan={7} style={{ padding: '16px 20px' }}>
+                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', color: theme.colors.text.secondary, display: 'block', marginBottom: '4px' }}>Retention (days)</label>
+                                                    <input type="number" value={policyForm.policy_days} min={1}
+                                                        onChange={e => setPolicyForm(f => ({ ...f, policy_days: +e.target.value }))}
+                                                        style={{ padding: '6px 10px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '6px', width: '100px', fontSize: '13px' }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', color: theme.colors.text.secondary, display: 'block', marginBottom: '4px' }}>Policy Name</label>
+                                                    <input type="text" value={policyForm.policy_name}
+                                                        onChange={e => setPolicyForm(f => ({ ...f, policy_name: e.target.value }))}
+                                                        style={{ padding: '6px 10px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '6px', width: '180px', fontSize: '13px' }} />
+                                                </div>
+                                                <div>
+                                                    <label style={{ fontSize: '11px', color: theme.colors.text.secondary, display: 'block', marginBottom: '4px' }}>Legal Basis</label>
+                                                    <select value={policyForm.policy_basis}
+                                                        onChange={e => setPolicyForm(f => ({ ...f, policy_basis: e.target.value }))}
+                                                        style={{ padding: '6px 10px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '6px', fontSize: '13px' }}>
+                                                        <option>DPDPA Section 8(7)</option>
+                                                        <option>Consent – Withdraw After Period</option>
+                                                        <option>Legal Hold</option>
+                                                        <option>Business Requirement</option>
+                                                    </select>
+                                                </div>
+                                                <button onClick={() => handleSetPolicy(v.asset_id)} disabled={saving}
+                                                    style={{ padding: '7px 16px', backgroundColor: theme.colors.primary.DEFAULT, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                                                    {saving ? 'Saving…' : 'Save Policy'}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </React.Fragment>
+                        ))}
+                    </tbody>
+                </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Maps DPDPA section keys to human-readable titles and descriptions.
+const DPDPA_SECTIONS: Record<string, { title: string; description: string }> = {
+    Sec4:  { title: 'Sec 4 — Lawful Processing',     description: 'Personal data processed only for lawful purposes with valid consent or legitimate use.' },
+    Sec5:  { title: 'Sec 5 — Purpose Limitation',    description: 'Data collected for a specified purpose; not used beyond declared scope.' },
+    Sec6:  { title: 'Sec 6 — Consent',               description: 'Consent obtained, recorded, and linked to each data asset.' },
+    Sec8:  { title: 'Sec 8 — Data Accuracy',         description: 'Data assets scanned within the last 90 days (stale = gap).' },
+    Sec9:  { title: "Sec 9 — Children's Data",       description: 'Age-indicator fields handled under heightened protection.' },
+    Sec10: { title: 'Sec 10 — Data Fiduciary',       description: 'High-risk assets (score > 60) must have a DPO assigned.' },
+    Sec17: { title: 'Sec 17 — Retention',            description: 'No findings violating their declared retention period.' },
+};
+
+function DPDPAObligationChecklist() {
+    const [report, setReport] = useState<DPDPAGapReport | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [expanded, setExpanded] = useState<string | null>(null);
+
+    useEffect(() => {
+        complianceApi.getDPDPAGaps().then(r => {
+            setReport(r);
+            setLoading(false);
+        });
+    }, []);
+
+    const handleDownloadReport = () => {
+        window.open(complianceApi.getDPDPAReportUrl(), '_blank');
+    };
+
+    const passCount = report?.sections.filter(s => s.gaps === 0).length ?? 0;
+    const totalSections = report?.sections.length ?? 0;
+
+    return (
+        <div style={{
+            backgroundColor: theme.colors.background.card,
+            borderRadius: '12px',
+            border: `1px solid ${theme.colors.border.default}`,
+            overflow: 'hidden',
+            marginBottom: '24px',
+        }}>
+            <div style={{
+                padding: '24px',
+                borderBottom: `1px solid ${theme.colors.border.default}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+            }}>
+                <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: theme.colors.text.primary, margin: 0 }}>
+                        DPDPA 2023 Obligation Checklist
+                    </h3>
+                    <p style={{ fontSize: '13px', color: theme.colors.text.secondary, marginTop: '6px' }}>
+                        {loading ? 'Loading…' : `${passCount} / ${totalSections} sections fully compliant · ${report?.total_gaps ?? 0} total gaps`}
+                    </p>
+                </div>
+                <button
+                    onClick={handleDownloadReport}
+                    style={{
+                        padding: '8px 16px',
+                        backgroundColor: theme.colors.primary.DEFAULT,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                    }}>
+                    Download Gap Report (PDF)
+                </button>
+            </div>
+
+            {loading ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: theme.colors.text.secondary }}>Loading obligation data…</div>
+            ) : !report ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: theme.colors.text.secondary }}>
+                    Obligation data unavailable. Check backend connectivity.
+                </div>
+            ) : (
+                <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {report.sections.map((section: SectionSummary) => {
+                        const meta = DPDPA_SECTIONS[section.section] ?? { title: section.section, description: '' };
+                        const isPass = section.gaps === 0;
+                        const isOpen = expanded === section.section;
+                        const gapItems = report.gaps.filter(g => g.section === section.section);
+
+                        return (
+                            <div
+                                key={section.section}
+                                style={{
+                                    border: `1px solid ${isPass ? theme.colors.risk.low : theme.colors.risk.high}30`,
+                                    borderRadius: '8px',
+                                    overflow: 'hidden',
+                                    backgroundColor: isPass ? `${theme.colors.risk.low}08` : `${theme.colors.risk.high}06`,
+                                }}>
+                                {/* Section header row */}
+                                <button
+                                    onClick={() => setExpanded(isOpen ? null : section.section)}
+                                    style={{
+                                        width: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '12px',
+                                        padding: '14px 16px',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                    }}>
+                                    {/* Status icon */}
+                                    <span style={{ fontSize: '18px', flexShrink: 0 }}>
+                                        {isPass ? '✅' : '⚠️'}
+                                    </span>
+                                    {/* Section name + desc */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 600, fontSize: '14px', color: theme.colors.text.primary }}>
+                                            {meta.title}
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: theme.colors.text.secondary, marginTop: '2px' }}>
+                                            {meta.description}
+                                        </div>
+                                    </div>
+                                    {/* Stats */}
+                                    <div style={{ display: 'flex', gap: '16px', flexShrink: 0, alignItems: 'center' }}>
+                                        <span style={{ fontSize: '12px', color: theme.colors.text.muted }}>
+                                            {section.pass} / {section.total_assets} assets
+                                        </span>
+                                        {!isPass && (
+                                            <span style={{
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                color: 'white',
+                                                backgroundColor: theme.colors.risk.high,
+                                                padding: '2px 8px',
+                                                borderRadius: '999px',
+                                            }}>
+                                                {section.gaps} gaps
+                                            </span>
+                                        )}
+                                        <span style={{ fontSize: '12px', color: theme.colors.text.muted }}>
+                                            {isOpen ? '▲' : '▼'}
+                                        </span>
+                                    </div>
+                                </button>
+
+                                {/* Expanded gap list */}
+                                {isOpen && gapItems.length > 0 && (
+                                    <div style={{
+                                        borderTop: `1px solid ${theme.colors.border.default}`,
+                                        padding: '0',
+                                    }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                            <thead>
+                                                <tr style={{ backgroundColor: theme.colors.background.tertiary }}>
+                                                    <th style={{ padding: '8px 16px', textAlign: 'left', color: theme.colors.text.secondary, fontSize: '11px', textTransform: 'uppercase' }}>Asset</th>
+                                                    <th style={{ padding: '8px 16px', textAlign: 'left', color: theme.colors.text.secondary, fontSize: '11px', textTransform: 'uppercase' }}>Status</th>
+                                                    <th style={{ padding: '8px 16px', textAlign: 'left', color: theme.colors.text.secondary, fontSize: '11px', textTransform: 'uppercase' }}>Evidence</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {gapItems.map(gap => (
+                                                    <tr key={`${gap.asset_id}-${gap.section}`} style={{ borderTop: `1px solid ${theme.colors.border.default}` }}>
+                                                        <td style={{ padding: '10px 16px', fontWeight: 500, color: theme.colors.text.primary }}>
+                                                            {gap.asset_name}
+                                                        </td>
+                                                        <td style={{ padding: '10px 16px' }}>
+                                                            <span style={{
+                                                                fontSize: '11px',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '4px',
+                                                                backgroundColor: gap.status === 'pass' ? `${theme.colors.risk.low}20` : `${theme.colors.risk.high}20`,
+                                                                color: gap.status === 'pass' ? theme.colors.risk.low : theme.colors.risk.high,
+                                                                fontWeight: 600,
+                                                                textTransform: 'uppercase',
+                                                            }}>
+                                                                {gap.status}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '10px 16px', color: theme.colors.text.secondary }}>
+                                                            {gap.evidence}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                                {isOpen && gapItems.length === 0 && (
+                                    <div style={{ padding: '12px 16px', borderTop: `1px solid ${theme.colors.border.default}`, fontSize: '13px', color: theme.colors.text.secondary }}>
+                                        All assets compliant for this section.
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
