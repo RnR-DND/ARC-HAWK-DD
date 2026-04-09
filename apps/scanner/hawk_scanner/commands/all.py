@@ -7,14 +7,15 @@ This command aggregates results from multiple data source types.
 
 Supported sources:
 - filesystem (fs)
-- postgresql
-- mysql
-- mongodb
-- redis
-- s3
-- gcs
-- slack
+- postgresql, mysql, mongodb, redis, couchdb
+- mssql, sqlite, snowflake, redshift, bigquery
+- s3, gcs, azure_blob
+- kafka, kinesis (streaming snapshot)
+- slack, ms_teams
 - firebase
+- pptx, html, parquet, orc, avro (file formats)
+- email (eml/msg)
+- salesforce, jira, hubspot (SaaS)
 """
 
 import sys
@@ -28,16 +29,42 @@ console = Console()
 
 # Define supported commands and their execution order
 SUPPORTED_COMMANDS = [
-    'fs',           # Filesystem
-    'postgresql',   # PostgreSQL databases
-    'mysql',        # MySQL databases
-    'mongodb',      # MongoDB databases
-    'redis',        # Redis databases
-    's3',           # Amazon S3
-    'gcs',          # Google Cloud Storage
-    'slack',        # Slack workspaces
-    'firebase',     # Firebase databases
-    'couchdb',      # CouchDB databases
+    # Filesystems
+    'fs',
+    # Relational DBs
+    'postgresql',
+    'mysql',
+    'mssql',
+    'sqlite',
+    'snowflake',
+    'redshift',
+    # NoSQL
+    'mongodb',
+    'redis',
+    'couchdb',
+    # Cloud object stores
+    's3',
+    'gcs',
+    'azure_blob',
+    # Big data / analytics
+    'bigquery',
+    'parquet',
+    'avro',
+    # Streaming (snapshot scans)
+    'kafka',
+    'kinesis',
+    # Collaboration / messaging
+    'slack',
+    'ms_teams',
+    # Other SaaS
+    'firebase',
+    'salesforce',
+    'jira',
+    'hubspot',
+    # File formats
+    'pptx',
+    'html_files',
+    'email_files',
 ]
 
 

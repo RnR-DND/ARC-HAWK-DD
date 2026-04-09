@@ -3,6 +3,13 @@ from hawk_scanner.internals import system
 from hawk_scanner.internals.validation_integration import validate_findings
 from rich.console import Console
 
+try:
+    from sdk.sampling import should_reservoir_sample, ReservoirSampler
+    from sdk.field_profiler import profile_table, attach_profiling
+    _PROFILING_AVAILABLE = True
+except ImportError:
+    _PROFILING_AVAILABLE = False
+
 console = Console()
 
 
@@ -107,9 +114,28 @@ def check_data_patterns(args, conn, patterns, profile_name, database_name, limit
         cursor.execute(query)
         columns = [column[0] for column in cursor.description]
 
-        row_count = 0
-        for row in cursor.fetchall():
-            row_count += 1
+        # Reservoir sampling for large tables (P4-2)
+        if _PROFILING_AVAILABLE and should_reservoir_sample(table_row_count):
+            system.print_info(
+                args, f"  Large table — reservoir sampling {table_row_count:,} rows → 100k sample")
+            sampler = ReservoirSampler()
+            for row in cursor:
+                sampler.add(row)
+            rows_to_scan = sampler.get_sample()
+            row_count = sampler.items_seen
+        else:
+            rows_to_scan = cursor.fetchall()
+            row_count = len(rows_to_scan)
+
+        # Column profiling (P4-1)
+        table_profiling = {}
+        if _PROFILING_AVAILABLE:
+            table_profiling = profile_table(columns, rows_to_scan)
+
+        # PII match count per column for pattern_frequency
+        pii_count_by_col = {col: 0 for col in columns}
+
+        for row in rows_to_scan:
             for column, value in zip(columns, row):
                 if value:
                     value_str = str(value)
@@ -117,19 +143,23 @@ def check_data_patterns(args, conn, patterns, profile_name, database_name, limit
                     if matches:
                         validated_matches = validate_findings(matches, args)
                         if validated_matches:
+                            pii_count_by_col[column] = pii_count_by_col.get(column, 0) + 1
                             for match in validated_matches:
-                                results.append({
+                                finding = {
                                     'host': conn.dsn,
                                     'database': database_name,
-                                    'schema': schema,  # NEW: Track schema
+                                    'schema': schema,
                                     'table': table,
                                     'column': column,
                                     'pattern_name': match['pattern_name'],
                                     'matches': match['matches'],
                                     'sample_text': match['sample_text'],
                                     'profile': profile_name,
-                                    'data_source': 'postgresql'
-                                })
+                                    'data_source': 'postgresql',
+                                }
+                                if _PROFILING_AVAILABLE and column in table_profiling:
+                                    attach_profiling(finding, table_profiling[column], pii_count_by_col)
+                                results.append(finding)
 
         total_rows_scanned += row_count
 
