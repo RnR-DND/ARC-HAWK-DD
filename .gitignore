@@ -226,8 +226,6 @@ apps/frontend/e2e/
 .codex/
 .opencode/
 
-# Session handoff files
-.continue-here.md
 
 # Stale scan/test outputs
 *.patch
