@@ -55,14 +55,14 @@ func (s *AuditService) RecordAuditLog(ctx context.Context, entry AuditLogEntry) 
 	query := `
 		INSERT INTO audit_logs (
 			user_id, action, resource_type, resource_id,
-			ip_address, result, metadata, event_time
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ip_address, metadata, event_time
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	_, err := s.db.ExecContext(
 		ctx, query,
 		entry.UserID, entry.Action, entry.ResourceType, entry.ResourceID,
-		entry.IPAddress, entry.Result, entry.Metadata, entry.EventTime,
+		entry.IPAddress, entry.Metadata, entry.EventTime,
 	)
 
 	if err != nil {
@@ -75,9 +75,12 @@ func (s *AuditService) RecordAuditLog(ctx context.Context, entry AuditLogEntry) 
 // ListAuditLogs lists audit logs with optional filters
 func (s *AuditService) ListAuditLogs(ctx context.Context, filters AuditFilters) ([]AuditLogEntry, error) {
 	query := `
-		SELECT 
-			id, user_id, action, resource_type, resource_id,
-			ip_address, result, metadata, event_time
+		SELECT
+			id, user_id, action,
+			COALESCE(resource_type, '') as resource_type,
+			COALESCE(resource_id::text, '') as resource_id,
+			COALESCE(ip_address, '') as ip_address,
+			COALESCE(metadata::text, '{}') as metadata, event_time
 		FROM audit_logs
 		WHERE 1=1
 	`
@@ -147,7 +150,7 @@ func (s *AuditService) ListAuditLogs(ctx context.Context, filters AuditFilters) 
 
 		err := rows.Scan(
 			&log.ID, &log.UserID, &log.Action, &log.ResourceType, &log.ResourceID,
-			&log.IPAddress, &log.Result, &metadata, &log.EventTime,
+			&log.IPAddress, &metadata, &log.EventTime,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan audit log: %w", err)
@@ -201,9 +204,12 @@ func (s *AuditService) GetUserActivity(ctx context.Context, userID string, limit
 // GetResourceHistory gets audit history for a specific resource
 func (s *AuditService) GetResourceHistory(ctx context.Context, resourceType, resourceID string) ([]AuditLogEntry, error) {
 	query := `
-		SELECT 
-			id, user_id, action, resource_type, resource_id,
-			ip_address, result, metadata, event_time
+		SELECT
+			id, user_id, action,
+			COALESCE(resource_type, '') as resource_type,
+			COALESCE(resource_id::text, '') as resource_id,
+			COALESCE(ip_address, '') as ip_address,
+			COALESCE(metadata::text, '{}') as metadata, event_time
 		FROM audit_logs
 		WHERE resource_type = $1 AND resource_id = $2
 		ORDER BY event_time DESC
@@ -222,7 +228,7 @@ func (s *AuditService) GetResourceHistory(ctx context.Context, resourceType, res
 
 		err := rows.Scan(
 			&log.ID, &log.UserID, &log.Action, &log.ResourceType, &log.ResourceID,
-			&log.IPAddress, &log.Result, &metadata, &log.EventTime,
+			&log.IPAddress, &metadata, &log.EventTime,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan audit log: %w", err)
@@ -237,9 +243,12 @@ func (s *AuditService) GetResourceHistory(ctx context.Context, resourceType, res
 // GetRecentActivity gets recent activity across all users
 func (s *AuditService) GetRecentActivity(ctx context.Context, limit int) ([]AuditLogEntry, error) {
 	query := `
-		SELECT 
-			id, user_id, action, resource_type, resource_id,
-			ip_address, result, metadata, event_time
+		SELECT
+			id, user_id, action,
+			COALESCE(resource_type, '') as resource_type,
+			COALESCE(resource_id::text, '') as resource_id,
+			COALESCE(ip_address, '') as ip_address,
+			COALESCE(metadata::text, '{}') as metadata, event_time
 		FROM audit_logs
 		ORDER BY event_time DESC
 		LIMIT $1
@@ -258,7 +267,7 @@ func (s *AuditService) GetRecentActivity(ctx context.Context, limit int) ([]Audi
 
 		err := rows.Scan(
 			&log.ID, &log.UserID, &log.Action, &log.ResourceType, &log.ResourceID,
-			&log.IPAddress, &log.Result, &metadata, &log.EventTime,
+			&log.IPAddress, &metadata, &log.EventTime,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan audit log: %w", err)

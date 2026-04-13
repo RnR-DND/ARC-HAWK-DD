@@ -45,13 +45,14 @@ async function getMetricsFromSummary(summary: ClassificationSummary | null): Pro
 
 async function getRecentFindings(): Promise<DashboardFinding[]> {
     try {
-        const response = await get<{ findings: any[], total: number }>('/findings', {
+        const response = await get<any>('/findings', {
             page: 1,
             page_size: 10,
             severity: 'High,Medium'
         });
 
-        const findings = response?.findings || [];
+        // Backend returns { data: { findings: [...] } }
+        const findings = response?.data?.findings || response?.findings || [];
 
         return findings.slice(0, 5).map((f: any) => ({
             id: f.id || f.finding_id,
@@ -108,12 +109,13 @@ async function getRiskDistribution(): Promise<{
             }
         }
 
-        const findingsRes = await get<{ findings: any[] }>('/findings', {
+        const findingsRes = await get<any>('/findings', {
             page: 1,
             page_size: 50
         });
 
-        const findings = findingsRes?.findings || [];
+        // Backend returns { data: { findings: [...] } }
+        const findings = findingsRes?.data?.findings || findingsRes?.findings || [];
 
         for (const f of findings) {
             const assetName = f.asset_name || f.asset?.name || 'Unknown';
@@ -166,13 +168,15 @@ export const dashboardApi = {
                 getRiskDistribution()
             ]);
 
+            // Backend wraps scan in { data: {...} }
+            const latestScanData = latestScan?.data ?? latestScan;
             return {
                 metrics,
                 recentFindings,
                 riskDistribution: riskDist.byPiiType,
                 riskByAsset: riskDist.byAsset,
                 riskByConfidence: riskDist.byConfidence,
-                latestScanId: latestScan?.id || latestScan?.scan_id || null
+                latestScanId: latestScanData?.id || latestScanData?.scan_id || null
             };
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
