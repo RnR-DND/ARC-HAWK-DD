@@ -85,6 +85,22 @@ export default function ReportsPage() {
                     }];
                     filename = 'compliance_summary';
                     break;
+                case 'trend':
+                    const trendFindings = await findingsApi.getFindings({ page_size: 1000 });
+                    const byDate: Record<string, any> = {};
+                    for (const f of (trendFindings.findings || [])) {
+                        const date = new Date(f.created_at).toLocaleDateString();
+                        if (!byDate[date]) byDate[date] = { date, total: 0, critical: 0, high: 0, medium: 0, low: 0 };
+                        byDate[date].total++;
+                        const sev = (f.severity || '').toLowerCase();
+                        if (sev === 'critical') byDate[date].critical++;
+                        else if (sev === 'high') byDate[date].high++;
+                        else if (sev === 'medium') byDate[date].medium++;
+                        else byDate[date].low++;
+                    }
+                    data = Object.values(byDate);
+                    filename = 'trend_analysis';
+                    break;
             }
 
             exportToCSV(data, filename);

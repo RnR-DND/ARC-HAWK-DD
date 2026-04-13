@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { scansApi } from '@/services/scans.api';
+import { ScanConfigModal } from '@/components/scans/ScanConfigModal';
 import { colors } from '@/design-system/colors';
 import { theme } from '@/design-system/themes';
 import LoadingState from '@/components/LoadingState';
@@ -24,6 +25,7 @@ export default function PosturePage() {
     const [error, setError] = useState<string | null>(null);
     const [scanning, setScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState(0);
+    const [isScanModalOpen, setIsScanModalOpen] = useState(false);
 
     useEffect(() => {
         fetchScans();
@@ -47,63 +49,8 @@ export default function PosturePage() {
         }
     };
 
-    const handleRunScan = async () => {
-        setScanning(true);
-        setScanProgress(0);
-        setError(null);
-
-        try {
-            // Call backend API to trigger scan via centralized API client
-            const result = await scansApi.triggerScan({});
-            console.log('Scan triggered:', result);
-
-            // Simulate progress while scan runs in background
-            const progressInterval = setInterval(() => {
-                setScanProgress(prev => {
-                    if (prev >= 90) {
-                        clearInterval(progressInterval);
-                        return 90;
-                    }
-                    return prev + 10;
-                });
-            }, 1000);
-
-            // Poll for completion (check every 3 seconds for 30 seconds max)
-            let attempts = 0;
-            const maxAttempts = 10;
-            const pollInterval = setInterval(async () => {
-                attempts++;
-                try {
-                    const latest = await scansApi.getLastScanRun();
-                    if (latest && latest.id !== latestScan?.id) {
-                        // New scan detected!
-                        clearInterval(progressInterval);
-                        clearInterval(pollInterval);
-                        setScanProgress(100);
-                        setTimeout(() => {
-                            setScanning(false);
-                            fetchScans();
-                        }, 1000);
-                    } else if (attempts >= maxAttempts) {
-                        // Timeout - stop polling
-                        clearInterval(progressInterval);
-                        clearInterval(pollInterval);
-                        setScanProgress(100);
-                        setTimeout(() => {
-                            setScanning(false);
-                            fetchScans();
-                        }, 1000);
-                    }
-                } catch (err) {
-                    console.error('Polling error:', err);
-                }
-            }, 3000);
-
-        } catch (err: any) {
-            console.error('Scan error:', err);
-            setError(err.message || 'Failed to start scan');
-            setScanning(false);
-        }
+    const handleRunScan = () => {
+        setIsScanModalOpen(true);
     };
 
     const formatDate = (dateStr: string) => {
@@ -403,11 +350,7 @@ export default function PosturePage() {
                 </div>
             </div>
 
-            <style jsx global>{`
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
+            <ScanConfigModal isOpen={isScanModalOpen} onClose={() => { setIsScanModalOpen(false); fetchScans(); }} />
         </div>
     );
 }

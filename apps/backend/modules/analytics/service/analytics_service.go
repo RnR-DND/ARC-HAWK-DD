@@ -62,8 +62,8 @@ func NewAnalyticsService(pgRepo *persistence.PostgresRepository) *AnalyticsServi
 }
 
 // GetPIIHeatmap returns the PII distribution heatmap
+// Uses a single JOIN query instead of per-finding lookups to avoid N+1 performance issues.
 func (s *AnalyticsService) GetPIIHeatmap(ctx context.Context) (*PIIHeatmap, error) {
-	// Define 11 locked PII types
 	piiTypes := []string{
 		"IN_AADHAAR", "IN_PAN", "IN_PASSPORT", "CREDIT_CARD",
 		"IN_UPI", "IN_IFSC", "IN_BANK_ACCOUNT",
@@ -71,83 +71,89 @@ func (s *AnalyticsService) GetPIIHeatmap(ctx context.Context) (*PIIHeatmap, erro
 		"IN_VOTER_ID", "IN_DRIVING_LICENSE",
 	}
 
-	// Define asset types
-	assetTypes := []string{"file", "database"}
-
 	heatmap := &PIIHeatmap{
 		Rows:    []HeatmapRow{},
 		Columns: piiTypes,
 	}
 
-	// Get all findings
-	findings, err := s.pgRepo.ListFindings(ctx, repository.FindingFilters{}, 10000, 0)
+	rows, err := s.pgRepo.GetDB().QueryContext(ctx, `
+		SELECT a.asset_type, c.sub_category, f.severity, COUNT(*) AS cnt
+		FROM findings f
+		JOIN assets a ON f.asset_id = a.id
+		JOIN classifications c ON c.finding_id = f.id
+		WHERE c.sub_category IS NOT NULL AND c.sub_category <> ''
+		GROUP BY a.asset_type, c.sub_category, f.severity
+	`)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list findings: %w", err)
+		return nil, fmt.Errorf("failed to query heatmap data: %w", err)
+	}
+	defer rows.Close()
+
+	type cellData struct {
+		count     int
+		riskLevel string
+	}
+	heatData := make(map[string]map[string]*cellData) // assetType -> piiType -> data
+	assetTotals := make(map[string]int)
+	var orderedAssetTypes []string
+
+	for rows.Next() {
+		var assetType, piiType, severity string
+		var count int
+		if err := rows.Scan(&assetType, &piiType, &severity, &count); err != nil {
+			continue
+		}
+		if _, ok := heatData[assetType]; !ok {
+			heatData[assetType] = make(map[string]*cellData)
+			orderedAssetTypes = append(orderedAssetTypes, assetType)
+		}
+		cd := heatData[assetType][piiType]
+		if cd == nil {
+			cd = &cellData{riskLevel: "Low"}
+			heatData[assetType][piiType] = cd
+		}
+		cd.count += count
+		assetTotals[assetType] += count
+		switch severity {
+		case "Critical":
+			cd.riskLevel = "Critical"
+		case "High":
+			if cd.riskLevel != "Critical" {
+				cd.riskLevel = "High"
+			}
+		case "Medium":
+			if cd.riskLevel == "Low" {
+				cd.riskLevel = "Medium"
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("heatmap query error: %w", err)
 	}
 
-	// Build heatmap data
-	for _, assetType := range assetTypes {
+	for _, assetType := range orderedAssetTypes {
+		piiMap := heatData[assetType]
+		maxCount := 0
+		for _, cd := range piiMap {
+			if cd.count > maxCount {
+				maxCount = cd.count
+			}
+		}
+
 		row := HeatmapRow{
 			AssetType: assetType,
 			Cells:     []HeatmapCell{},
-			Total:     0,
+			Total:     assetTotals[assetType],
 		}
-
-		// Count findings for each PII type
-		piiCounts := make(map[string]int)
-		piiRisks := make(map[string]string)
-		maxCount := 0
-
-		for _, finding := range findings {
-			// Get asset
-			asset, err := s.pgRepo.GetAssetByID(ctx, finding.AssetID)
-			if err != nil || asset.AssetType != assetType {
-				continue
-			}
-
-			// Get classification
-			classifications, err := s.pgRepo.GetClassificationsByFindingID(ctx, finding.ID)
-			if err != nil || len(classifications) == 0 {
-				continue
-			}
-
-			piiType := classifications[0].SubCategory
-			if piiType == "" {
-				continue
-			}
-
-			piiCounts[piiType]++
-			row.Total++
-
-			if piiCounts[piiType] > maxCount {
-				maxCount = piiCounts[piiType]
-			}
-
-			// Track highest risk level
-			if finding.Severity == "Critical" {
-				piiRisks[piiType] = "Critical"
-			} else if finding.Severity == "High" && piiRisks[piiType] != "Critical" {
-				piiRisks[piiType] = "High"
-			} else if finding.Severity == "Medium" && piiRisks[piiType] != "Critical" && piiRisks[piiType] != "High" {
-				piiRisks[piiType] = "Medium"
-			} else if piiRisks[piiType] == "" {
-				piiRisks[piiType] = "Low"
-			}
-		}
-
-		// Create cells for each PII type
 		for _, piiType := range piiTypes {
-			count := piiCounts[piiType]
-			risk := piiRisks[piiType]
-			if risk == "" {
-				risk = "Low"
+			count, risk, intensity := 0, "Low", 0
+			if cd, ok := piiMap[piiType]; ok {
+				count = cd.count
+				risk = cd.riskLevel
+				if maxCount > 0 {
+					intensity = (count * 100) / maxCount
+				}
 			}
-
-			intensity := 0
-			if maxCount > 0 {
-				intensity = (count * 100) / maxCount
-			}
-
 			row.Cells = append(row.Cells, HeatmapCell{
 				PIIType:      piiType,
 				FindingCount: count,
@@ -155,7 +161,6 @@ func (s *AnalyticsService) GetPIIHeatmap(ctx context.Context) (*PIIHeatmap, erro
 				Intensity:    intensity,
 			})
 		}
-
 		heatmap.Rows = append(heatmap.Rows, row)
 	}
 

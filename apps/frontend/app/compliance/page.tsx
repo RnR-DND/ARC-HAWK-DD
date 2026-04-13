@@ -42,11 +42,8 @@ export default function CompliancePage() {
 
     const fetchComplianceData = async () => {
         try {
-            const res = await fetch(`/api/v1/compliance/overview`);
-            if (res.ok) {
-                const jsonData = await res.json();
-                setData(jsonData);
-            }
+            const jsonData = await complianceApi.getOverview();
+            setData(jsonData);
         } catch (error) {
             console.error('Failed to fetch compliance data', error);
         } finally {

@@ -39,7 +39,7 @@ func (h *RemediationHistoryHandler) GetHistory(c *gin.Context) {
 		record := map[string]interface{}{
 			"id":             action.ID,
 			"finding_id":     action.FindingID,
-			"action_type":    action.ActionType,
+			"action":         action.ActionType,
 			"executed_by":    action.ExecutedBy,
 			"executed_at":    action.ExecutedAt,
 			"status":         action.Status,

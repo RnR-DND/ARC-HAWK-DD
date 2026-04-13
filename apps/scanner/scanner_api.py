@@ -552,6 +552,20 @@ def execute_scan(scan_id, config):
         except Exception as e:
             logger.warning(f"Failed to notify backend of completion: {e}")
 
+        # Post-scan hooks: populate Neo4j lineage graph and take a discovery snapshot
+        # so the Lineage and Discovery pages show current data without manual triggers.
+        try:
+            requests.post(f'{BACKEND_URL}/api/v1/lineage/sync', json={}, timeout=60)
+            logger.info(f"Scan {scan_id}: lineage sync triggered")
+        except Exception as e:
+            logger.warning(f"Scan {scan_id}: lineage sync failed: {e}")
+
+        try:
+            requests.post(f'{BACKEND_URL}/api/v1/discovery/snapshots/trigger', json={}, timeout=60)
+            logger.info(f"Scan {scan_id}: discovery snapshot triggered")
+        except Exception as e:
+            logger.warning(f"Scan {scan_id}: discovery snapshot failed: {e}")
+
     except Exception as e:
         logger.error(f"Scan {scan_id} failed: {e}")
         scan_state_update(scan_id, {'status': 'failed', 'error': str(e)})
