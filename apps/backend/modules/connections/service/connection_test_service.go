@@ -91,6 +91,20 @@ func (s *TestConnectionService) TestConnection(ctx context.Context, connID strin
 	}
 
 	result.ResponseTime = time.Since(startTime).Milliseconds()
+
+	// Persist the validation result so the UI reflects the latest test outcome.
+	validationStatus := "failed"
+	if result.Success {
+		validationStatus = "valid"
+	}
+	var validationErr *string
+	if result.ErrorDetails != "" {
+		e := result.ErrorDetails
+		validationErr = &e
+	}
+	// Best-effort — don't fail the test response if the DB update fails.
+	_ = s.pgRepo.UpdateConnectionValidation(ctx, connUUID, validationStatus, validationErr)
+
 	return result, nil
 }
 

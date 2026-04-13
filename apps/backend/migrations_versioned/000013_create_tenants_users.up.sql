@@ -31,11 +31,12 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
--- Seed default system tenant (uuid.Nil = 00000000-0000-0000-0000-000000000000)
--- This is the anonymous/dev tenant used when AUTH_REQUIRED is not set
+-- Seed default system tenant (DevSystemTenantID = 00000000-0000-0000-0000-000000000001)
+-- Must NOT use uuid.Nil (000...000) — EnsureTenantID rejects nil UUIDs as a security guard.
+-- All scan-ingested assets/findings use this ID; discovery worker also resolves to this ID.
 INSERT INTO tenants (id, name, slug, description, is_active, settings, created_at, updated_at)
 VALUES (
-    '00000000-0000-0000-0000-000000000000',
+    '00000000-0000-0000-0000-000000000001',
     'System Default',
     'system-default',
     'Default system tenant for development and anonymous access',

@@ -128,19 +128,17 @@ func (u *upstreamFromDeps) ListAssetSummaries(ctx context.Context, limit, offset
 	return out, rows.Err()
 }
 
-// CountSourcesForTenant returns distinct source count from the connections table for the tenant in ctx.
+// CountSourcesForTenant returns the total connection count from the connections table.
+// The connections table is not tenant-scoped (no tenant_id column), so all connections
+// are returned regardless of the tenant in ctx. The tenant is still validated for security.
 func (u *upstreamFromDeps) CountSourcesForTenant(ctx context.Context) (int, error) {
-	tenantID, err := persistence.EnsureTenantID(ctx)
-	if err != nil {
+	if _, err := persistence.EnsureTenantID(ctx); err != nil {
 		return 0, err
 	}
 	var n int
-	err = u.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM connections WHERE tenant_id = $1`, tenantID,
-	).Scan(&n)
+	err := u.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM connections`).Scan(&n)
 	if err != nil {
-		// If the connections table is empty/unmigrated, fall back to 0 rather than erroring.
-		// Discovery should still work even if no connections are registered yet.
+		// Graceful degradation: discovery works even if connections table is unavailable.
 		return 0, nil
 	}
 	return n, nil

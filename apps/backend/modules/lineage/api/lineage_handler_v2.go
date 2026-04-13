@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/arc-platform/backend/modules/lineage/service"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/gin-gonic/gin"
 )
 
@@ -131,10 +132,17 @@ func countNodesByType(nodes []service.SemanticNode, nodeType string) int {
 // SyncLineage handles POST /api/v1/lineage/sync
 // Triggers full sync from PostgreSQL to Neo4j
 func (h *LineageHandlerV2) SyncLineage(c *gin.Context) {
-	// Launch sync in background to avoid timeout
+	// Carry tenant ID from the request context into the detached background context.
+	// context.Background() is needed because request context cancels on response send,
+	// but we still need the tenant ID for all downstream DB queries.
+	tenantID, err := persistence.GetTenantID(c.Request.Context())
+	if err != nil {
+		// Fall back to dev system tenant if not set (e.g. auth disabled).
+		tenantID = persistence.DevSystemTenantID
+	}
+	bgCtx := context.WithValue(context.Background(), persistence.TenantIDKey, tenantID)
+
 	go func() {
-		// Create a new background context since request context will be cancelled
-		bgCtx := context.Background()
 		if err := h.semanticLineageService.SyncLineage(bgCtx); err != nil {
 			log.Printf("ERROR: Async lineage sync failed: %v", err)
 		}

@@ -113,6 +113,15 @@ func (s *InventoryService) GetOverviewSummary(ctx context.Context, repo *Repo) (
 		out.SourceCount = srcCount
 	}
 
+	// Supplement SourceCount from connections if snapshot didn't track it.
+	// The connections table is not yet linked to the snapshot aggregation pipeline,
+	// so fall back to a live connection count when the snapshot reports 0.
+	if out.SourceCount == 0 {
+		if srcCount, err := s.upstream.CountSourcesForTenant(ctx); err == nil && srcCount > 0 {
+			out.SourceCount = srcCount
+		}
+	}
+
 	hotspots, err := repo.ListTopRiskHotspots(ctx, 5)
 	if err == nil {
 		for _, h := range hotspots {
