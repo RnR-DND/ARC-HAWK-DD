@@ -42,6 +42,8 @@ services:
   neo4j:
     image: neo4j:5.15-community
     container_name: arc-platform-neo4j
+    # neo4j 5.x with APOC exits(1) on first start after plugin install then restarts cleanly
+    restart: on-failure
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.11
