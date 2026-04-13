@@ -92,8 +92,9 @@ async function getRiskDistribution(): Promise<{
     byConfidence: Record<string, number>;
 }> {
     try {
-        const summaryRes = await get<ClassificationSummary>('/classification/summary');
-        const summary = summaryRes;
+        const summaryRes = await get<any>('/classification/summary');
+        // Backend returns { data: {...} } wrapper
+        const summary: ClassificationSummary = summaryRes?.data ?? summaryRes;
 
         const byPiiType: Record<string, number> = {};
         const byAsset: Record<string, number> = {};
@@ -157,7 +158,8 @@ export const dashboardApi = {
                 }
             } catch {
                 // Fallback: derive metrics from classification summary
-                const summary = await get<ClassificationSummary>('/classification/summary').catch(() => null);
+                const summaryRaw = await get<any>('/classification/summary').catch(() => null);
+                const summary: ClassificationSummary | null = summaryRaw?.data ?? summaryRaw;
                 metrics = await getMetricsFromSummary(summary);
             }
 
