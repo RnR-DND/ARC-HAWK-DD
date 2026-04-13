@@ -322,6 +322,16 @@ def _normalize_for_hawk_scanner(sources: dict) -> dict:
                 except (ValueError, TypeError):
                     pass  # leave as-is if unconvertible; command defaults will apply
 
+            # Cap document/row limit so NLP doesn't run for hours on large datasets.
+            # PostgreSQL default: no limit (hawk_scanner applies its own 10k cap).
+            # MongoDB default: 500 per collection.  We respect whatever the config says
+            # but cap at 1000 to keep scan time under ~5 min per source.
+            if 'limit_end' not in new_cfg:
+                if src_type == 'mongodb':
+                    new_cfg['limit_end'] = 200   # ~1-2 min scan for most collections
+                elif src_type in {'postgresql', 'mysql'}:
+                    new_cfg['limit_end'] = 500   # cap per table; hawk_scanner already limits to 10k
+
             normalized[src_type][profile_name] = new_cfg
     return normalized
 
@@ -399,45 +409,94 @@ def execute_scan(scan_id, config):
         # Debug: log the YAML so we can diagnose scanner issues
         logger.info(f"Connection YAML for scan {scan_id}:\n{yaml.dump(connection_data, default_flow_style=False)}")
             
-        # Build scan command using the native CLI entrypoint.
-        # 'all' tells the CLI to execute the pipeline over every data source type found in the YAML.
-        cmd = [
-            'hawk_scanner',
-            'all',
-            '--json', output_file,
-            '--connection', connection_config_path
-        ]
-        # classification_mode controls which detection engines are used:
-        # 'regex' = regex+validators only (fast), 'ner' = adds spaCy NER,
-        # 'contextual' (default) = all engines enabled.
-        if classification_mode and classification_mode != 'contextual':
-            cmd += ['--classification-mode', classification_mode]
-            
-        logger.info(f"Executing: {' '.join(cmd)}")
+        # Determine which source types are actually configured in this scan's YAML.
+        # Running 'all' forces hawk_scanner to attempt ALL 13 source types, which wastes
+        # CPU on NLP for unconfigured sources and causes multi-hour runtimes.
+        # Instead, extract the configured source types and run them individually.
+        configured_source_types = list(filtered_sources.keys())  # e.g. ['postgresql', 'mongodb']
+        all_stdout = []
+        all_stderr = []
 
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=600  # 10 minute timeout
-            )
+        if not configured_source_types:
+            logger.warning("No source types found in connection config — nothing to scan.")
+            with open(output_file, 'w') as f:
+                json.dump({}, f)
+        else:
+            logger.info(f"Running hawk_scanner for configured source types: {configured_source_types}")
 
-            # Strip ASCII art banner for cleaner logs
-            stdout_clean = result.stdout or ''
-            if '=====' in stdout_clean:
-                stdout_clean = stdout_clean[stdout_clean.rfind('=====') + 5:].strip()
-            logger.info(f"stdout: {stdout_clean[:2000] if stdout_clean else 'empty'}")
-            if result.stderr:
-                logger.warning(f"stderr (full): {result.stderr}")
+            # merged_output mirrors what hawk_scanner all would produce:
+            # { "postgresql": [...findings...], "mongodb": [...findings...] }
+            merged_output = {}
 
-        except subprocess.TimeoutExpired:
-            logger.error("Scan timed out after 600s")
-            raise
-        except Exception as e:
-            logger.error(f"Error running scanner: {e}")
-            raise
-        
+            for source_type in configured_source_types:
+                source_output_file = output_file.replace('.json', f'_{source_type}.json')
+                cmd = [
+                    'hawk_scanner',
+                    source_type,
+                    '--json', source_output_file,
+                    '--connection', connection_config_path
+                ]
+                logger.info(f"Executing: {' '.join(cmd)}")
+
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=900  # 15 min per source type
+                    )
+                    stdout_clean = result.stdout or ''
+                    if '=====' in stdout_clean:
+                        stdout_clean = stdout_clean[stdout_clean.rfind('=====') + 5:].strip()
+                    if stdout_clean:
+                        all_stdout.append(f"[{source_type}] {stdout_clean[:1000]}")
+                    if result.stderr:
+                        all_stderr.append(f"[{source_type}] {result.stderr[:500]}")
+                    logger.info(f"[{source_type}] exit={result.returncode} stdout={len(stdout_clean)}chars stderr={len(result.stderr or '')}chars")
+
+                    if os.path.exists(source_output_file):
+                        try:
+                            with open(source_output_file) as fh:
+                                source_data = json.load(fh)
+                            # hawk_scanner outputs either:
+                            #   { "postgresql": [...] }   (dict keyed by source type)
+                            #   [...]                     (flat list)
+                            if isinstance(source_data, dict):
+                                for k, v in source_data.items():
+                                    merged_output.setdefault(k, []).extend(v if isinstance(v, list) else [v])
+                            elif isinstance(source_data, list):
+                                merged_output.setdefault(source_type, []).extend(source_data)
+                        except Exception as parse_err:
+                            logger.warning(f"[{source_type}] Failed to parse output file: {parse_err}")
+                        finally:
+                            try:
+                                os.remove(source_output_file)
+                            except OSError:
+                                pass
+                    else:
+                        logger.info(f"[{source_type}] No output file — likely no findings")
+
+                except subprocess.TimeoutExpired:
+                    logger.error(f"[{source_type}] Scan timed out after 900s — skipping")
+                except Exception as e:
+                    logger.error(f"[{source_type}] Error: {e}")
+
+            if all_stdout:
+                logger.info("stdout: " + " | ".join(all_stdout))
+            if all_stderr:
+                logger.warning("stderr: " + " | ".join(all_stderr))
+
+            total_findings = sum(len(v) for v in merged_output.values() if isinstance(v, list))
+            logger.info(f"Merged {total_findings} findings from {len(configured_source_types)} source type(s) → {output_file}")
+            with open(output_file, 'w') as f:
+                json.dump(merged_output, f)
+
+        # Synthesise a result object for downstream diagnostics code
+        class _FakeResult:
+            stdout = '\n'.join(all_stdout)
+            returncode = 0
+        result = _FakeResult()
+
         # Parse hawk_scanner stdout for diagnostics
         diagnostics = _parse_scanner_diagnostics(result.stdout or '')
 

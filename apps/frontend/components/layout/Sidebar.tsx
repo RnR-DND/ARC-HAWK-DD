@@ -8,9 +8,7 @@ import {
     ScanSearch,
     Database,
     Search,
-    GitBranch,
     Shield,
-    History,
     Settings,
     Compass,
     ClipboardList,
@@ -18,7 +16,6 @@ import {
     Plug,
     BarChart3,
     CheckSquare,
-    Lock,
     FileText,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,16 +29,13 @@ const navigation = [
     { name: 'Scans', href: '/scans', icon: ScanSearch },
     { name: 'Assets', href: '/assets', icon: Database },
     { name: 'Findings', href: '/findings', icon: Search },
-    { name: 'Lineage', href: '/lineage', icon: GitBranch },
     { name: 'Remediation', href: '/remediation', icon: Shield },
-    { name: 'History', href: '/history', icon: History },
     { name: 'Audit Logs', href: '/audit', icon: ClipboardList },
 ];
 
 const analyticsNav = [
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Compliance', href: '/compliance', icon: CheckSquare },
-    { name: 'Posture', href: '/posture', icon: Lock },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Reports', href: '/reports', icon: FileText },
 ];
 

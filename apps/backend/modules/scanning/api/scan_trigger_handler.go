@@ -165,8 +165,8 @@ func tenantIDFromCtx(c *gin.Context) uuid.UUID {
 }
 
 func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerScanRequest, tenantID uuid.UUID) {
-	// Apply a 15-minute context timeout so this goroutine cannot run forever
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	// Apply a 35-minute context timeout so this goroutine cannot run forever
+	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Minute)
 	defer cancel()
 	log.Printf("Starting scan execution: %s", scanID.String())
 

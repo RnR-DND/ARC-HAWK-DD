@@ -88,14 +88,6 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 		assetMap[assetID] = true
 	}
 
-	// Update asset stats (TotalFindings, RiskScore)
-	for assetID := range assetMap {
-		if err := s.recalculateAssetRisk(ctx, assetID); err != nil {
-			log.Printf("failed to recalculate risk for asset %s: %v", assetID, err)
-			// Continue - don't fail the whole ingestion for a stats update failure
-		}
-	}
-
 	// Update ScanRun total counts — accumulate across chunks, don't overwrite
 	scanRun.TotalFindings += acceptedFindingsCount
 	scanRun.TotalAssets += len(assetMap)
@@ -104,9 +96,17 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 		return fmt.Errorf("failed to update scan run with final stats: %w", err)
 	}
 
-	// Commit transaction
+	// Commit transaction first so findings are visible to the count queries below
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Update asset stats (TotalFindings, RiskScore) — must run AFTER commit so
+	// CountFindings sees the newly inserted rows.
+	for assetID := range assetMap {
+		if err := s.recalculateAssetRisk(ctx, assetID); err != nil {
+			log.Printf("failed to recalculate risk for asset %s: %v", assetID, err)
+		}
 	}
 
 	return nil

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, CheckCircle, Clock, Play, Pause, RotateCcw } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, Clock, Play, Pause, RotateCcw, History } from 'lucide-react';
+import Link from 'next/link';
 import { theme } from '@/design-system/theme';
 import { remediationApi } from '@/services/remediation.api';
 
@@ -172,6 +173,20 @@ export default function RemediationPage() {
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
+                            <Link
+                                href="/history"
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                    padding: '10px 16px', borderRadius: '8px',
+                                    border: `1px solid ${theme.colors.border.default}`,
+                                    backgroundColor: theme.colors.background.card,
+                                    color: theme.colors.text.secondary,
+                                    fontSize: '14px', fontWeight: 500, textDecoration: 'none',
+                                }}
+                            >
+                                <History style={{ width: '16px', height: '16px' }} />
+                                Action History
+                            </Link>
                             <button
                                 onClick={handleRunAllPending}
                                 disabled={loading || stats.pendingTasks === 0}

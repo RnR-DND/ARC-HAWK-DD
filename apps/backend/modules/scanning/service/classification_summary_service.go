@@ -47,8 +47,14 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 		return nil, fmt.Errorf("failed to get classification summary: %w", err)
 	}
 
-	totalRaw, _ := rawSummary["total"].(int64)
-	total := int(totalRaw)
+	// repo stores count/total as int (not int64); accept both to be safe
+	total := 0
+	switch v := rawSummary["total"].(type) {
+	case int:
+		total = v
+	case int64:
+		total = int(v)
+	}
 	byTypeRaw, _ := rawSummary["by_type"].(map[string]any)
 
 	byType := make(map[string]TypeBreakdown)
@@ -61,8 +67,13 @@ func (s *ClassificationSummaryService) GetClassificationSummary(ctx context.Cont
 		if dataMap == nil {
 			continue
 		}
-		countRaw, _ := dataMap["count"].(int64)
-		count := int(countRaw)
+		count := 0
+		switch v := dataMap["count"].(type) {
+		case int:
+			count = v
+		case int64:
+			count = int(v)
+		}
 		avgConf, _ := dataMap["avg_confidence"].(float64)
 
 		breakdown := TypeBreakdown{
