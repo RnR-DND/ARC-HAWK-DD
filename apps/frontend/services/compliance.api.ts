@@ -79,8 +79,50 @@ export const complianceApi = {
 
     getDPDPAGaps: async (): Promise<DPDPAGapReport | null> => {
         try {
-            const res = await get<any>('/compliance/dpdpa/gaps');
-            return res?.data ?? res;
+            const raw = await get<any>('/compliance/dpdpa/gaps');
+            const body = raw?.data ?? raw;
+            if (!body) return null;
+
+            // Backend returns { gaps_by_section: { "Sec4_LawfulProcessing": [...], ... }, summary: {...} }
+            // Frontend expects { sections: SectionSummary[], gaps: ObligationGap[], total_gaps: number }
+            const gapsBySection: Record<string, any[]> = body.gaps_by_section ?? {};
+            const gaps: ObligationGap[] = [];
+            const sections: SectionSummary[] = [];
+
+            for (const [sectionKey, items] of Object.entries(gapsBySection)) {
+                // Strip suffix after underscore: "Sec4_LawfulProcessing" → "Sec4"
+                const section = sectionKey.replace(/_.*$/, '');
+                const sectionItems = Array.isArray(items) ? items : [];
+
+                const gapCount = sectionItems.filter(i => i.status === 'fail').length;
+                const passCount = sectionItems.filter(i => i.status === 'pass').length;
+                sections.push({
+                    section,
+                    section_title: section,
+                    total_assets: sectionItems.length,
+                    gaps: gapCount,
+                    pass: passCount,
+                });
+
+                for (const item of sectionItems) {
+                    gaps.push({
+                        asset_id: item.asset_id,
+                        asset_name: item.asset_name,
+                        section,
+                        section_title: section,
+                        status: item.status === 'fail' ? 'gap' : 'pass',
+                        evidence: item.detail ?? '',
+                    });
+                }
+            }
+
+            return {
+                generated_at: body.generated_at ?? new Date().toISOString(),
+                total_assets: body.total_assets ?? 0,
+                total_gaps: body.summary?.total_gaps ?? gaps.filter(g => g.status === 'gap').length,
+                sections,
+                gaps,
+            };
         } catch {
             return null;
         }
