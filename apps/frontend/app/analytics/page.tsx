@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { theme, getRiskColor } from '@/design-system/theme';
 import Tooltip, { InfoIcon } from '@/components/Tooltip';
 import ErrorBanner from '@/components/ErrorBanner';
+import { analyticsApi } from '@/services/analytics.api';
 
 interface PIIHeatmap {
     rows: HeatmapRow[];
@@ -48,18 +49,9 @@ export default function AnalyticsPage() {
         setError(null);
 
         try {
-            const [heatmapRes, trendRes] = await Promise.all([
-                fetch(`/api/v1/analytics/heatmap`),
-                fetch(`/api/v1/analytics/trends?days=30`)
-            ]);
-
-            if (!heatmapRes.ok || !trendRes.ok) {
-                throw new Error('Failed to fetch analytics data');
-            }
-
             const [heatmapData, trendData] = await Promise.all([
-                heatmapRes.json(),
-                trendRes.json()
+                analyticsApi.getHeatmap(),
+                analyticsApi.getTrends(30),
             ]);
 
             setHeatmap(heatmapData);

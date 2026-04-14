@@ -1,5 +1,6 @@
 import { post, get, del } from '@/utils/api-client';
 import { IngestResult } from '@/types';
+import { unwrapResponse, unwrapArray } from '@/lib/api-utils';
 
 export const scansApi = {
     /**
@@ -23,8 +24,7 @@ export const scansApi = {
     getLastScanRun: async (): Promise<any> => {
         try {
             const response = await get<any>('/scans/latest');
-            // Backend returns { data: {...} } wrapper
-            return response?.data ?? response;
+            return unwrapResponse(response, null);
         } catch (error) {
             console.error('Failed to fetch last scan:', error);
             return null;
@@ -33,11 +33,8 @@ export const scansApi = {
 
     getScans: async (): Promise<any[]> => {
         try {
-            // The backend returns { data: [...] } structure
             const response = await get<any>('/scans');
-            // Unwrap the backend's response wrapper and handle null
-            const scans = response?.data ?? response;
-            return Array.isArray(scans) ? scans : [];
+            return unwrapArray(response);
         } catch (error) {
             console.error('Failed to fetch scans:', error);
             return [];
@@ -78,7 +75,7 @@ export const scansApi = {
     getScanPIISummary: async (id: string): Promise<any[]> => {
         try {
             const response = await get<any>(`/scans/${id}/pii-summary`);
-            return response?.data ?? [];
+            return unwrapArray(response);
         } catch (error) {
             console.error(`Failed to fetch PII summary for scan ${id}:`, error);
             return [];

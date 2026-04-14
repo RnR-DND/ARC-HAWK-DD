@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/arc/hawk-agent/internal/config"
@@ -26,11 +27,13 @@ type PendingResult struct {
 }
 
 // LocalQueue manages the SQLite offline buffer.
+// Canonical implementation — keep in sync with hawk/agent/internal/buffer/local_queue.go.
 type LocalQueue struct {
-	db     *sql.DB
-	cfg    *config.Config
-	logger *zap.Logger
-	mu     sync.Mutex
+	db         *sql.DB
+	cfg        *config.Config
+	logger     *zap.Logger
+	mu         sync.Mutex
+	pauseScans atomic.Bool // set true when buffer is at capacity with all pending items
 }
 
 // NewLocalQueue opens (or creates) the SQLite queue database.
@@ -89,38 +92,60 @@ func (lq *LocalQueue) migrate() error {
 }
 
 // Enqueue inserts a scan result into the offline buffer.
-// Returns an error if the buffer size limit is exceeded and all entries are pending.
-func (lq *LocalQueue) Enqueue(scanJobID string, batchSeq int, payload []byte) error {
+// Returns (true, nil) if the result was queued, (false, nil) if the buffer is
+// at capacity with all entries pending (scans should pause — call IsPaused()).
+// Returns (false, err) only on genuine I/O failures.
+func (lq *LocalQueue) Enqueue(scanJobID string, batchSeq int, payload []byte) (bool, error) {
 	lq.mu.Lock()
 	defer lq.mu.Unlock()
+
+	// Short-circuit if already paused.
+	if lq.pauseScans.Load() {
+		lq.logger.Warn("queue is at capacity with all pending items – new scans paused",
+			zap.String("scan_job_id", scanJobID),
+			zap.Int("batch_seq", batchSeq),
+		)
+		return false, nil
+	}
 
 	// Check buffer size limit.
 	exceeded, allPending, err := lq.checkBufferLimit()
 	if err != nil {
-		return fmt.Errorf("check buffer limit: %w", err)
+		return false, fmt.Errorf("check buffer limit: %w", err)
 	}
 	if exceeded {
 		if allPending {
-			lq.logger.Error("buffer at max capacity with all pending items; pausing enqueue",
+			// Buffer full and nothing to purge — pause new scans gracefully.
+			lq.logger.Error("ALERT: buffer at max capacity with all pending items – pausing new scans",
 				zap.Int("buffer_max_mb", lq.cfg.BufferMaxMB),
 			)
-			return fmt.Errorf("buffer at max capacity (%dMB), all entries pending; agent paused", lq.cfg.BufferMaxMB)
+			lq.pauseScans.Store(true)
+			return false, nil
 		}
 		// Purge oldest sent entries first.
 		lq.logger.Warn("buffer approaching limit, purging oldest sent entries")
 		if err := lq.purgeOldestSent(); err != nil {
-			return fmt.Errorf("purge sent entries: %w", err)
+			return false, fmt.Errorf("purge sent entries: %w", err)
 		}
 	}
+
+	// If we just purged, clear pause flag.
+	lq.pauseScans.Store(false)
 
 	_, err = lq.db.Exec(`
 		INSERT OR REPLACE INTO pending_results (scan_job_id, batch_seq, payload, status, attempts)
 		VALUES (?, ?, ?, 'pending', 0)
 	`, scanJobID, batchSeq, payload)
 	if err != nil {
-		return fmt.Errorf("insert pending result: %w", err)
+		return false, fmt.Errorf("insert pending result: %w", err)
 	}
-	return nil
+	return true, nil
+}
+
+// IsPaused returns true if the buffer is at capacity and scans should pause
+// until the sync loop drains pending items.
+func (lq *LocalQueue) IsPaused() bool {
+	return lq.pauseScans.Load()
 }
 
 // FetchPending returns up to `limit` oldest pending results for syncing.
@@ -153,6 +178,8 @@ func (lq *LocalQueue) FetchPending(limit int) ([]PendingResult, error) {
 }
 
 // MarkSent updates a result to 'sent' status.
+// If scans were paused due to buffer capacity, this also clears the pause flag
+// so the scanner can resume once the queue drains sufficiently.
 func (lq *LocalQueue) MarkSent(id int64) error {
 	lq.mu.Lock()
 	defer lq.mu.Unlock()
@@ -161,7 +188,13 @@ func (lq *LocalQueue) MarkSent(id int64) error {
 		UPDATE pending_results SET status = 'sent', last_attempt_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`, id)
-	return err
+	if err != nil {
+		return err
+	}
+	// Clear pause flag — a sent row means the queue is draining; the next Enqueue
+	// call will re-check capacity and re-set the flag only if still over limit.
+	lq.pauseScans.Store(false)
+	return nil
 }
 
 // MarkFailed updates a result to 'failed' status.

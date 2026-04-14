@@ -422,6 +422,11 @@ type RemediationAction struct {
 	ExecutedAt    time.Time
 	Status        string
 	OriginalValue string
+	// Enriched fields from JOIN with findings + assets
+	AssetName string
+	AssetPath string
+	PIIType   string
+	RiskLevel string
 }
 
 func (s *RemediationService) GetRemediationActions(ctx context.Context, findingID string) ([]*RemediationAction, error) {
@@ -449,12 +454,22 @@ func (s *RemediationService) GetRemediationActions(ctx context.Context, findingI
 	return actions, nil
 }
 
-// GetAllRemediationActions retrieves all remediation actions with pagination and filtering
+// GetAllRemediationActions retrieves all remediation actions with pagination and filtering.
+// It JOINs with findings and assets to enrich each record with asset_name, asset_path,
+// pii_type (pattern_name), and risk_level (severity) so the frontend can display
+// meaningful context without additional round-trips.
 func (s *RemediationService) GetAllRemediationActions(ctx context.Context, limit, offset int, actionFilter string) ([]*RemediationAction, int, error) {
-	// Build base query
+	// Enriched query: LEFT JOIN findings + assets to get context fields.
+	// COALESCE handles cases where a finding or asset has been deleted.
 	query := `
-		SELECT id, finding_id, action_type, executed_by, executed_at, status
-		FROM remediation_actions
+		SELECT ra.id, ra.finding_id, ra.action_type, ra.executed_by, ra.executed_at, ra.status,
+		       COALESCE(a.name, '')       AS asset_name,
+		       COALESCE(a.path, '')       AS asset_path,
+		       COALESCE(f.pattern_name, '') AS pii_type,
+		       COALESCE(f.severity, 'Medium') AS risk_level
+		FROM remediation_actions ra
+		LEFT JOIN findings f ON f.id::text = ra.finding_id
+		LEFT JOIN assets a   ON a.id = f.asset_id
 		WHERE 1=1
 	`
 	countQuery := `SELECT COUNT(*) FROM remediation_actions WHERE 1=1`
@@ -464,27 +479,26 @@ func (s *RemediationService) GetAllRemediationActions(ctx context.Context, limit
 
 	// Add filter
 	if actionFilter != "" && actionFilter != "ALL" {
-		filterClause := fmt.Sprintf(" AND action_type = $%d", argCount)
+		filterClause := fmt.Sprintf(" AND ra.action_type = $%d", argCount)
 		query += filterClause
-		countQuery += filterClause
+		countQuery += fmt.Sprintf(" AND action_type = $%d", argCount)
 		args = append(args, actionFilter)
 		argCount++
 	}
 
 	// Add ordering and pagination
-	query += fmt.Sprintf(" ORDER BY executed_at DESC LIMIT $%d OFFSET $%d", argCount, argCount+1)
+	query += fmt.Sprintf(" ORDER BY ra.executed_at DESC LIMIT $%d OFFSET $%d", argCount, argCount+1)
 	args = append(args, limit, offset)
 
-	// Execute count query
+	// Execute count query (uses only filter args, not limit/offset)
 	var total int
-	// For count we only need the filter args, not limit/offset
 	countArgs := args[:len(args)-2]
 	err := s.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count remediation actions: %w", err)
 	}
 
-	// Execute data query
+	// Execute enriched data query
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list remediation actions: %w", err)
@@ -497,6 +511,7 @@ func (s *RemediationService) GetAllRemediationActions(ctx context.Context, limit
 		err := rows.Scan(
 			&action.ID, &action.FindingID, &action.ActionType,
 			&action.ExecutedBy, &action.ExecutedAt, &action.Status,
+			&action.AssetName, &action.AssetPath, &action.PIIType, &action.RiskLevel,
 		)
 		if err != nil {
 			return nil, 0, err

@@ -35,21 +35,33 @@ interface RemediationItem {
 export default function CompliancePage() {
     const [data, setData] = useState<ComplianceOverview | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         fetchComplianceData();
+
+        // Poll compliance metrics every 60 seconds to catch updates from completed scans
+        const interval = setInterval(() => {
+            fetchComplianceData(/* silent */ true);
+        }, 60000);
+        return () => clearInterval(interval);
     }, []);
 
-    const fetchComplianceData = async () => {
+    const fetchComplianceData = async (silent = false) => {
         try {
+            if (!silent) setLoading(true);
+            else setRefreshing(true);
             const jsonData = await complianceApi.getOverview();
             setData(jsonData);
         } catch (error) {
             console.error('Failed to fetch compliance data', error);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
+
+    const handleManualRefresh = () => fetchComplianceData(true);
 
     if (loading) return <div style={{ padding: '32px', color: theme.colors.text.primary }}>Loading compliance posture...</div>;
     if (!data) return <div style={{ padding: '32px', color: theme.colors.text.primary }}>Failed to load compliance data.</div>;
@@ -58,13 +70,36 @@ export default function CompliancePage() {
         <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
             <div className="container max-w-screen-2xl mx-auto" style={{ padding: '32px' }}>
                 {/* Header */}
-                <div style={{ marginBottom: '32px' }}>
-                    <h2 style={{ fontSize: '24px', fontWeight: 700, color: theme.colors.text.primary, marginBottom: '8px' }}>
-                        DPDPA Compliance Posture
-                    </h2>
-                    <p style={{ color: theme.colors.text.secondary }}>
-                        Real-time monitoring of Digital Personal Data Protection Act compliance
-                    </p>
+                <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                        <h2 style={{ fontSize: '24px', fontWeight: 700, color: theme.colors.text.primary, marginBottom: '8px' }}>
+                            DPDPA Compliance Posture
+                        </h2>
+                        <p style={{ color: theme.colors.text.secondary }}>
+                            Real-time monitoring of Digital Personal Data Protection Act compliance
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleManualRefresh}
+                        disabled={refreshing}
+                        style={{
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            border: `1px solid ${theme.colors.border.default}`,
+                            backgroundColor: theme.colors.background.card,
+                            color: theme.colors.text.secondary,
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: refreshing ? 'not-allowed' : 'pointer',
+                            opacity: refreshing ? 0.6 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                        }}
+                        title="Refresh compliance metrics (auto-refreshes every 60s)"
+                    >
+                        {refreshing ? 'Refreshing...' : 'Refresh'}
+                    </button>
                 </div>
 
                 {/* KPI Cards */}

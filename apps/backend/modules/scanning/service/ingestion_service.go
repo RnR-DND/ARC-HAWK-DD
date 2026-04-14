@@ -15,6 +15,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
+	"github.com/arc-platform/backend/modules/shared/scoring"
 	"github.com/arc-platform/backend/pkg/normalization"
 	"github.com/arc-platform/backend/pkg/validators"
 	"github.com/google/uuid"
@@ -385,12 +386,19 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 			hawkeyeFinding.FileData,
 		)
 
-		// Calculate risk score for prioritization (0-100)
-		riskScore := calculateComprehensiveRiskScore(
-			decision.Classification,
-			decision.ConfidenceLevel,
-			hawkeyeFinding.FileData,
-		)
+		// Calculate risk score for prioritization (0-100) via the canonical shared scorer.
+		// This replaces the local formula to ensure consistency with hawk/backend and
+		// discovery/service/risk_engine.go.
+		accessExposure := 0.5 // default: internal
+		if isProductionEnvironment(hawkeyeFinding.FileData) {
+			accessExposure = 1.0
+		}
+		riskScore := int(scoring.ComputeRiskScore(scoring.RiskScoreParams{
+			PIIType:        decision.Classification,
+			Confidence:     decision.FinalScore,
+			PIIDensity:     enrichmentScore, // enrichment score proxies density context
+			AccessExposure: accessExposure,
+		}))
 
 		// Classification: Test vs Prod
 		environment := "PROD"
@@ -796,8 +804,12 @@ func isProductionEnvironment(fileData map[string]any) bool {
 	return true
 }
 
-// calculateComprehensiveRiskScore provides numeric risk score (0-100) for sorting and prioritization
-// Combines classification sensitivity, confidence level, and environment context
+// calculateComprehensiveRiskScore is SUPERSEDED by scoring.ComputeRiskScore().
+// Kept here temporarily so git history shows the migration path.
+// It is no longer called from IngestScan — use the canonical scorer instead.
+//
+// Deprecated: Use scoring.ComputeRiskScore(scoring.RiskScoreParams{...}) from
+// github.com/arc-platform/backend/modules/shared/scoring.
 func calculateComprehensiveRiskScore(classification, confidence string, fileData map[string]any) int {
 	// Base weights for classification types
 	var classificationWeight float64

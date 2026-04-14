@@ -1,4 +1,5 @@
 import { post, get } from '@/utils/api-client';
+import { unwrapResponse } from '@/lib/api-utils';
 
 export interface ExecuteRemediationRequest {
     finding_ids: string[];
@@ -23,6 +24,13 @@ export interface RemediationEvent {
     status: 'COMPLETED' | 'FAILED' | 'ROLLED_BACK' | 'PENDING';
     finding_id?: string;
     asset_id?: string;
+    // Enriched fields from backend JOIN with assets + findings
+    asset_name?: string;
+    asset_path?: string;
+    pii_type?: string;
+    risk_level?: string;
+    pattern_name?: string;
+    severity?: string;
 }
 
 export interface RemediationHistoryResponse {
@@ -48,9 +56,10 @@ export const remediationApi = {
         if (params?.assetId) queryParams.append('asset_id', params.assetId);
 
         const query = queryParams.toString();
-        return await get<RemediationHistoryResponse>(
+        const response = await get<any>(
             `/remediation/history${query ? `?${query}` : ''}`
         );
+        return unwrapResponse<RemediationHistoryResponse>(response, { history: [], total: 0 });
     }
 };
 

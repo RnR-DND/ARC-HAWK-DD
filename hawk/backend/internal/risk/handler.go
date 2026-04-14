@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -16,6 +17,18 @@ import (
 )
 
 // Risk score weights from the architecture spec.
+//
+// CANONICAL FORMULA (H9 unification): These weights are kept in sync with
+// apps/backend/modules/shared/scoring/risk_scorer.go — ComputeRiskScore().
+// If you change weights here, update that file too (and vice versa).
+//
+// Unified formula across all code paths:
+//
+//	score = classification*0.40 + confidence*0.20 + piiDensity*0.20 + accessExposure*0.20
+//
+// The constants below control the asset-level recalculation path (post-scan batch),
+// which uses pii_density and access_exposure read from the database rather than
+// the per-finding classification/confidence that ComputeRiskScore() uses.
 const (
 	WeightPIIDensity          = 0.35
 	WeightSensitivity         = 0.30
@@ -299,6 +312,55 @@ func CalculateTier(score float64) string {
 	default:
 		return "Low"
 	}
+}
+
+// CanonicalRiskScore computes a per-finding risk score using the unified formula
+// defined in apps/backend/modules/shared/scoring/risk_scorer.go.
+//
+// This is a local mirror of ComputeRiskScore() for use within hawk/backend,
+// which is not part of the same Go module as apps/backend. Any formula change
+// MUST be applied to both locations.
+//
+// Formula:
+//
+//	score = classificationSensitivity(piiType)*0.40 + confidence*0.20
+//	      + piiDensity*0.20 + accessExposure*0.20
+//
+// Inputs are clamped to [0, 1]. Output is rounded to the nearest integer in [0, 100].
+func CanonicalRiskScore(piiType string, confidence, piiDensity, accessExposure float64) float64 {
+	clamp := func(v float64) float64 {
+		if v < 0 {
+			return 0
+		}
+		if v > 1 {
+			return 1
+		}
+		return v
+	}
+
+	var classSensitivity float64
+	switch piiType {
+	case "Sensitive Personal Data":
+		classSensitivity = 1.0
+	case "Secrets":
+		classSensitivity = 0.9
+	case "Personal Data":
+		classSensitivity = 0.5
+	default:
+		classSensitivity = 0.1
+	}
+
+	raw := classSensitivity*0.40 + clamp(confidence)*0.20 +
+		clamp(piiDensity)*0.20 + clamp(accessExposure)*0.20
+
+	score := math.Round(raw * 100)
+	if score > 100 {
+		return 100
+	}
+	if score < 0 {
+		return 0
+	}
+	return score
 }
 
 // alertTierChange sends webhook and email alerts when an asset's risk tier changes.

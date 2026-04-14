@@ -49,14 +49,14 @@ export default function RemediationPage() {
             setLoading(true);
             const response = await remediationApi.getRemediationHistory({ limit: 100 });
 
-            // Adapt API response to UI model
+            // Adapt API response to UI model — use enriched fields from backend JOIN
             const realTasks: RemediationTask[] = response.history.map(item => ({
                 id: item.id,
                 finding_id: item.finding_id || '',
-                asset_name: 'Unknown Asset', // API needs to return this or we fetch it
-                asset_path: '...',
-                pii_type: 'Unknown',
-                risk_level: 'Medium', // Default for now
+                asset_name: item.asset_name || 'Unknown Asset',
+                asset_path: item.asset_path || '',
+                pii_type: item.pii_type || item.pattern_name || 'Unknown',
+                risk_level: item.risk_level || item.severity || 'Medium',
                 action_type: item.action as any,
                 status: item.status as any,
                 created_at: item.executed_at,

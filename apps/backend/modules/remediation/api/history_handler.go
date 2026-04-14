@@ -33,7 +33,7 @@ func (h *RemediationHistoryHandler) GetHistory(c *gin.Context) {
 		return
 	}
 
-	// Map to response format
+	// Map to response format — include enriched asset/finding context
 	history := make([]map[string]interface{}, 0, len(actions))
 	for _, action := range actions {
 		record := map[string]interface{}{
@@ -44,7 +44,11 @@ func (h *RemediationHistoryHandler) GetHistory(c *gin.Context) {
 			"executed_at":    action.ExecutedAt,
 			"status":         action.Status,
 			"original_value": action.OriginalValue,
-			// "new_value":      "", // Not currently stored in action struct but could be inferred
+			// Enriched fields from JOIN with assets + findings
+			"asset_name": action.AssetName,
+			"asset_path": action.AssetPath,
+			"pii_type":   action.PIIType,
+			"risk_level": action.RiskLevel,
 		}
 		history = append(history, record)
 	}

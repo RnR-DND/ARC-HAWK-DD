@@ -1,3 +1,5 @@
+// Canonical implementation kept in sync with apps/agent/internal/buffer/sync.go.
+// When modifying, apply the same change to both files.
 package buffer
 
 import (
@@ -80,6 +82,9 @@ func (s *SyncLoop) Run(ctx context.Context) {
 func (s *SyncLoop) pollAndSync(ctx context.Context) {
 	healthy := s.client.HealthCheck(ctx)
 
+	// Update connectivity state under mu (guards consecutiveSuccesses and
+	// lastConnectivityCheck only — online flag uses atomic.Bool directly to
+	// avoid holding mu while doing I/O in syncPendingResults below).
 	s.mu.Lock()
 	s.lastConnectivityCheck = time.Now()
 
@@ -100,7 +105,9 @@ func (s *SyncLoop) pollAndSync(ctx context.Context) {
 		s.consecutiveSuccesses = 0
 		s.online.Store(false)
 	}
-	s.mu.Unlock()
+	s.mu.Unlock() // Release mu BEFORE calling syncPendingResults to avoid AB/BA deadlock.
+	// (syncPendingResults → queue.FetchPending → lq.mu; Enqueue also holds lq.mu.
+	// Keeping s.mu held here would create a lock-order inversion.)
 
 	// If we are online, drain the pending queue.
 	if s.online.Load() {

@@ -1610,6 +1610,56 @@ Returns time-series risk scores for the given asset.
 
 ---
 
+---
+
+## Backend-Only Routes (No Frontend UI)
+
+These endpoints are fully implemented in the backend but have no corresponding frontend page or service call yet. They are available for CLI tooling, integrations, or future UI work.
+
+| Route | Method | Handler | Purpose |
+|-------|--------|---------|---------|
+| `/discovery/inventory` | GET | `InventoryHandler.ListInventory` | Full asset inventory with source mapping |
+| `/discovery/inventory/:assetId` | GET | `InventoryHandler.GetAssetInventory` | Per-asset inventory detail |
+| `/discovery/snapshots` | GET | `SnapshotHandler.ListSnapshots` | List point-in-time snapshots |
+| `/discovery/snapshots` | POST (trigger) | `SnapshotHandler.TriggerSnapshot` | Trigger a new snapshot |
+| `/discovery/risk/overview` | GET | `RiskHandler.GetRiskOverview` | Aggregate risk overview for all assets |
+| `/discovery/risk/hotspots` | GET | `RiskHandler.GetRiskHotspots` | Top-N riskiest assets |
+| `/discovery/risk/scores/:assetId` | GET | `RiskHandler.GetAssetRiskHistory` | Time-series risk score for an asset |
+| `/discovery/drift/since/:snapshotId` | GET | `DriftHandler.GetDriftSince` | Drift events since a snapshot |
+| `/discovery/drift/timeline` | GET | `DriftHandler.GetDriftTimeline` | Full drift timeline |
+| `/discovery/reports/generate` | POST | `ReportHandler.GenerateReport` | Generate a discovery report |
+| `/discovery/reports` | GET | `ReportHandler.ListReports` | List generated reports |
+| `/discovery/reports/:id/download` | GET | `ReportHandler.DownloadReport` | Download report file |
+| `/discovery/glossary` | GET | `GlossaryHandler.GetGlossary` | Data glossary / term registry |
+| `/assets/bulk-tag` | POST | `AssetHandler.BulkTagAssets` | Batch tag multiple assets |
+| `/dataset/golden` | GET | `DatasetHandler.GetGoldenDataset` | Golden dataset for classifier training |
+| `/lineage/sync` | POST | `LineageHandler.SyncLineage` | Manual lineage sync trigger |
+| `/lineage/graph/semantic` | GET | `GraphHandler.GetSemanticGraph` | Full semantic lineage graph |
+| `/masking/mask-asset` | POST | `MaskingHandler.MaskAsset` | Mask all PII fields in an asset |
+| `/masking/status/:assetId` | GET | `MaskingHandler.GetMaskingStatus` | Masking status for an asset |
+| `/masking/audit/:assetId` | GET | `MaskingHandler.GetMaskingAuditLog` | Masking audit log |
+| `/remediation/history/:assetId` | GET | `RemediationHandler.GetRemediationHistory` | Per-asset remediation history |
+| `/remediation/actions/:findingId` | GET | `RemediationHandler.GetRemediationActions` | Actions for a specific finding |
+| `/remediation/rollback/:id` | POST | `RemediationHandler.RollbackRemediation` | Roll back a remediation action |
+| `/remediation/export` | GET | `ExportHandler.ExportReport` | Export remediation report |
+| `/remediation/escalation/preview` | GET | `EscalationHandler.Preview` | Preview escalation workflow |
+| `/remediation/escalation/run` | POST | `EscalationHandler.Run` | Execute escalation workflow |
+| `/remediation/sops` | GET | `SOPRegistry` | List all Standard Operating Procedures |
+| `/remediation/sops/:issue_type` | GET | `SOPRegistry` | SOP for a specific issue type |
+| `/scans/:id/delta` | GET | `ScanTriggerHandler.GetScanDelta` | Delta between this scan and previous |
+| `/scans/:id/complete` | POST | `ScanStatusHandler.CompleteScan` | Mark a scan as complete (SDK use) |
+| `/connections/sync` | POST | `ConnectionSyncHandler.SyncToScanner` | Sync connections to scanner config |
+| `/connections/sync/validate` | GET | `ConnectionSyncHandler.ValidateSync` | Validate scanner config sync |
+| `/connections/scans/scan-all` | POST | `ScanOrchestrationHandler.ScanAllAssets` | Trigger scan across all connections |
+| `/analytics/risk-distribution` | GET | *(not yet implemented in backend)* | Risk distribution by tier |
+| `/audit/resource/:resourceType/:resourceId` | GET | `AuditHandler.GetResourceHistory` | Audit history for a specific resource |
+| `/audit/recent` | GET | `AuditHandler.GetRecentActivity` | Recent audit activity across all resources |
+
+> **Note**: All routes above require a valid `Authorization: Bearer <token>` header.
+> Routes listed as "no frontend" are fully functional via direct API calls or CLI tools.
+
+---
+
 **API Version**: 1.0  
 **Last Updated**: April 2026  
-**Documentation Version**: 3.0.0
+**Documentation Version**: 3.1.0

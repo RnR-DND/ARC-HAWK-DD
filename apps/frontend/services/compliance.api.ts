@@ -1,4 +1,5 @@
 import { get, post } from '@/utils/api-client';
+import { unwrapResponse, unwrapArray } from '@/lib/api-utils';
 
 // DPDPA obligation gap types (from dpdpa_obligation_service.go)
 export interface ObligationGap {
@@ -53,7 +54,7 @@ export const complianceApi = {
     getRetentionViolations: async (): Promise<RetentionViolation[]> => {
         try {
             const res = await get<any>('/retention/violations');
-            return Array.isArray(res) ? res : (res?.data ?? []);
+            return unwrapArray<RetentionViolation>(res);
         } catch {
             return [];
         }
@@ -71,7 +72,7 @@ export const complianceApi = {
     getRetentionPolicy: async (assetId: string): Promise<RetentionPolicy | null> => {
         try {
             const res = await get<any>(`/retention/policies/${assetId}`);
-            return res?.data ?? res;
+            return unwrapResponse<RetentionPolicy | null>(res, null);
         } catch {
             return null;
         }
@@ -80,7 +81,7 @@ export const complianceApi = {
     getDPDPAGaps: async (): Promise<DPDPAGapReport | null> => {
         try {
             const raw = await get<any>('/compliance/dpdpa/gaps');
-            const body = raw?.data ?? raw;
+            const body: any = unwrapResponse<any>(raw, null);
             if (!body) return null;
 
             // Backend returns { gaps_by_section: { "Sec4_LawfulProcessing": [...], ... }, summary: {...} }

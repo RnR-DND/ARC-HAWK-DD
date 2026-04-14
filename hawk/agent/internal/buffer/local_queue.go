@@ -1,3 +1,5 @@
+// Canonical implementation kept in sync with apps/agent/internal/buffer/local_queue.go.
+// When modifying, apply the same change to both files.
 package buffer
 
 import (

@@ -14,9 +14,12 @@ import (
 )
 
 // AgentSyncRequest is the payload POSTed by EDR agents for batch ingestion.
+// Accepts both "batches" (current agents) and "results" (legacy field name) for
+// backwards compatibility — see C10 fix.
 type AgentSyncRequest struct {
 	AgentID string           `json:"agent_id" binding:"required"`
-	Batches []AgentSyncBatch `json:"batches" binding:"required"`
+	Batches []AgentSyncBatch `json:"batches"` // preferred field name
+	Results []AgentSyncBatch `json:"results"` // legacy field name (apps/agent ≤ v1)
 }
 
 // AgentSyncBatch is a single batch within an agent sync request.
@@ -71,20 +74,25 @@ func (h *AgentSyncHandler) Sync(c *gin.Context) {
 		return
 	}
 
-	if len(req.Batches) == 0 {
+	// Accept "results" as a legacy alias for "batches" (C10 compatibility).
+	batches := req.Batches
+	if len(batches) == 0 {
+		batches = req.Results
+	}
+	if len(batches) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "batches array must not be empty",
+			"error": "batches or results array must not be empty",
 		})
 		return
 	}
 
 	resp := AgentSyncResponse{
-		Details: make([]BatchResult, 0, len(req.Batches)),
+		Details: make([]BatchResult, 0, len(batches)),
 	}
 
 	db := h.repo.GetDB()
 
-	for _, batch := range req.Batches {
+	for _, batch := range batches {
 		result := h.processBatch(c, db, req.AgentID, batch)
 		resp.Details = append(resp.Details, result)
 

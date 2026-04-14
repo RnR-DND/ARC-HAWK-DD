@@ -102,6 +102,13 @@ func (o *Orchestrator) runScan(ctx context.Context) {
 		o.mu.Unlock()
 	}()
 
+	// Check if the offline buffer is at capacity — pause scans until the sync
+	// loop drains pending items (M12/FIX-5 graceful pause).
+	if o.queue.IsPaused() {
+		o.logger.Error("scan skipped – offline buffer at capacity, pending sync required")
+		return
+	}
+
 	o.logger.Info("starting scheduled scan")
 
 	// Trigger scan via backend.
@@ -142,8 +149,16 @@ func (o *Orchestrator) collectResults(ctx context.Context, scanJobID string) {
 				zap.String("scan_job_id", scanJobID),
 				zap.Int("batch_seq", i+1),
 			)
-			if err := o.queue.Enqueue(scanJobID, i+1, payload); err != nil {
-				o.logger.Error("enqueue result", zap.Error(err))
+			queued, enqErr := o.queue.Enqueue(scanJobID, i+1, payload)
+			if enqErr != nil {
+				o.logger.Error("enqueue result", zap.Error(enqErr))
+			} else if !queued {
+				// Buffer at capacity — stop collecting further results this cycle.
+				o.logger.Error("offline buffer at capacity – stopping result collection",
+					zap.String("scan_job_id", scanJobID),
+					zap.Int("stopped_at_batch", i+1),
+				)
+				break
 			}
 		}
 	}
@@ -196,7 +211,7 @@ func (o *Orchestrator) bufferHeartbeat() {
 	}
 
 	jobID := fmt.Sprintf("heartbeat-%d", time.Now().UnixNano())
-	if err := o.queue.Enqueue(jobID, 1, payload); err != nil {
+	if _, err := o.queue.Enqueue(jobID, 1, payload); err != nil {
 		o.logger.Error("enqueue heartbeat", zap.Error(err))
 	}
 }
