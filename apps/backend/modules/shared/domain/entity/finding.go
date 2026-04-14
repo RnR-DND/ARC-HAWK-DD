@@ -17,6 +17,7 @@ type Finding struct {
 	Matches             []string               `json:"matches"`
 	MaskedValue         string                 `json:"masked_value,omitempty"`
 	SampleText          string                 `json:"sample_text"`
+	NormalizedValueHash string                 `json:"normalized_value_hash,omitempty"`
 	Severity            string                 `json:"severity"`
 	SeverityDescription string                 `json:"severity_description"`
 	ConfidenceScore     *float64               `json:"confidence_score,omitempty"`

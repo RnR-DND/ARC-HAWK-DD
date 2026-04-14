@@ -30,14 +30,14 @@ func (r *PostgresRepository) CreateFinding(ctx context.Context, finding *entity.
 	finding.TenantID = tenantID
 
 	query := `
-		INSERT INTO findings (id, tenant_id, scan_run_id, asset_id, pattern_id, pattern_name, 
-			matches, sample_text, severity, severity_description, confidence_score, environment, context)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		INSERT INTO findings (id, tenant_id, scan_run_id, asset_id, pattern_id, pattern_name,
+			matches, sample_text, normalized_value_hash, severity, severity_description, confidence_score, environment, context)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING created_at, updated_at`
 
 	return r.db.QueryRowContext(ctx, query,
 		finding.ID, finding.TenantID, finding.ScanRunID, finding.AssetID, finding.PatternID, finding.PatternName,
-		pq.Array(finding.Matches), finding.SampleText, finding.Severity, finding.SeverityDescription,
+		pq.Array(finding.Matches), finding.SampleText, finding.NormalizedValueHash, finding.Severity, finding.SeverityDescription,
 		finding.ConfidenceScore, finding.Environment, contextJSON,
 	).Scan(&finding.CreatedAt, &finding.UpdatedAt)
 }
@@ -154,6 +154,12 @@ func (r *PostgresRepository) ListFindings(ctx context.Context, filters repositor
 	if filters.PatternName != "" {
 		query += fmt.Sprintf(" AND f.pattern_name ILIKE $%d", argCount)
 		args = append(args, "%"+filters.PatternName+"%")
+		argCount++
+	}
+
+	if filters.DataSource != "" {
+		query += fmt.Sprintf(" AND f.data_source = $%d", argCount)
+		args = append(args, filters.DataSource)
 		argCount++
 	}
 

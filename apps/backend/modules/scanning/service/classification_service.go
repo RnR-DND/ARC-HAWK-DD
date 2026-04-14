@@ -33,14 +33,19 @@ var LOCKED_PII_TYPES = map[string]bool{
 }
 
 // IsLockedPIIType validates if a PII type is in the locked scope.
-// Also allows CUSTOM_* types from user-defined patterns.
+// Also allows CUSTOM_* and USR_* types from user-defined patterns, with suffix validation.
 func IsLockedPIIType(piiType string) bool {
 	normalized := strings.ToUpper(strings.TrimSpace(piiType))
 	if LOCKED_PII_TYPES[normalized] {
 		return true
 	}
-	// Allow user-defined custom patterns (prefixed with CUSTOM_ or USR_)
-	return strings.HasPrefix(normalized, "CUSTOM_") || strings.HasPrefix(normalized, "USR_")
+	// Validate user-defined custom patterns (prefixed with CUSTOM_ or USR_)
+	// Require a non-empty, well-formed suffix (no whitespace or control chars)
+	if strings.HasPrefix(normalized, "CUSTOM_") || strings.HasPrefix(normalized, "USR_") {
+		suffix := strings.TrimPrefix(strings.TrimPrefix(normalized, "CUSTOM_"), "USR_")
+		return len(suffix) > 0 && !strings.ContainsAny(suffix, " \t\n")
+	}
+	return false
 }
 
 // ClassificationService handles PII classification with multi-signal intelligence

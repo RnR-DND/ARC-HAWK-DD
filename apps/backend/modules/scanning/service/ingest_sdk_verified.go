@@ -24,6 +24,11 @@ type VerifiedScanInput struct {
 // IngestSDKVerified processes SDK-validated findings
 // This is the simplified Phase 2 ingestion that trusts SDK validation
 func (s *IngestionService) IngestSDKVerified(ctx context.Context, input VerifiedScanInput) error {
+	tenantID, err := persistence.EnsureTenantID(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get tenant ID: %w", err)
+	}
+
 	adapter := NewSDKAdapter()
 
 	// Start transaction
@@ -31,7 +36,12 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	committed := false
+	defer func() {
+		if !committed {
+			tx.Rollback()
+		}
+	}()
 
 	// Use scan_id from request to link back to the orchestrated scan run
 	scanRunID, err := uuid.Parse(input.ScanID)
@@ -79,7 +89,7 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 
 		acceptedFindingsCount++
 
-		assetID, err := s.processSingleSDKFinding(ctx, tx, adapter, scanRun.ID, &vf)
+		assetID, err := s.processSingleSDKFinding(ctx, tx, adapter, scanRun.ID, tenantID, &vf)
 		if err != nil {
 			log.Printf("error processing finding (pii_type=%s): %v", vf.PIIType, err)
 			continue
@@ -100,6 +110,7 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	committed = true
 
 	// Update asset stats (TotalFindings, RiskScore) — must run AFTER commit so
 	// CountFindings sees the newly inserted rows.
@@ -117,6 +128,7 @@ func (s *IngestionService) processSingleSDKFinding(
 	tx *persistence.PostgresTransaction,
 	adapter *SDKAdapter,
 	scanRunID uuid.UUID,
+	tenantID uuid.UUID,
 	vf *VerifiedFinding,
 ) (uuid.UUID, error) {
 	// 1. Get or create asset using AssetManager
@@ -131,7 +143,7 @@ func (s *IngestionService) processSingleSDKFinding(
 
 	// 2. Create finding — enforce PII_STORE_MODE (C-3)
 	finding := adapter.MapToFinding(vf, scanRunID, asset.ID)
-	finding.TenantID = persistence.DevSystemTenantID
+	finding.TenantID = tenantID
 	applyPIIStoreMode(finding)
 	if err := tx.CreateFinding(ctx, finding); err != nil {
 		return assetID, fmt.Errorf("failed to create finding: %w", err)
