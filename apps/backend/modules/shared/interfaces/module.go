@@ -5,6 +5,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/shared/config"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/vault"
 	"github.com/gin-gonic/gin"
 )
 
@@ -45,6 +46,9 @@ type ModuleDependencies struct {
 	FindingsProvider FindingsProvider
 	LineageSync      LineageSync
 	AuditLogger      AuditLogger
+
+	// Vault client for credential lifecycle management (nil when disabled)
+	VaultClient *vault.Client
 }
 
 // ModuleRegistry manages all registered modules

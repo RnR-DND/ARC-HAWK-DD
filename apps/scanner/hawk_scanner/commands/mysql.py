@@ -22,7 +22,7 @@ def connect_mysql(args, host, port, user, password, database):
             args, f"Failed to connect to MySQL database at {host} with error: {e}")
 
 
-def check_data_patterns(args, conn, patterns, profile_name, database_name, limit_start=0, limit_end=500, whitelisted_tables=None, exclude_columns=None):
+def check_data_patterns(args, conn, patterns, profile_name, database_name, limit_start=0, limit_end=500, whitelisted_tables=None, exclude_columns=None, pii_types=None):
     cursor = conn.cursor()
 
     # Get the list of tables to scan
@@ -49,7 +49,7 @@ def check_data_patterns(args, conn, patterns, profile_name, database_name, limit
                     continue
                 if value:
                     value_str = str(value)
-                    matches = system.match_strings(args, value_str)
+                    matches = system.match_strings(args, value_str, pii_types=pii_types)
                     if matches:
                         for match in matches:
                             results.append({
@@ -76,6 +76,8 @@ def execute(args):
     results = []
     system.print_info(args, "Running Checks for MySQL Sources")
     connections = system.get_connection(args)
+    pii_types = connections.get('pii_types', [])
+
     if 'sources' in connections:
         sources_config = connections['sources']
         mysql_config = sources_config.get('mysql')
@@ -101,7 +103,8 @@ def execute(args):
                         args, host, port, user, password, database)
                     if conn:
                         results += check_data_patterns(args, conn, patterns, key, database, limit_start=limit_start,
-                                                       limit_end=limit_end, whitelisted_tables=tables, exclude_columns=exclude_columns)
+                                                       limit_end=limit_end, whitelisted_tables=tables, exclude_columns=exclude_columns,
+                                                       pii_types=pii_types)
                         conn.close()
                 else:
                     system.print_error(

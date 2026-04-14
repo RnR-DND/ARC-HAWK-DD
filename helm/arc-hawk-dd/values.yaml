@@ -165,6 +165,32 @@ neo4j:
     periodSeconds: 20
 
 # ---------------------------------------------------------------------------
+# Vault (Credential Lifecycle — optional)
+# ---------------------------------------------------------------------------
+vault:
+  enabled: false
+  image:
+    repository: hashicorp/vault
+    tag: "1.15"
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "256Mi" }
+  service:
+    type: ClusterIP
+    port: 8200
+  dev:
+    enabled: true              # Use dev mode for non-prod (auto-unseal, in-memory)
+    rootToken: ""              # set via --set vault.dev.rootToken=<secret>
+  # Production: use Vault Agent Injector or external Vault cluster
+  # Set vault.dev.enabled=false and configure vault.externalAddr instead
+  externalAddr: ""             # e.g. "https://vault.internal:8200"
+  livenessProbe:
+    exec:
+      command: ["vault", "status"]
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+# ---------------------------------------------------------------------------
 # Temporal (Workflow Engine)
 # ---------------------------------------------------------------------------
 temporal:

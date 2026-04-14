@@ -30,6 +30,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/audit"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/database"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/vault"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/arc-platform/backend/modules/shared/middleware"
 	"github.com/arc-platform/backend/modules/websocket"
@@ -174,6 +175,19 @@ func main() {
 	log.Println("📦 Phase 3: Injecting interfaces for remaining modules...")
 	baseDeps.AssetManager = assetsModule.GetAssetService()
 	baseDeps.LineageSync = lineageModule.GetSemanticLineageService()
+
+	// Initialize Vault client (optional — disabled by default)
+	vaultClient, err := vault.NewClient()
+	if err != nil {
+		log.Printf("⚠️  Vault initialization failed: %v (credentials will use PostgreSQL encryption only)", err)
+	} else if vaultClient.IsEnabled() {
+		if err := vaultClient.HealthCheck(); err != nil {
+			log.Printf("⚠️  Vault health check failed: %v (will fall back to PostgreSQL encryption)", err)
+		} else {
+			log.Println("✅ Vault integration active — credentials stored in Vault KV v2")
+		}
+	}
+	baseDeps.VaultClient = vaultClient
 
 	// Phase 4: Initialize remaining modules with full dependencies
 	log.Println("📦 Phase 4: Initializing remaining modules...")

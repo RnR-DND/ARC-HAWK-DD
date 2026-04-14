@@ -43,8 +43,8 @@ func (m *ConnectionsModule) Initialize(deps *interfaces.ModuleDependencies) erro
 	// Initialize PostgreSQL repository
 	pgRepo := persistence.NewPostgresRepository(deps.DB)
 
-	// Initialize connection service with encryption
-	m.connectionService = service.NewConnectionService(pgRepo, encryptionService)
+	// Initialize connection service with encryption and optional Vault
+	m.connectionService = service.NewConnectionService(pgRepo, encryptionService, deps.VaultClient)
 
 	// Initialize connection sync service
 	m.connectionSyncService = service.NewConnectionSyncService(pgRepo, encryptionService)

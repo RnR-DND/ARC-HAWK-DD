@@ -32,7 +32,7 @@ def connect_postgresql(args, host, port, user, password, database):
         return None
 
 
-def check_data_patterns(args, conn, patterns, profile_name, database_name, limit_start=0, limit_end=None, whitelisted_tables=None, schemas=None):
+def check_data_patterns(args, conn, patterns, profile_name, database_name, limit_start=0, limit_end=None, whitelisted_tables=None, schemas=None, pii_types=None):
     cursor = conn.cursor()
 
     # Determine schemas to scan
@@ -139,7 +139,7 @@ def check_data_patterns(args, conn, patterns, profile_name, database_name, limit
             for column, value in zip(columns, row):
                 if value:
                     value_str = str(value)
-                    matches = system.match_strings(args, value_str)
+                    matches = system.match_strings(args, value_str, pii_types=pii_types)
                     if matches:
                         validated_matches = validate_findings(matches, args)
                         if validated_matches:
@@ -173,6 +173,12 @@ def execute(args):
     results = []
     system.print_info(args, "Running Checks for PostgreSQL Sources")
     connections = system.get_connection(args)
+
+    pii_types = connections.get('pii_types', [])
+    if pii_types:
+        system.print_info(args, f"Selective PII scanning: {pii_types}")
+    else:
+        system.print_info(args, "No PII filter — scanning all patterns")
 
     if 'sources' in connections:
         sources_config = connections['sources']
@@ -214,7 +220,8 @@ def execute(args):
                             limit_start=limit_start,
                             limit_end=limit_end,
                             whitelisted_tables=tables,
-                            schemas=schemas  # NEW: Pass schemas
+                            schemas=schemas,
+                            pii_types=pii_types,
                         )
                         conn.close()
                 else:

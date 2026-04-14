@@ -26,7 +26,7 @@ export default function ScanAllButton({ onScanComplete }: ScanAllButtonProps) {
             const response = await scansApi.triggerScan({
                 name: 'Full System Scan',
                 sources: ['fs', 'postgresql', 'mysql', 'mongodb'],
-                pii_types: ['IN_AADHAAR', 'IN_PAN', 'IN_PASSPORT', 'CREDIT_CARD', 'IN_UPI', 'IN_IFSC', 'IN_BANK_ACCOUNT', 'IN_PHONE', 'EMAIL_ADDRESS', 'IN_VOTER_ID', 'IN_DRIVING_LICENSE'],
+                pii_types: ['AADHAAR', 'PAN', 'PASSPORT', 'CREDIT_CARD', 'UPI_ID', 'IFSC', 'BANK_ACCOUNT', 'PHONE', 'EMAIL', 'VOTER_ID', 'DRIVING_LICENSE', 'GST'],
                 execution_mode: 'parallel'
             });
             const scanResult = response.data;

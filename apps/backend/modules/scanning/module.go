@@ -99,7 +99,7 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	)
 	m.sdkIngestHandler = api.NewSDKIngestHandler(m.ingestionService)
 
-	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService, repo, encryptionService)
+	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService, repo, encryptionService, deps.VaultClient)
 	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService, repo)
 	m.dashboardHandler = api.NewDashboardHandler(repo)
 

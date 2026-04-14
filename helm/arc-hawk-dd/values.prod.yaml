@@ -39,6 +39,12 @@ neo4j:
   persistence:
     size: 100Gi
 
+vault:
+  enabled: true
+  dev:
+    enabled: false             # Production uses external Vault cluster
+  externalAddr: ""             # Set to your production Vault address
+
 ingress:
   enabled: true
   annotations:

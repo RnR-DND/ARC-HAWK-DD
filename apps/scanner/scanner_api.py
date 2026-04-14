@@ -398,17 +398,33 @@ def execute_scan(scan_id, config):
         # (e.g. 'username' → 'user', strip platform-only fields)
         filtered_sources = _normalize_for_hawk_scanner(filtered_sources)
 
-        connection_data = {
-            "sources": filtered_sources,
-            "notify": global_data.get('notify', {})
-        }
+        # Pass user-selected PII types so hawk_scanner only scans relevant patterns
+        requested_pii_types = config.get('pii_types', [])
+        pii_types_per_source = config.get('pii_types_per_source', {})
 
-        with open(connection_config_path, 'w') as f:
-            yaml.dump(connection_data, f)
+        # Build a reverse map: profile_name → source_type (needed for per-source PII)
+        profile_to_source_type = {}
+        for src_type, profiles in filtered_sources.items():
+            if isinstance(profiles, dict):
+                for profile_name in profiles:
+                    profile_to_source_type[profile_name] = src_type
 
-        # Debug: log the YAML so we can diagnose scanner issues
-        logger.info(f"Connection YAML for scan {scan_id}:\n{yaml.dump(connection_data, default_flow_style=False)}")
-            
+        # When per-source PII config is active, we scan per-profile (each profile
+        # gets its own connection YAML with profile-specific pii_types).
+        # Otherwise, we use the original per-source-type approach with global pii_types.
+        use_per_source_pii = bool(pii_types_per_source)
+
+        if not use_per_source_pii:
+            # Original behavior: single YAML with global pii_types
+            connection_data = {
+                "sources": filtered_sources,
+                "notify": global_data.get('notify', {}),
+                "pii_types": requested_pii_types,
+            }
+            with open(connection_config_path, 'w') as f:
+                yaml.dump(connection_data, f)
+            logger.info(f"Connection YAML for scan {scan_id}:\n{yaml.dump(connection_data, default_flow_style=False)}")
+
         # Determine which source types are actually configured in this scan's YAML.
         # Running 'all' forces hawk_scanner to attempt ALL 13 source types, which wastes
         # CPU on NLP for unconfigured sources and causes multi-hour runtimes.
@@ -416,25 +432,31 @@ def execute_scan(scan_id, config):
         configured_source_types = list(filtered_sources.keys())  # e.g. ['postgresql', 'mongodb']
         all_stdout = []
         all_stderr = []
+        per_profile_configs = []  # per-source PII temp YAMLs; populated below if needed
 
         if not configured_source_types:
             logger.warning("No source types found in connection config — nothing to scan.")
             with open(output_file, 'w') as f:
                 json.dump({}, f)
         else:
-            logger.info(f"Running hawk_scanner for configured source types: {configured_source_types}")
+            execution_mode = config.get('execution_mode', 'sequential')
+            logger.info(f"Running hawk_scanner for {configured_source_types} (mode={execution_mode}, per_source_pii={use_per_source_pii})")
 
             # merged_output mirrors what hawk_scanner all would produce:
             # { "postgresql": [...findings...], "mongodb": [...findings...] }
             merged_output = {}
+            merge_lock = threading.Lock()
 
-            for source_type in configured_source_types:
+            def _scan_single_source(source_type: str, config_path: str = connection_config_path) -> dict:
+                """Run hawk_scanner for one source type and return its result dict."""
+                src_stdout, src_stderr = [], []
+                src_output = {}
                 source_output_file = output_file.replace('.json', f'_{source_type}.json')
                 cmd = [
                     'hawk_scanner',
                     source_type,
                     '--json', source_output_file,
-                    '--connection', connection_config_path
+                    '--connection', config_path
                 ]
                 logger.info(f"Executing: {' '.join(cmd)}")
 
@@ -449,23 +471,20 @@ def execute_scan(scan_id, config):
                     if '=====' in stdout_clean:
                         stdout_clean = stdout_clean[stdout_clean.rfind('=====') + 5:].strip()
                     if stdout_clean:
-                        all_stdout.append(f"[{source_type}] {stdout_clean[:1000]}")
+                        src_stdout.append(f"[{source_type}] {stdout_clean[:1000]}")
                     if result.stderr:
-                        all_stderr.append(f"[{source_type}] {result.stderr[:500]}")
+                        src_stderr.append(f"[{source_type}] {result.stderr[:500]}")
                     logger.info(f"[{source_type}] exit={result.returncode} stdout={len(stdout_clean)}chars stderr={len(result.stderr or '')}chars")
 
                     if os.path.exists(source_output_file):
                         try:
                             with open(source_output_file) as fh:
                                 source_data = json.load(fh)
-                            # hawk_scanner outputs either:
-                            #   { "postgresql": [...] }   (dict keyed by source type)
-                            #   [...]                     (flat list)
                             if isinstance(source_data, dict):
                                 for k, v in source_data.items():
-                                    merged_output.setdefault(k, []).extend(v if isinstance(v, list) else [v])
+                                    src_output.setdefault(k, []).extend(v if isinstance(v, list) else [v])
                             elif isinstance(source_data, list):
-                                merged_output.setdefault(source_type, []).extend(source_data)
+                                src_output.setdefault(source_type, []).extend(source_data)
                         except Exception as parse_err:
                             logger.warning(f"[{source_type}] Failed to parse output file: {parse_err}")
                         finally:
@@ -480,6 +499,89 @@ def execute_scan(scan_id, config):
                     logger.error(f"[{source_type}] Scan timed out after 900s — skipping")
                 except Exception as e:
                     logger.error(f"[{source_type}] Error: {e}")
+
+                return {'output': src_output, 'stdout': src_stdout, 'stderr': src_stderr}
+
+            # Build list of scan units: either per-profile (per-source PII) or per-source-type (global PII).
+            # Each unit is (source_type, config_path, label) where label is for logging.
+            scan_units = []
+
+            if use_per_source_pii:
+                # Per-profile scanning: each profile gets its own YAML with its own pii_types
+                for profile_name, profile_pii in pii_types_per_source.items():
+                    src_type = profile_to_source_type.get(profile_name)
+                    if not src_type:
+                        logger.warning(f"Profile '{profile_name}' not found in filtered_sources — skipping per-source PII")
+                        continue
+                    profiles_for_type = filtered_sources.get(src_type, {})
+                    profile_cfg = profiles_for_type.get(profile_name)
+                    if profile_cfg is None:
+                        continue
+
+                    profile_config_path = f'/tmp/connection_{scan_id}_{profile_name}.yml'
+                    per_profile_configs.append(profile_config_path)
+                    profile_connection_data = {
+                        "sources": {src_type: {profile_name: profile_cfg}},
+                        "notify": global_data.get('notify', {}),
+                        "pii_types": profile_pii,
+                    }
+                    with open(profile_config_path, 'w') as f:
+                        yaml.dump(profile_connection_data, f)
+                    logger.info(f"Per-source PII config for {profile_name} ({src_type}): pii_types={profile_pii}")
+                    scan_units.append((src_type, profile_config_path, profile_name))
+
+                # Sources NOT in pii_types_per_source fall back to global pii_types
+                covered_profiles = set(pii_types_per_source.keys())
+                for src_type, profiles in filtered_sources.items():
+                    if not isinstance(profiles, dict):
+                        continue
+                    fallback_profiles = {p: cfg for p, cfg in profiles.items() if p not in covered_profiles}
+                    if fallback_profiles:
+                        fallback_config_path = f'/tmp/connection_{scan_id}_fallback_{src_type}.yml'
+                        per_profile_configs.append(fallback_config_path)
+                        fallback_data = {
+                            "sources": {src_type: fallback_profiles},
+                            "notify": global_data.get('notify', {}),
+                            "pii_types": requested_pii_types,
+                        }
+                        with open(fallback_config_path, 'w') as f:
+                            yaml.dump(fallback_data, f)
+                        scan_units.append((src_type, fallback_config_path, f"fallback-{src_type}"))
+            else:
+                # Original behavior: one unit per source type, all sharing the global YAML
+                for st in configured_source_types:
+                    scan_units.append((st, connection_config_path, st))
+
+            if execution_mode == 'parallel' and len(scan_units) > 1:
+                # Parallel: run all scan units concurrently
+                from concurrent.futures import ThreadPoolExecutor, as_completed
+                max_workers = min(len(scan_units), 4)  # cap at 4 to limit memory
+                logger.info(f"Parallel scan: {len(scan_units)} units, {max_workers} workers")
+
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {
+                        executor.submit(_scan_single_source, st, cp): label
+                        for st, cp, label in scan_units
+                    }
+                    for future in as_completed(futures):
+                        label = futures[future]
+                        try:
+                            res = future.result()
+                            with merge_lock:
+                                for k, v in res['output'].items():
+                                    merged_output.setdefault(k, []).extend(v)
+                                all_stdout.extend(res['stdout'])
+                                all_stderr.extend(res['stderr'])
+                        except Exception as exc:
+                            logger.error(f"[{label}] Parallel scan raised: {exc}")
+            else:
+                # Sequential: one scan unit at a time
+                for src_type, cfg_path, label in scan_units:
+                    res = _scan_single_source(src_type, cfg_path)
+                    for k, v in res['output'].items():
+                        merged_output.setdefault(k, []).extend(v)
+                    all_stdout.extend(res['stdout'])
+                    all_stderr.extend(res['stderr'])
 
             if all_stdout:
                 logger.info("stdout: " + " | ".join(all_stdout))
@@ -512,7 +614,8 @@ def execute_scan(scan_id, config):
                 ingest_results(scan_id, scan_results, config)
         finally:
             # Cleanup temp files regardless of success/failure
-            for tmp in (output_file, connection_config_path):
+            cleanup_files = [output_file, connection_config_path] + per_profile_configs
+            for tmp in cleanup_files:
                 try:
                     if os.path.exists(tmp):
                         os.remove(tmp)

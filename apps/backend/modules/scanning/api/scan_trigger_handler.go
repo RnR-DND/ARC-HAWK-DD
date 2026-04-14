@@ -15,6 +15,7 @@ import (
 	"github.com/arc-platform/backend/modules/scanning/service"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/vault"
 	"github.com/arc-platform/backend/modules/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -28,6 +29,7 @@ type ScanTriggerHandler struct {
 	websocketService any // WebSocket service for broadcasting
 	repo             *persistence.PostgresRepository
 	encryption       *encryption.EncryptionService
+	vault            *vault.Client
 	patternsService  *service.PatternsService
 }
 
@@ -58,12 +60,13 @@ var (
 	)
 )
 
-func NewScanTriggerHandler(scanService *service.ScanService, websocketService any, repo *persistence.PostgresRepository, enc *encryption.EncryptionService) *ScanTriggerHandler {
+func NewScanTriggerHandler(scanService *service.ScanService, websocketService any, repo *persistence.PostgresRepository, enc *encryption.EncryptionService, vaultClient *vault.Client) *ScanTriggerHandler {
 	return &ScanTriggerHandler{
 		scanService:      scanService,
 		websocketService: websocketService,
 		repo:             repo,
 		encryption:       enc,
+		vault:            vaultClient,
 		patternsService:  service.NewPatternsService(repo),
 	}
 }
@@ -218,6 +221,9 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		"custom_patterns":    customPatternsList,
 		"classification_mode": req.ClassificationMode,
 	}
+	if len(req.PIITypesPerSource) > 0 {
+		payload["pii_types_per_source"] = req.PIITypesPerSource
+	}
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -287,9 +293,10 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 	h.markScanFailed(scanID, "scanner_dispatch_failed")
 }
 
-// resolveConnectionConfigs looks up connection profiles from the database, decrypts
-// their configs, and returns a map of source_type → profile_name → full config.
-// This allows the scanner to receive credentials at runtime without filesystem secrets.
+// resolveConnectionConfigs looks up connection profiles and returns a map of
+// source_type → profile_name → full config.
+// When Vault is enabled, credentials come exclusively from Vault.
+// When Vault is disabled, credentials are decrypted from PostgreSQL.
 func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) (map[string]map[string]any, error) {
 	configs := make(map[string]map[string]any)
 
@@ -309,22 +316,39 @@ func (h *ScanTriggerHandler) resolveConnectionConfigs(sourceNames []string) (map
 		sourceSet[s] = true
 	}
 
+	vaultEnabled := h.vault != nil && h.vault.IsEnabled()
+
 	for _, conn := range connections {
 		if !sourceSet[conn.ProfileName] {
 			continue
 		}
 
 		var config map[string]any
-		if err := h.encryption.Decrypt(conn.ConfigEncrypted, &config); err != nil {
-			log.Printf("WARN: Failed to decrypt config for %s/%s: %v", conn.SourceType, conn.ProfileName, err)
-			continue
+
+		if vaultEnabled {
+			vc, vErr := h.vault.ReadConnectionSecret(conn.SourceType, conn.ProfileName)
+			if vErr != nil {
+				log.Printf("ERROR: Vault read failed for %s/%s: %v", conn.SourceType, conn.ProfileName, vErr)
+				continue
+			}
+			if vc == nil {
+				log.Printf("WARN: Credentials not found in Vault for %s/%s — skipping", conn.SourceType, conn.ProfileName)
+				continue
+			}
+			config = vc
+			log.Printf("INFO: Resolved connection config for %s/%s from Vault", conn.SourceType, conn.ProfileName)
+		} else {
+			if err := h.encryption.Decrypt(conn.ConfigEncrypted, &config); err != nil {
+				log.Printf("WARN: Failed to decrypt config for %s/%s: %v", conn.SourceType, conn.ProfileName, err)
+				continue
+			}
+			log.Printf("INFO: Resolved connection config for %s/%s from PostgreSQL", conn.SourceType, conn.ProfileName)
 		}
 
 		if configs[conn.SourceType] == nil {
 			configs[conn.SourceType] = make(map[string]any)
 		}
 		configs[conn.SourceType][conn.ProfileName] = config
-		log.Printf("INFO: Resolved connection config for %s/%s", conn.SourceType, conn.ProfileName)
 	}
 
 	return configs, nil
