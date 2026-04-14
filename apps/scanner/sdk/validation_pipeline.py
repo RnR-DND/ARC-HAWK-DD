@@ -40,10 +40,11 @@ _context_validator = ContextValidator()
 
 
 # Validator mapping: PII type -> validator function
+# FIX M8: Added IN_GST entry using validate_gst_checksum (already imported above)
 VALIDATOR_MAP = {
     "CREDIT_CARD": validate_credit_card,
     "IN_AADHAAR": validate_aadhaar,
-    "IN_PAN": validate_pan, 
+    "IN_PAN": validate_pan,
     "IN_PHONE": validate_indian_phone,
     "EMAIL_ADDRESS": validate_email,
     "IN_PASSPORT": validate_indian_passport,
@@ -52,6 +53,7 @@ VALIDATOR_MAP = {
     "IN_BANK_ACCOUNT": validate_bank_account,
     "IN_VOTER_ID": validate_voter_id,
     "IN_DRIVING_LICENSE": validate_driving_license,
+    "IN_GST": validate_gst_checksum,
 }
 
 
@@ -170,6 +172,51 @@ def validate_and_create_finding(presidio_result, text: str, source_info: SourceI
           f"validators: {len(validators_passed)})")
 
     return verified
+
+
+def classify_ambiguous_with_llm(findings: list, budget: int = 100) -> list:
+    """
+    FIX H5: Run LLM classifier on ambiguous findings (confidence 0.65–0.80).
+
+    Called after batch validation when the results are in dict form (not
+    VerifiedFinding objects). The LLM classifier is optional — any error
+    (missing API key, network issue, import failure) is caught and logged,
+    and the original findings are returned unchanged.
+
+    Args:
+        findings: List of finding dicts with a 'confidence_score' field
+        budget: Maximum number of LLM calls for this batch
+
+    Returns:
+        Same list with LLM-updated fields for ambiguous findings
+    """
+    try:
+        from sdk.llm_classifier import LLMClassifier
+        _CONFIDENCE_LOW = 0.65
+        _CONFIDENCE_HIGH = 0.80
+
+        ambiguous = [
+            f for f in findings
+            if _CONFIDENCE_LOW <= float(f.get('confidence_score') or f.get('confidence', 0) or 0) <= _CONFIDENCE_HIGH
+        ]
+        if not ambiguous:
+            return findings
+
+        classifier = LLMClassifier()
+        if not classifier._available:
+            return findings
+
+        llm_results = classifier.classify_batch(ambiguous[:budget])
+
+        # Build lookup by position in the ambiguous list
+        ambiguous_ids = [id(f) for f in ambiguous]
+        llm_by_id = {id(orig): updated for orig, updated in zip(ambiguous, llm_results)}
+
+        return [llm_by_id.get(id(f), f) for f in findings]
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(f"LLM classifier unavailable: {exc}")
+        return findings
 
 
 def filter_and_validate_results(presidio_results, text: str, source_info: SourceInfo, pattern_name: str) -> list[VerifiedFinding]:

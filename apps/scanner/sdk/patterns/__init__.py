@@ -16,8 +16,8 @@ Quick start
     india_id = get_by_category(PatternCategory.INDIA_IDENTITY)
 """
 
-from patterns.base import PiiPattern, PatternCategory, DPDPASchedule, ValidationResult
-from patterns.registry import (
+from .base import PiiPattern, PatternCategory, DPDPASchedule, ValidationResult
+from .registry import (
     ALL_PATTERNS,
     get_pattern,
     get_by_category,

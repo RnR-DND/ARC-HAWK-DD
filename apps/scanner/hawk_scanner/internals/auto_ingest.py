@@ -224,6 +224,24 @@ def ingest_scan_results(args, grouped_results, scan_metadata=None):
                 # Skip findings that aren't in the locked 11 India PII types
                 continue
 
+            # FIX C9: Determine validation tier honestly based on whether math
+            # validators ran (indicated by 'validation_tier' field set by
+            # validate_findings() → _validate_findings_via_pipeline()).
+            result_validation_tier = result.get('validation_tier', 'regex_only')
+            result_validators_passed = result.get('validators_passed', None)
+
+            if result_validation_tier == 'math' and result_validators_passed:
+                # Math-validated: pass through the actual validators that ran
+                validators_list = result_validators_passed
+                validation_method = 'mathematical'
+                validation_tier = 'math'
+            else:
+                # Legacy regex-only path: label clearly so it's distinguishable
+                # from math-validated findings in the backend
+                validators_list = ['regex_only']
+                validation_method = 'regex_only'
+                validation_tier = 'regex_only'
+
             for match_value in result.get('matches', []):
                 # Hash match
                 match_hash = hashlib.sha256(
@@ -234,8 +252,9 @@ def ingest_scan_results(args, grouped_results, scan_metadata=None):
                     "pii_type": pii_type,
                     "value_hash": match_hash,
                     "source": source_info,
-                    "validators_passed": ["regex"],  # Assume regex passed
-                    "validation_method": "regex",
+                    "validators_passed": validators_list,
+                    "validation_method": validation_method,
+                    "validation_tier": validation_tier,
                     "ml_confidence": 0.8,
                     "ml_entity_type": pii_type,
                     "context_excerpt": result.get('sample_text', '')[:100] if result.get('sample_text') else "",

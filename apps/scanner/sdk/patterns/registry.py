@@ -22,18 +22,19 @@ Usage
 
 from typing import Optional
 
-from patterns.base import PiiPattern, PatternCategory
+from .base import PiiPattern, PatternCategory
 
 # ── Import all sub-libraries ──────────────────────────────────────────────── #
-from patterns.india_identity import INDIA_IDENTITY_PATTERNS
-from patterns.india_financial import INDIA_FINANCIAL_PATTERNS
-from patterns.india_corporate import INDIA_CORPORATE_PATTERNS
-from patterns.india_healthcare import INDIA_HEALTHCARE_PATTERNS
-from patterns.global_pii import GLOBAL_PII_PATTERNS
-from patterns.financial_global import FINANCIAL_GLOBAL_PATTERNS
-from patterns.credentials import CREDENTIAL_PATTERNS
-from patterns.personal import PERSONAL_PATTERNS
-from patterns.healthcare_global import HEALTHCARE_GLOBAL_PATTERNS
+# FIX H8: Changed bare 'from patterns.X import' to PEP-328 relative imports
+from .india_identity import INDIA_IDENTITY_PATTERNS
+from .india_financial import INDIA_FINANCIAL_PATTERNS
+from .india_corporate import INDIA_CORPORATE_PATTERNS
+from .india_healthcare import INDIA_HEALTHCARE_PATTERNS
+from .global_pii import GLOBAL_PII_PATTERNS
+from .financial_global import FINANCIAL_GLOBAL_PATTERNS
+from .credentials import CREDENTIAL_PATTERNS
+from .personal import PERSONAL_PATTERNS
+from .healthcare_global import HEALTHCARE_GLOBAL_PATTERNS
 
 
 # ── Build the master dictionary ───────────────────────────────────────────── #

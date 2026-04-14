@@ -336,6 +336,62 @@ def _normalize_for_hawk_scanner(sources: dict) -> dict:
     return normalized
 
 
+# ---------------------------------------------------------------------------
+# FIX C8: Masking helper — applies MaskingPolicy to scan results before
+# they are ingested into the backend so raw PII values never transit the wire.
+# ---------------------------------------------------------------------------
+def _apply_masking_to_results(results: list, policy=None) -> list:
+    """
+    Apply masking policy to scan results before sending to backend.
+
+    Each result dict may contain 'value', 'matched_value', or 'matches'.
+    The masked value is stored in 'masked_value' and the original is
+    replaced so that no raw PII leaves this process.
+
+    Args:
+        results: List of finding dicts from hawk_scanner output
+        policy: MaskingPolicy instance (uses default partial masking if None)
+
+    Returns:
+        New list with masked_value populated and raw value removed
+    """
+    try:
+        from sdk.masking.policy import MaskingPolicy as _MP, get_default_policy
+
+        if policy is None:
+            policy = get_default_policy()
+
+        masked = []
+        for finding in results:
+            pii_type = (
+                finding.get('pii_type')
+                or finding.get('pattern_name', '')
+            )
+            # Grab the first available raw value representation
+            raw_value = (
+                finding.get('value')
+                or finding.get('matched_value')
+                or ''
+            )
+            # For findings that use a 'matches' list, pick the first entry
+            if not raw_value:
+                matches_list = finding.get('matches', [])
+                raw_value = matches_list[0] if matches_list else ''
+
+            finding = dict(finding)
+            if raw_value and policy.should_mask_pii_type(pii_type):
+                strategy = policy.get_masking_strategy_instance(pii_type)
+                finding['masked_value'] = strategy.mask(str(raw_value), pii_type)
+            else:
+                finding['masked_value'] = '[REDACTED]'
+            finding['value_masked'] = True
+            masked.append(finding)
+        return masked
+    except Exception as exc:
+        logger.warning(f"Masking step unavailable — results passed through unmasked: {exc}")
+        return results
+
+
 def execute_scan(scan_id, config):
     """
     Execute the scan using hawk_scanner CLI.
@@ -508,8 +564,18 @@ def execute_scan(scan_id, config):
                     scan_results = json.load(f)
 
                 findings_count = sum(len(v) for v in scan_results.values() if isinstance(v, list))
+
+                # FIX C8: Apply masking before ingestion so raw PII never leaves
+                masked_results = {}
+                for src_type, src_findings in scan_results.items():
+                    if isinstance(src_findings, list):
+                        masked_results[src_type] = _apply_masking_to_results(src_findings)
+                    else:
+                        masked_results[src_type] = src_findings
+                logger.info(f"Masking applied to {findings_count} findings before ingestion")
+
                 # Ingest into backend
-                ingest_results(scan_id, scan_results, config)
+                ingest_results(scan_id, masked_results, config)
         finally:
             # Cleanup temp files regardless of success/failure
             for tmp in (output_file, connection_config_path):

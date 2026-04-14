@@ -113,18 +113,21 @@ class VerifiedFinding:
         # Hash the value (NEVER store raw PII)
         value_hash = hashlib.sha256(matched_value.encode()).hexdigest()
         
-        # Extract context (±50 chars around match)
+        # FIX M9: Extract context (±50 chars around match)
         context_start = max(0, presidio_result.start - 50)
         context_end = min(len(text), presidio_result.end + 50)
         context_excerpt = text[context_start:context_end]
-        
-        # Extract context keywords (simple implementation)
-        context_keywords = []
-        lower_context = context_excerpt.lower()
-        common_keywords = ["aadhaar", "pan", "card", "number", "id", "uid", "customer"]
-        for keyword in common_keywords:
-            if keyword in lower_context:
-                context_keywords.append(keyword)
+
+        # FIX M9: Extract context keywords — significant words (len > 4) near match.
+        # Strip punctuation before length check so short words with punctuation
+        # are excluded correctly. strip() chars chosen to avoid shell-quoting issues.
+        _punct = set(".,;:!?\"'()")
+        context_words = context_excerpt.split()
+        context_keywords = [
+            w.strip(".,;:!?\"'()")
+            for w in context_words
+            if len(w.strip(".,;:!?\"'()")) > 4
+        ][:10]
         
         return VerifiedFinding(
             pii_type=presidio_result.entity_type,

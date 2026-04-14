@@ -177,9 +177,37 @@ def get_connection(args):
 _fingerprint_cache = None
 
 
+def load_sdk_patterns():
+    """
+    FIX H11: Load patterns from the SDK patterns registry (87 patterns with
+    DPDPA mappings and validators). Returns a {name: regex} dict compatible
+    with the fingerprints.yml format, or None if the SDK registry is unavailable.
+    """
+    try:
+        from sdk.patterns.registry import ALL_PATTERNS
+        patterns = {}
+        for pattern_id, p in ALL_PATTERNS.items():
+            pattern_regex = getattr(p, 'pattern', None) or getattr(p, 'regex', None)
+            if pattern_regex:
+                patterns[pattern_id] = pattern_regex
+        if patterns:
+            return patterns
+        return None
+    except Exception:
+        return None
+
+
 def get_fingerprint_file(args=None):
     global _fingerprint_cache
     if _fingerprint_cache:
+        return _fingerprint_cache
+
+    # FIX H11: Try the SDK patterns registry first (87 patterns, DPDPA-mapped)
+    sdk_patterns = load_sdk_patterns()
+    if sdk_patterns:
+        _fingerprint_cache = sdk_patterns
+        if args:
+            print_success(args, f"Loaded {len(sdk_patterns)} patterns from SDK patterns registry")
         return _fingerprint_cache
 
     if args and type(args) == argparse.Namespace and args.fingerprint:

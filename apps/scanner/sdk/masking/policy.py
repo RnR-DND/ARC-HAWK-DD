@@ -179,6 +179,22 @@ class MaskingPolicy:
         with open(filepath, 'w') as f:
             json.dump(self.to_dict(), f, indent=2)
 
+    @classmethod
+    def default(cls) -> 'MaskingPolicy':
+        """
+        FIX C8: Return the default masking policy (PARTIAL masking for all PII).
+        Convenience classmethod so callers can write MaskingPolicy.default()
+        without importing get_default_policy separately.
+        """
+        return cls(
+            name="default",
+            description="Default masking policy with partial masking for all PII types",
+            mode=PolicyMode.STRICT,
+            default_strategy="PARTIAL",
+            backup_enabled=True,
+            require_confirmation=False,  # Non-interactive; used in scan pipeline
+        )
+
 
 # Predefined policies
 def get_default_policy() -> MaskingPolicy:

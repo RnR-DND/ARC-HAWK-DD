@@ -151,7 +151,15 @@ class SharedAnalyzerEngine:
         
         for recognizer in recognizers:
             analyzer.registry.add_recognizer(recognizer)
-            print(f"  ✓ Registered: {recognizer.name}")
+            # FIX M15: Presidio PatternRecognizer stores entities as
+            # .supported_entities (list), NOT .supported_entity (str).
+            # Always use supported_entities[0] with a bounds check.
+            entity_label = (
+                recognizer.supported_entities[0]
+                if getattr(recognizer, 'supported_entities', None)
+                else getattr(recognizer, 'name', 'unknown')
+            )
+            print(f"  Registered: {recognizer.name} ({entity_label})")
         
         print(f"[SDK] Registered {len(recognizers)} custom recognizers")
     

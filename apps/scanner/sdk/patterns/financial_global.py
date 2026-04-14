@@ -18,7 +18,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from patterns.base import PiiPattern, PatternCategory, DPDPASchedule
+from .base import PiiPattern, PatternCategory, DPDPASchedule
 
 
 # --------------------------------------------------------------------------- #
