@@ -4,8 +4,8 @@ import os
 import logging
 from typing import Any, Generator
 
-from app.connectors.base import BaseConnector, FieldRecord
-from app.connectors import register_connector
+from hawk_scanner.commands.base import BaseConnector, FieldRecord
+from hawk_scanner.commands.base import register_connector
 
 logger = logging.getLogger(__name__)
 

@@ -71,11 +71,57 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 - `apps/backend/` — Go backend services
 - `apps/backend/migrations_versioned/` — Database migrations (000018+)
 - `apps/backend/modules/` — Service modules (auth, scanning, etc.)
+- `apps/agent/` — Edge scanner agent (canonical — hawk/ folder removed)
+- `apps/scanner/hawk_scanner/commands/` — All data source connectors (incl. csv_excel, pdf, docx)
+- `apps/frontend/components/ui/` — Canonical UI components (MetricCard, StatusBadge, Panel, etc.)
+- `infra/k8s/monitoring/` — Kubernetes ServiceMonitors + NetworkPolicy
 - `.continue-here.md` — Session handoff file for context preservation
+- `graphify-out/` — Knowledge graph (run `/graphify .` to rebuild after major changes)
 
 ## Session Continuity
 
 If a session pauses, use the handoff file at `.continue-here.md` to preserve context and resume work efficiently.
+
+## Agentic Toolchain
+
+This project ships four integrated AI productivity tools. Use them.
+
+### 1. Antigravity Skills (`.agent/skills/`)
+860+ expert markdown skills. Load with `@skill-name` in your prompt. Key skills for this stack:
+- **Go backend**: `@golang-pro`, `@go-concurrency-patterns`, `@api-design-principles`, `@backend-security-coder`
+- **Frontend**: `@nextjs-best-practices`, `@nextjs-app-router-patterns`, `@react-best-practices`
+- **Scanner**: `@python-pro`, `@python-patterns`, `@python-testing-patterns`, `@async-python-patterns`
+- **Infra**: `@docker-expert`, `@postgres-best-practices`, `@postgresql`
+- **Security**: `@api-security-best-practices`, `@cc-skill-security-review`
+- **Testing**: `@test-driven-development`, `@e2e-testing-patterns`
+
+Use these skills when implementing features to get expert-level patterns automatically applied.
+
+### 2. Ralph — Autonomous PRD Loop (`.agent/ralph/`)
+Spec-driven autonomous iteration. To run:
+```bash
+# 1. Create prd.json from prd.json.example — define user stories with passes: false
+# 2. Run the loop:
+bash .agent/ralph/ralph.sh
+# Ralph picks highest-priority failing story, implements it, tests, commits, repeats
+```
+Use Ralph for: batch feature implementation, migrations, test coverage improvements.
+
+### 3. Hive — Goal-Driven Agent Framework (`.agent/hive/`)
+Define a goal in natural language → auto-generates and runs an agent graph.
+```bash
+cd .agent/hive && node hive.js "add DPDPA compliance report export to PDF"
+```
+Use Hive for: complex multi-step features that need parallel sub-agents.
+
+### 4. Knowledge Graph (graphify)
+Always query the graph before deep refactors or architectural decisions:
+```
+/graphify query "how does the scan pipeline connect to neo4j?"
+/graphify path "IngestionService" "Neo4jRepository"
+/graphify explain "SharedAnalyzerEngine"
+```
+Rebuild after major changes: `/graphify . --update`
 
 ## Skill routing
 

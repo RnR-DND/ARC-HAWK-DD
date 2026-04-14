@@ -9,8 +9,8 @@ import os
 import logging
 from typing import Any, Generator
 
-from app.connectors.base import BaseConnector, FieldRecord, validate_magic_bytes
-from app.connectors import register_connector
+from hawk_scanner.commands.base import BaseConnector, FieldRecord, validate_magic_bytes
+from hawk_scanner.commands.base import register_connector
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +140,7 @@ class PDFConnector(BaseConnector):
         OCR a PDF page using Tesseract. If confidence < 40%, re-run with OpenCV preprocessing.
         """
         try:
-            from app.profiling.ocr import ocr_pdf_page
+            from hawk_scanner.profiling.ocr import ocr_pdf_page
             text, confidence = ocr_pdf_page(self._file_path, page_num)
 
             if confidence < 0.40:
