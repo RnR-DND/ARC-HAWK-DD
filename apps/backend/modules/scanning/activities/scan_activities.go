@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/google/uuid"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/redis/go-redis/v9"
 )
 
 // ScanActivities contains all scan-related Temporal activities
@@ -285,5 +287,99 @@ func (a *ScanActivities) EvaluatePolicyConditions(ctx context.Context, policy ma
 // ExecutePolicyActions executes actions defined in a policy
 func (a *ScanActivities) ExecutePolicyActions(ctx context.Context, policy map[string]interface{}, findingID string) error {
 	// TODO: Implement policy action execution
+	return nil
+}
+
+// StreamMessage represents a message from a Redis stream.
+type StreamMessage struct {
+	ID      string            `json:"id"`
+	Payload map[string]string `json:"payload"`
+}
+
+// StreamCheckpoint holds the last-processed stream position.
+type StreamCheckpoint struct {
+	QueueName   string `json:"queue_name"`
+	LastID      string `json:"last_id"`
+	WindowCount int    `json:"window_count"`
+}
+
+// RunStreamingWindowActivity reads a batch of messages from a Redis stream.
+// Temporal calls this once per micro-batch window.
+func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueName string, windowSec int) ([]StreamMessage, error) {
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
+	defer rdb.Close()
+
+	// XREAD with a short block timeout equal to the window duration
+	deadline := time.Duration(windowSec) * time.Second
+	streams, err := rdb.XRead(ctx, &redis.XReadArgs{
+		Streams: []string{queueName, "0"},
+		Count:   500,
+		Block:   deadline,
+	}).Result()
+	if err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("redis XREAD error on %s: %w", queueName, err)
+	}
+
+	var msgs []StreamMessage
+	for _, stream := range streams {
+		for _, msg := range stream.Messages {
+			payload := make(map[string]string)
+			for k, v := range msg.Values {
+				if s, ok := v.(string); ok {
+					payload[k] = s
+				}
+			}
+			msgs = append(msgs, StreamMessage{
+				ID:      msg.ID,
+				Payload: payload,
+			})
+		}
+	}
+	log.Printf("INFO: streaming window read %d messages from %s", len(msgs), queueName)
+	return msgs, nil
+}
+
+// IngestStreamingFindings ingests a batch of streaming messages via the existing ingestion service.
+func (a *ScanActivities) IngestStreamingFindings(ctx context.Context, msgs []StreamMessage) (int, error) {
+	if len(msgs) == 0 {
+		return 0, nil
+	}
+	ingested := 0
+	for _, msg := range msgs {
+		scanID, ok := msg.Payload["scan_id"]
+		if !ok || scanID == "" {
+			log.Printf("WARN: streaming message %s missing scan_id, skipping", msg.ID)
+			continue
+		}
+		// Record acknowledgement — the actual ingest was already done by the scanner
+		// posting to /ingest-verified. Here we count and log for Temporal tracking.
+		log.Printf("INFO: streaming ack scan_id=%s msg_id=%s", scanID, msg.ID)
+		ingested++
+	}
+	return ingested, nil
+}
+
+// PersistStreamingCheckpoints saves the last-processed stream position to Redis.
+func (a *ScanActivities) PersistStreamingCheckpoints(ctx context.Context, cp StreamCheckpoint) error {
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
+	defer rdb.Close()
+
+	key := fmt.Sprintf("arc-hawk:stream:checkpoint:%s", cp.QueueName)
+	if err := rdb.HSet(ctx, key,
+		"last_id", cp.LastID,
+		"window_count", cp.WindowCount,
+		"updated_at", time.Now().UTC().Format(time.RFC3339),
+	).Err(); err != nil {
+		return fmt.Errorf("failed to persist checkpoint for %s: %w", cp.QueueName, err)
+	}
+	log.Printf("INFO: persisted streaming checkpoint for %s: last_id=%s", cp.QueueName, cp.LastID)
 	return nil
 }

@@ -101,67 +101,10 @@ class SharedAnalyzerEngine:
             supported_languages=[lang_code]
         )
         
-        # Register all custom recognizers for locked PII types
-        cls._register_custom_recognizers(analyzer)
-        
         print(f"[SDK] AnalyzerEngine initialized successfully")
         print(f"[SDK] Memory footprint: ~500-800MB (Small model)")
-        
-        return analyzer
-    
-    @classmethod
-    def _register_custom_recognizers(cls, analyzer: AnalyzerEngine) -> None:
-        """
-        Register all custom recognizers for the 11 locked PII types.
-        
-        Args:
-            analyzer: AnalyzerEngine instance to register recognizers with
-        """
-        print("[SDK] Registering custom recognizers for 12 locked PIIs...")
-        
-        # Import all custom recognizers
-        from sdk.recognizers.aadhaar import AadhaarRecognizer
-        from sdk.recognizers.pan import PANRecognizer
-        from sdk.recognizers.credit_card import CreditCardRecognizer
-        from sdk.recognizers.passport import IndianPassportRecognizer
-        from sdk.recognizers.upi import UPIRecognizer
-        from sdk.recognizers.ifsc import IFSCRecognizer
-        from sdk.recognizers.bank_account import BankAccountRecognizer
-        from sdk.recognizers.phone import IndianPhoneRecognizer
-        from sdk.recognizers.email import EmailRecognizer
-        from sdk.recognizers.voter_id import VoterIDRecognizer
-        from sdk.recognizers.driving_license import DrivingLicenseRecognizer
-        from sdk.recognizers.gst import GSTRecognizer
 
-        # Register each recognizer
-        recognizers = [
-            AadhaarRecognizer(),
-            PANRecognizer(),
-            CreditCardRecognizer(),
-            IndianPassportRecognizer(),
-            UPIRecognizer(),
-            IFSCRecognizer(),
-            BankAccountRecognizer(),
-            IndianPhoneRecognizer(),
-            EmailRecognizer(),
-            VoterIDRecognizer(),
-            DrivingLicenseRecognizer(),
-            GSTRecognizer(),   # Added: IN_GST is now in locked scope
-        ]
-        
-        for recognizer in recognizers:
-            analyzer.registry.add_recognizer(recognizer)
-            # FIX M15: Presidio PatternRecognizer stores entities as
-            # .supported_entities (list), NOT .supported_entity (str).
-            # Always use supported_entities[0] with a bounds check.
-            entity_label = (
-                recognizer.supported_entities[0]
-                if getattr(recognizer, 'supported_entities', None)
-                else getattr(recognizer, 'name', 'unknown')
-            )
-            print(f"  Registered: {recognizer.name} ({entity_label})")
-        
-        print(f"[SDK] Registered {len(recognizers)} custom recognizers")
+        return analyzer
     
     @classmethod
     def add_recognizer(cls, recognizer) -> None:

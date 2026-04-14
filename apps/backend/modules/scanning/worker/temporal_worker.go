@@ -50,6 +50,9 @@ func NewTemporalWorker(temporalAddress string, db *sql.DB, neo4jDriver neo4j.Dri
 	w.RegisterActivity(scanActivities.GetActivePolicies)
 	w.RegisterActivity(scanActivities.EvaluatePolicyConditions)
 	w.RegisterActivity(scanActivities.ExecutePolicyActions)
+	w.RegisterActivity(scanActivities.RunStreamingWindowActivity)
+	w.RegisterActivity(scanActivities.IngestStreamingFindings)
+	w.RegisterActivity(scanActivities.PersistStreamingCheckpoints)
 
 	return &TemporalWorker{
 		client: c,

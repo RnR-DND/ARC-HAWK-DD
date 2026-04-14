@@ -19,6 +19,16 @@ import (
 	"github.com/arc-platform/backend/pkg/normalization"
 	"github.com/arc-platform/backend/pkg/validators"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var findingsIngestedTotal = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "findings_ingested_total",
+		Help: "Total findings ingested by detector type",
+	},
+	[]string{"detector_type"},
 )
 
 // IngestionService handles scan ingestion and normalization
@@ -92,16 +102,17 @@ func (h *HawkeyeScanInput) UnmarshalJSON(data []byte) error {
 
 // HawkeyeFinding represents a single finding from Hawk-eye
 type HawkeyeFinding struct {
-	Host                string                 `json:"host"`
-	FilePath            string                 `json:"file_path"`
-	PatternName         string                 `json:"pattern_name"`
-	Matches             []string               `json:"matches"`
-	SampleText          string                 `json:"sample_text"`
-	Profile             string                 `json:"profile"`
-	DataSource          string                 `json:"data_source"`
+	Host                string         `json:"host"`
+	FilePath            string         `json:"file_path"`
+	PatternName         string         `json:"pattern_name"`
+	Matches             []string       `json:"matches"`
+	SampleText          string         `json:"sample_text"`
+	Profile             string         `json:"profile"`
+	DataSource          string         `json:"data_source"`
 	FileData            map[string]any `json:"file_data"`
-	Severity            string                 `json:"severity"`
-	SeverityDescription string                 `json:"severity_description"`
+	Severity            string         `json:"severity"`
+	SeverityDescription string         `json:"severity_description"`
+	DetectorType        string         `json:"detector_type"`
 }
 
 // IngestScanResult represents the result of ingestion
@@ -442,6 +453,13 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 			tx.Rollback()
 			return nil, fmt.Errorf("failed to create finding: %w", err)
 		}
+
+		// Increment ingestion counter by detector type
+		detectorType := hawkeyeFinding.DetectorType
+		if detectorType == "" {
+			detectorType = "regex"
+		}
+		findingsIngestedTotal.WithLabelValues(detectorType).Inc()
 
 		// Save Classification
 		classification := &entity.Classification{

@@ -1,4 +1,5 @@
 import { get, post } from '@/utils/api-client';
+import apiClient from '@/utils/api-client';
 import { FindingsResponse } from '@/types';
 
 export interface FeedbackRequest {
@@ -58,7 +59,16 @@ export const findingsApi = {
             page_size: params?.page_size || 20,
             total_pages: totalPages
         };
-    }
+    },
+
+    async getFacets(): Promise<{ pii_types: string[]; assets: string[]; severities: string[] }> {
+        try {
+            const res = await apiClient.get<{ pii_types: string[]; assets: string[]; severities: string[] }>('/findings/facets')
+            return res.data ?? { pii_types: [], assets: [], severities: [] }
+        } catch {
+            return { pii_types: [], assets: [], severities: [] }
+        }
+    },
 };
 
 export default findingsApi;

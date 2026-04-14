@@ -23,6 +23,21 @@ export default function FindingsPage() {
     const [assetFilter, setAssetFilter] = useState('');
     const [piiTypeFilter, setPiiTypeFilter] = useState('');
 
+    // Facets state — populated once on mount from API
+    const [facets, setFacets] = useState<{ pii_types: string[]; assets: string[]; severities: string[] }>({
+        pii_types: [],
+        assets: [],
+        severities: ['Critical', 'High', 'Medium', 'Low'],
+    });
+
+    // Selected finding for detail drawer (passed down to FindingsTable)
+    const [selectedFinding, setSelectedFinding] = useState<FindingWithDetails | null>(null);
+
+    // Fetch facets once on mount
+    useEffect(() => {
+        findingsApi.getFacets().then(setFacets).catch(() => {})
+    }, [])
+
     useEffect(() => {
         fetchFindings();
     }, [page, searchTerm, severityFilter, statusFilter, assetFilter, piiTypeFilter]);
@@ -112,8 +127,8 @@ export default function FindingsPage() {
                 user_id: 'current-user'
             });
 
-            fetchFindings();
             setRemediationState(prev => ({ ...prev, isOpen: false }));
+            fetchFindings();
         } catch (error) {
             console.error('Remediation failed:', error);
             setError('Failed to execute remediation');
@@ -167,10 +182,8 @@ export default function FindingsPage() {
                     value={piiTypeFilter}
                     onChange={(e) => setPiiTypeFilter(e.target.value)}
                 >
-                    <option value="">PII Type: All</option>
-                    <option value="PAN">PAN</option>
-                    <option value="Aadhaar">Aadhaar</option>
-                    <option value="Email">Email</option>
+                    <option value="">All PII Types</option>
+                    {facets.pii_types.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
 
                 {/* Asset Filter */}
@@ -179,9 +192,8 @@ export default function FindingsPage() {
                     value={assetFilter}
                     onChange={(e) => setAssetFilter(e.target.value)}
                 >
-                    <option value="">Asset: All</option>
-                    <option value="DB-Prod">DB-Prod</option>
-                    <option value="S3-Logs">S3-Logs</option>
+                    <option value="">All Assets</option>
+                    {facets.assets.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
 
                 {/* Risk Filter */}
@@ -190,10 +202,8 @@ export default function FindingsPage() {
                     value={severityFilter}
                     onChange={(e) => setSeverityFilter(e.target.value)}
                 >
-                    <option value="">Risk: All</option>
-                    <option value="Critical">Critical</option>
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
+                    <option value="">All Severities</option>
+                    {facets.severities.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
 
                 {/* Status Filter */}
@@ -244,6 +254,7 @@ export default function FindingsPage() {
                                 onFilterChange={handleFilterChange}
                                 onRemediate={handleRemediateRequest}
                                 onMarkFalsePositive={handleMarkFalsePositive}
+                                onRowClick={setSelectedFinding}
                             />
                         ) : (
                             <div className="text-center py-12 text-slate-500">

@@ -64,12 +64,9 @@ PII_TYPE_PATTERNS = {
 
 # Strict PII Scope - Only these types are allowed
 ALLOWED_PII_TYPES = {
-    'IN_AADHAAR',
-    'IN_PAN',
-    'CREDIT_CARD',
-    'EMAIL_ADDRESS',
-    'IN_PHONE',
-    'IN_PASSPORT'
+    'IN_AADHAAR', 'IN_PAN', 'CREDIT_CARD', 'EMAIL_ADDRESS',
+    'IN_PHONE', 'IN_PASSPORT', 'IN_UPI', 'IN_IFSC',
+    'IN_BANK_ACCOUNT', 'IN_VOTER_ID', 'IN_DRIVING_LICENSE', 'IN_GST',
 }
 
 # Mapping from fingerprint.yml pattern names (uppercase) to Validator Keys
@@ -83,7 +80,13 @@ PATTERN_MAPPING = {
     'CREDIT_CARD_VISA': 'CREDIT_CARD',
     'CREDIT_CARD_MC': 'CREDIT_CARD',
     'CREDIT_CARD_AMEX': 'CREDIT_CARD',
-    'CREDIT_CARD_DISCOVER': 'CREDIT_CARD'
+    'CREDIT_CARD_DISCOVER': 'CREDIT_CARD',
+    'UPI': 'IN_UPI',
+    'IFSC': 'IN_IFSC',
+    'BANK_ACCOUNT': 'IN_BANK_ACCOUNT',
+    'VOTER_ID': 'IN_VOTER_ID',
+    'DRIVING_LICENSE': 'IN_DRIVING_LICENSE',
+    'GST': 'IN_GST',
 }
 
 

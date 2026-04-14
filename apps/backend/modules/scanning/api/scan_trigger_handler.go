@@ -56,6 +56,12 @@ var (
 		},
 		[]string{"source_type"},
 	)
+
+	classificationConfidenceHist = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "classification_confidence",
+		Help:    "Distribution of PII classification confidence scores emitted by the scanner",
+		Buckets: []float64{0.5, 0.6, 0.7, 0.8, 0.9, 1.0},
+	})
 )
 
 func NewScanTriggerHandler(scanService *service.ScanService, websocketService any, repo *persistence.PostgresRepository, enc *encryption.EncryptionService) *ScanTriggerHandler {

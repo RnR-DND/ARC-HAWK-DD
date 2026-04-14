@@ -68,6 +68,7 @@ class VerifiedFinding:
     pattern_name: str  # Original pattern that triggered detection
     detected_at: str  # ISO timestamp
     scanner_version: str = "2.0-sdk"
+    detector_type: str = 'regex'  # 'math' | 'regex' | 'presidio_nlp' | 'llm'
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""

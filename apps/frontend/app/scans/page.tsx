@@ -14,6 +14,7 @@ export default function ScansPage() {
     const [loading, setLoading] = useState(true);
     const [showScanConfigModal, setShowScanConfigModal] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [hasRunningScans, setHasRunningScans] = useState(false);
 
     const handleDeleteScan = async (e: React.MouseEvent, scanId: string) => {
         e.preventDefault();
@@ -34,6 +35,9 @@ export default function ScansPage() {
         try {
             const data = await scansApi.getScans();
             setScans(data);
+            // Poll every 5s if any scan is still running
+            const hasRunning = data.some((s: any) => s.status === 'running' || s.status === 'pending');
+            setHasRunningScans(hasRunning);
         } catch (error) {
             console.error('Failed to load scans', error);
         } finally {
@@ -44,6 +48,13 @@ export default function ScansPage() {
     useEffect(() => {
         fetchScans();
     }, []);
+
+    // Poll every 5s while any scan is running or pending
+    useEffect(() => {
+        if (!hasRunningScans) return;
+        const id = setInterval(fetchScans, 5000);
+        return () => clearInterval(id);
+    }, [hasRunningScans]);
 
     const formatDate = (dateString: string) => {
         try {

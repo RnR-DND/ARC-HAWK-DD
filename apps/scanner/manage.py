@@ -102,12 +102,8 @@ def check_presidio() -> dict:
 
 
 def check_recognizers() -> dict:
-    """Load all custom recognizers and run a smoke test per type."""
+    """Load all custom validators and run a smoke test per type."""
     try:
-        from sdk.recognizers import (
-            AadhaarRecognizer, PANRecognizer, GSTRecognizer,
-            IFSCRecognizer, UPIRecognizer, IndianPhoneRecognizer,
-        )
         from sdk.validators.verhoeff import validate_aadhaar
 
         failures = []

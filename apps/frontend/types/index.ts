@@ -116,6 +116,11 @@ export interface FindingWithDetails extends Finding {
     source_system: string;
     classifications: Classification[];
     review_status: string;
+    detector_type?: string;
+    pii_type?: string;
+    data_source?: string;
+    context_excerpt?: string;
+    validators_passed?: string[];
 }
 
 export interface Node {

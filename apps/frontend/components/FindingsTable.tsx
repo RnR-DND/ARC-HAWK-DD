@@ -15,6 +15,7 @@ interface FindingsTableProps {
     onFilterChange: (filters: { severity?: string; search?: string }) => void;
     onRemediate?: (id: string, action: 'MASK' | 'DELETE') => void;
     onMarkFalsePositive?: (id: string) => Promise<void> | void;
+    onRowClick?: (finding: FindingWithDetails) => void;
 }
 
 export default function FindingsTable({
@@ -26,7 +27,8 @@ export default function FindingsTable({
     onPageChange,
     onFilterChange,
     onRemediate,
-    onMarkFalsePositive
+    onMarkFalsePositive,
+    onRowClick,
 }: FindingsTableProps) {
     const [selectedFinding, setSelectedFinding] = useState<FindingWithDetails | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -34,6 +36,7 @@ export default function FindingsTable({
     const handleRowClick = (finding: FindingWithDetails) => {
         setSelectedFinding(finding);
         setIsDrawerOpen(true);
+        onRowClick?.(finding);
     };
 
     const handleRemediate = (id: string, action: 'MASK' | 'DELETE') => {
@@ -60,6 +63,7 @@ export default function FindingsTable({
                             <th className="px-4 py-3 font-semibold">PII Type</th>
                             <th className="px-4 py-3 font-semibold">Risk</th>
                             <th className="px-4 py-3 font-semibold">Conf</th>
+                            <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Detector</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
                             <th className="px-4 py-3 font-semibold text-right">Actions</th>
                         </tr>
@@ -67,7 +71,7 @@ export default function FindingsTable({
                     <tbody className="divide-y divide-slate-100">
                         {findings.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="text-center py-12 text-slate-500">
+                                <td colSpan={9} className="text-center py-12 text-slate-500">
                                     No findings match the current filters
                                 </td>
                             </tr>
@@ -113,6 +117,18 @@ export default function FindingsTable({
                                         </td>
                                         <td className="px-4 py-3 font-mono text-xs text-slate-600">
                                             {(confidence * 100).toFixed(0)}%
+                                        </td>
+                                        <td style={{ padding: '10px 16px' }}>
+                                            <span style={{
+                                                background: ({ math: '#dcfce7', regex: '#f3f4f6', presidio_nlp: '#dbeafe', llm: '#ede9fe' } as Record<string, string>)[finding.detector_type ?? 'regex'] ?? '#f3f4f6',
+                                                color: ({ math: '#16a34a', regex: '#374151', presidio_nlp: '#2563eb', llm: '#7c3aed' } as Record<string, string>)[finding.detector_type ?? 'regex'] ?? '#374151',
+                                                borderRadius: 4,
+                                                padding: '2px 6px',
+                                                fontSize: 11,
+                                                fontWeight: 500,
+                                            }}>
+                                                {({ math: 'Math', regex: 'Regex', presidio_nlp: 'NLP', llm: 'LLM' } as Record<string, string>)[finding.detector_type ?? 'regex'] ?? 'Regex'}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-3">
                                             <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-50 text-green-700 border border-green-200">

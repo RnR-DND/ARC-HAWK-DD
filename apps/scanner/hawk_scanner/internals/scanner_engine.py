@@ -20,6 +20,8 @@ from hawk_scanner.internals import entropy
 from hawk_scanner.internals import code_analyzer
 from hawk_scanner.internals import validation_integration
 
+UNSTRUCTURED_SOURCES = {'fs', 's3', 'slack', 'gdrive', 'pdf', 'docx', 'email'}
+
 
 class ContextAwareScanner:
     def __init__(self, debug=False):
@@ -33,26 +35,21 @@ class ContextAwareScanner:
         """
         findings = []
 
-        # Unstructured Chunking / Routing Logic
-        # For unstructured sources like fs, s3, slack, we use advanced chunking
-        if source in ['fs', 's3', 'slack', 'gdrive']:
+        # Unstructured sources use sentence chunking; structured sources splitlines directly
+        if source in UNSTRUCTURED_SOURCES:
             if text_to_sentences is not None:
-                # Blingfire for ultra-fast boundary detection
                 raw_sentences = text_to_sentences(content).split('\n')
                 lines = [s.strip() for s in raw_sentences if s.strip()]
             elif nlp is not None:
-                # spaCy as an intelligent fallback chunker
-                # Process in blocks if content is huge to avoid memory issues
-                if len(content) > 1000000:
-                    lines = content.splitlines()  # Fallback for extremely large single blocks
+                if len(content) > 1_000_000:
+                    lines = content.splitlines()
                 else:
                     doc = nlp(content)
-                    lines = [sent.text.strip()
-                             for sent in doc.sents if sent.text.strip()]
+                    lines = [sent.text.strip() for sent in doc.sents if sent.text.strip()]
             else:
                 lines = content.splitlines()
         else:
-            # Structured sources (Postgres, MongoDB, Redis, etc.) or fallback
+            # Structured sources (Postgres, MongoDB, CSV, Redis, etc.)
             lines = content.splitlines()
 
         for pattern_name, pattern_regex in patterns.items():
@@ -93,17 +90,26 @@ class ContextAwareScanner:
                         score = 0
                         reasons.append("SDK Validation Failed")
 
+                    # Assign detector type based on validation outcome
+                    if is_valid_format:
+                        detector_type = 'math'
+                    elif method == 'no_validator':
+                        detector_type = 'regex'
+                    else:
+                        detector_type = 'regex'
+
                     # Final Decision
                     if score >= 50:
                         findings.append({
                             'data_source': source,
                             'pattern_name': pattern_name,
                             'matches': [match_text],
-                            'sample_text': line[:100],  # Line context
+                            'sample_text': line[:100],
                             'line_number': line_idx + 1,
                             'confidence_score': score,
                             'confidence_reasons': reasons,
-                            'validation_method': method
+                            'validation_method': method,
+                            'detector_type': detector_type,
                         })
 
         return self._deduplicate_findings(findings)
@@ -146,6 +152,16 @@ class ContextAwareScanner:
         return max(0, min(100, score)), reasons
 
     def _deduplicate_findings(self, findings):
-        # ... Simple deduplication logic ...
-        # For now return as is or minimal dedup
-        return findings
+        seen = set()
+        out = []
+        for f in findings:
+            key = (
+                f.get('pattern_name', ''),
+                f.get('data_source', ''),
+                f.get('line_number', 0),
+                tuple(sorted(f.get('matches', []))),
+            )
+            if key not in seen:
+                seen.add(key)
+                out.append(f)
+        return out

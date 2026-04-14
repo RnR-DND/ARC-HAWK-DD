@@ -6,6 +6,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/assets/service"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -13,11 +14,17 @@ import (
 // FindingsHandler handles findings requests
 type FindingsHandler struct {
 	service *service.FindingsService
+	repo    *persistence.PostgresRepository
 }
 
 // NewFindingsHandler creates a new findings handler
-func NewFindingsHandler(service *service.FindingsService) *FindingsHandler {
-	return &FindingsHandler{service: service}
+func NewFindingsHandler(svc *service.FindingsService) *FindingsHandler {
+	return &FindingsHandler{service: svc}
+}
+
+// NewFindingsHandlerWithRepo creates a new findings handler with repo access for facets queries.
+func NewFindingsHandlerWithRepo(svc *service.FindingsService, repo *persistence.PostgresRepository) *FindingsHandler {
+	return &FindingsHandler{service: svc, repo: repo}
 }
 
 // GetFindings handles GET /api/v1/findings
@@ -125,4 +132,69 @@ func (h *FindingsHandler) SubmitFeedback(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"status": "success"})
+}
+
+// GetFindingsFacets returns distinct filter options from actual findings data.
+// GET /findings/facets
+func (h *FindingsHandler) GetFindingsFacets(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	tenantID, err := persistence.EnsureTenantID(ctx)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	if h.repo == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "repo not configured"})
+		return
+	}
+
+	// PII types
+	piiRows, err := h.repo.GetDB().QueryContext(ctx,
+		`SELECT DISTINCT pattern_name FROM findings WHERE tenant_id = $1 AND pattern_name IS NOT NULL ORDER BY pattern_name`,
+		tenantID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch pii types"})
+		return
+	}
+	defer piiRows.Close()
+	var piiTypes []string
+	for piiRows.Next() {
+		var t string
+		if err := piiRows.Scan(&t); err == nil && t != "" {
+			piiTypes = append(piiTypes, t)
+		}
+	}
+	if piiTypes == nil {
+		piiTypes = []string{}
+	}
+
+	// Asset names
+	assetRows, err := h.repo.GetDB().QueryContext(ctx,
+		`SELECT DISTINCT a.name FROM findings f JOIN assets a ON f.asset_id = a.id WHERE f.tenant_id = $1 AND a.name IS NOT NULL ORDER BY a.name`,
+		tenantID)
+	if err != nil {
+		// Non-fatal: return empty
+		assetRows = nil
+	}
+	var assets []string
+	if assetRows != nil {
+		defer assetRows.Close()
+		for assetRows.Next() {
+			var n string
+			if err := assetRows.Scan(&n); err == nil && n != "" {
+				assets = append(assets, n)
+			}
+		}
+	}
+	if assets == nil {
+		assets = []string{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"pii_types":  piiTypes,
+		"assets":     assets,
+		"severities": []string{"Critical", "High", "Medium", "Low"},
+	})
 }

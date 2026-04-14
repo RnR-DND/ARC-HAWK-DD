@@ -55,44 +55,39 @@ def run_classifier(record: dict) -> dict:
     Run the scanner's classification pipeline against a single fixture record.
     Returns a dict with 'predicted_category', 'confidence', 'layer'.
 
-    This stub calls the SDK recognizers directly. In CI, it can be extended
-    to call the full validation_pipeline.
+    Uses sdk.validators directly (sdk.recognizers has been removed).
     """
-    from sdk.recognizers import (
-        AadhaarRecognizer, PANRecognizer, GSTRecognizer, IFSCRecognizer,
-        UPIRecognizer,
-    )
-    from sdk.recognizers.phone import IndianPhoneRecognizer
-    from sdk.recognizers.email import EmailRecognizer
-    from sdk.recognizers.passport import PassportRecognizer
+    import re
+    from sdk.validators.verhoeff import validate_aadhaar
+    from sdk.validators.pan import validate_pan
+    from sdk.validators.ifsc import validate_ifsc
+    from sdk.validators.upi import validate_upi
 
     value = record.get("raw_value", "")
-    column = record.get("column_name", "")
-    pattern_hint = record.get("expected_category", "")
+    expected = record.get("expected_category", "")
 
-    # Try each recognizer in order (Layer 1: rule-based)
-    recognizers = [
-        ("Government ID", AadhaarRecognizer()),
-        ("Financial ID", PANRecognizer()),
-        ("Government ID", GSTRecognizer()),
-        ("Financial ID", IFSCRecognizer()),
-        ("Contact Information", UPIRecognizer()),
-        ("Contact Information", IndianPhoneRecognizer()),
-        ("Contact Information", EmailRecognizer()),
-        ("Government ID", PassportRecognizer()),
-    ]
+    PATTERNS = {
+        "aadhaar": (r"^[2-9]\d{11}$", lambda v: validate_aadhaar(v.replace(" ", "").replace("-", "")), "Government ID"),
+        "pan": (r"^[A-Z]{5}[0-9]{4}[A-Z]$", validate_pan, "Financial ID"),
+        "gstin": (r"^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$", None, "Government ID"),
+        "ifsc": (r"^[A-Z]{4}0[A-Z0-9]{6}$", validate_ifsc, "Financial ID"),
+        "upi": (r"^[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+$", validate_upi, "Contact Information"),
+        "email": (r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", None, "Contact Information"),
+        "phone": (r"(\+91[\s-]?)?[6-9]\d{9}", None, "Contact Information"),
+        "passport": (r"^[A-Z][1-9][0-9]{7}$", None, "Government ID"),
+        "voter_id": (r"^[A-Z]{3}[0-9]{7}$", None, "Government ID"),
+    }
 
-    for category, rec in recognizers:
-        try:
-            result = rec.recognize(value)
-            if result and result.get("matched"):
-                return {
-                    "predicted_category": category,
-                    "confidence": result.get("confidence", 0.9),
-                    "layer": "rule_based",
-                }
-        except Exception:
-            continue
+    for cat, (pattern, validator_fn, category) in PATTERNS.items():
+        if re.search(pattern, value.strip()):
+            if validator_fn is not None:
+                try:
+                    clean = value.replace(" ", "").replace("-", "")
+                    if not validator_fn(clean):
+                        continue
+                except Exception:
+                    continue
+            return {"predicted_category": category, "confidence": 0.9, "layer": "rule_based"}
 
     return {"predicted_category": "Not PII", "confidence": 0.3, "layer": "rule_based"}
 
