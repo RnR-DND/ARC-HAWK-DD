@@ -92,13 +92,13 @@ func (s *ComplianceService) GetComplianceOverview(ctx context.Context) (*Complia
 			a.name                                      AS asset_name,
 			COALESCE(a.path, '')                        AS asset_path,
 			COUNT(f.id)                                 AS finding_count,
-			BOOL_OR(f.severity IN ('Critical','Highest')) AS has_critical,
-			BOOL_OR(cl.requires_consent)                AS requires_consent,
-			MAX(CASE f.severity
+			COALESCE(BOOL_OR(f.severity IN ('Critical','Highest')), false) AS has_critical,
+			COALESCE(BOOL_OR(cl.requires_consent), false)                  AS requires_consent,
+			COALESCE(MAX(CASE f.severity
 				WHEN 'Critical' THEN 4 WHEN 'Highest' THEN 4
 				WHEN 'High'     THEN 3
 				WHEN 'Medium'   THEN 2
-				ELSE 1 END)                             AS severity_rank,
+				ELSE 1 END), 0)                                            AS severity_rank,
 			cl.sub_category                             AS pii_type,
 			cl.dpdpa_category                           AS dpdpa_category
 		FROM assets a
