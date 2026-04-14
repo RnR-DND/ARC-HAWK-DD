@@ -253,7 +253,6 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
             }
 
             const response = await scansApi.triggerScan(config);
-            console.log(`Scan triggered: ${response.scan_id}`);
             onRunScan?.(config);
             onClose();
         } catch (error) {

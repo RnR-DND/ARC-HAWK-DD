@@ -21,7 +21,6 @@ export default function ScanAllButton({ onScanComplete }: ScanAllButtonProps) {
             setProgress(0);
 
             // Start scan - backend will handle everything
-            console.log('🚀 Starting scan...');
             // Get connections from context or use default
             const response = await scansApi.triggerScan({
                 name: 'Full System Scan',
@@ -30,9 +29,6 @@ export default function ScanAllButton({ onScanComplete }: ScanAllButtonProps) {
                 execution_mode: 'parallel'
             });
             const scanResult = response.data;
-            console.log('Scan initiated:', scanResult);
-
-            console.log('✅ Scan initiated successfully');
 
             // Simulate progress for demo
             setProgress(100);
