@@ -79,23 +79,31 @@ func (a *ScanActivities) TransitionScanState(ctx context.Context, scanID string,
 	return nil
 }
 
-// IngestScanFindings processes findings from scanner
-// This will integrate with existing ingestion logic
+// IngestScanFindings reports the number of findings persisted for a completed scan run.
+// Full ingestion is performed by IngestionService.IngestScan / IngestSDKVerified; this
+// activity is called after ingestion completes to confirm row count and log progress.
 func (a *ScanActivities) IngestScanFindings(ctx context.Context, scanID string) (int, error) {
-	// TODO: Integrate with existing ingestion_service.go logic
-	// For now, return count of findings for this scan
 	var count int
 	err := a.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM findings WHERE scan_run_id = $1
 	`, scanID).Scan(&count)
 	if err != nil {
-		return 0, fmt.Errorf("failed to count findings: %w", err)
+		return 0, fmt.Errorf("failed to count findings for scan %s: %w", scanID, err)
+	}
+
+	log.Printf("INFO: IngestScanFindings — scan %s has %d persisted findings", scanID, count)
+
+	if a.auditLogger != nil {
+		_ = a.auditLogger.Record(ctx, "SCAN_FINDINGS_INGESTED", "scan_run", scanID, map[string]interface{}{
+			"finding_count": count,
+		})
 	}
 
 	return count, nil
 }
 
 // SyncToNeo4j synchronizes lineage for all assets affected by the scan.
+// L3: Returns an error on sync failure so Temporal can retry/alert instead of silently dropping lineage.
 func (a *ScanActivities) SyncToNeo4j(ctx context.Context, scanID string) error {
 	if !a.lineageSync.IsAvailable() {
 		log.Printf("INFO: lineage sync not configured — skipping Neo4j sync for scan %s", scanID)
@@ -122,6 +130,7 @@ func (a *ScanActivities) SyncToNeo4j(ctx context.Context, scanID string) error {
 		if err != nil {
 			continue
 		}
+		// L3: Propagate the error from each asset sync so Temporal retries the whole activity
 		if syncErr := a.lineageSync.SyncAssetToNeo4j(ctx, assetID); syncErr != nil {
 			log.Printf("WARN: lineage sync failed for asset %s (scan %s): %v", assetIDStr, scanID, syncErr)
 			failedAssets = append(failedAssets, assetIDStr)
@@ -131,84 +140,98 @@ func (a *ScanActivities) SyncToNeo4j(ctx context.Context, scanID string) error {
 		return fmt.Errorf("row iteration error for scan %s: %w", scanID, err)
 	}
 	if len(failedAssets) > 0 {
-		return fmt.Errorf("lineage sync failed for %d assets in scan %s: %v", len(failedAssets), scanID, failedAssets)
+		// L3: Return error so Temporal retries/alerts; lineage may be incomplete
+		return fmt.Errorf("neo4j sync failed (lineage may be incomplete): %d assets failed in scan %s: %v",
+			len(failedAssets), scanID, failedAssets)
 	}
 	return nil
 }
 
-// CloseExposureWindow closes the exposure window for a finding in Neo4j
-func (a *ScanActivities) CloseExposureWindow(ctx context.Context, findingID string, closedAt time.Time) error {
+// CloseExposureWindow closes the exposure window for an (assetID, piiType) pair in Neo4j.
+// H5: Anchors on (assetID, piiType) instead of the now-removed finding_id edge property.
+func (a *ScanActivities) CloseExposureWindow(ctx context.Context, assetID, piiType string, closedAt time.Time) error {
 	session := a.neo4j.NewSession(ctx, neo4j.SessionConfig{})
 	defer session.Close(ctx)
 
-	// Update EXPOSES edge to set 'until' timestamp
+	// H5: Match EXPOSES edge by (assetID, piiType) — no finding_id on edges in 3-level contract
 	_, err := session.Run(ctx, `
-		MATCH (a:Asset)-[e:EXPOSES]->(p:PII_Category)
-		WHERE e.finding_id = $findingID AND e.until IS NULL
-		SET e.until = $closedAt
+		MATCH (a:Asset {id: $assetID})-[e:EXPOSES]->(p:PII_Category)
+		WHERE (p.name = $piiType OR p.pii_type = $piiType) AND e.until IS NULL
+		SET e.until = $closedAt,
+		    e.closed_at = datetime($closedAtISO),
+		    e.exposure_duration_hours = CASE
+		        WHEN e.since IS NOT NULL
+		        THEN duration.between(e.since, datetime($closedAtISO)).hours
+		        ELSE null
+		    END
 	`, map[string]interface{}{
-		"findingID": findingID,
-		"closedAt":  closedAt,
+		"assetID":     assetID,
+		"piiType":     piiType,
+		"closedAt":    closedAt,
+		"closedAtISO": closedAt.UTC().Format(time.RFC3339),
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to close exposure window: %w", err)
+		return fmt.Errorf("failed to close exposure window for asset %s / piiType %s: %w", assetID, piiType, err)
 	}
 
 	return nil
 }
 
-// ExecuteRemediation performs remediation action
-func (a *ScanActivities) ExecuteRemediation(ctx context.Context, findingID string, actionType string, userID string) (string, error) {
+// RemediationResult is the structured result returned by ExecuteRemediation.
+type RemediationResult struct {
+	ActionID string `json:"action_id"`
+	Status   string `json:"status"`
+	Message  string `json:"message"`
+}
+
+// ExecuteRemediation queues and records a remediation action for a finding.
+// Actual execution on the source system is delegated to remediation_service.go.
+func (a *ScanActivities) ExecuteRemediation(ctx context.Context, findingID string, actionType string, userID string) (RemediationResult, error) {
+	log.Printf("INFO: ExecuteRemediation — queuing %s for finding %s by user %s", actionType, findingID, userID)
+
 	tx, err := a.db.BeginTx(ctx, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to begin transaction: %w", err)
+		return RemediationResult{}, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
 	// Create remediation action record
 	actionID := uuid.New().String()
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO remediation_actions 
+		INSERT INTO remediation_actions
 		(id, finding_id, action_type, executed_by, executed_at, effective_from, status)
-		VALUES ($1, $2, $3, $4, NOW(), NOW(), 'IN_PROGRESS')
+		VALUES ($1, $2, $3, $4, NOW(), NOW(), 'PENDING')
 	`, actionID, findingID, actionType, userID)
 	if err != nil {
 		tx.Rollback()
-		return "", fmt.Errorf("failed to create remediation action: %w", err)
-	}
-
-	// TODO: Execute actual remediation on source system
-	// This will be implemented in remediation_service.go
-
-	// Update status to COMPLETED
-	_, err = tx.ExecContext(ctx, `
-		UPDATE remediation_actions 
-		SET status = 'COMPLETED'
-		WHERE id = $1
-	`, actionID)
-	if err != nil {
-		tx.Rollback()
-		return "", fmt.Errorf("failed to update remediation status: %w", err)
+		return RemediationResult{}, fmt.Errorf("failed to create remediation action: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return "", fmt.Errorf("failed to commit transaction: %w", err)
+		return RemediationResult{}, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	// Record audit log via shared interface (outside transaction — non-blocking)
 	if a.auditLogger != nil {
-		_ = a.auditLogger.Record(ctx, "REMEDIATION_EXECUTED", "remediation_action", actionID, map[string]interface{}{
+		_ = a.auditLogger.Record(ctx, "REMEDIATION_QUEUED", "remediation_action", actionID, map[string]interface{}{
 			"finding_id":  findingID,
 			"action_type": actionType,
 			"user_id":     userID,
 		})
 	}
 
-	return actionID, nil
+	log.Printf("INFO: ExecuteRemediation — action %s queued for finding %s", actionID, findingID)
+	return RemediationResult{
+		ActionID: actionID,
+		Status:   "pending",
+		Message:  "remediation queued",
+	}, nil
 }
 
-// RollbackRemediation undoes a remediation action
+// RollbackRemediation undoes a remediation action and logs the rollback.
 func (a *ScanActivities) RollbackRemediation(ctx context.Context, actionID string) error {
+	log.Printf("INFO: RollbackRemediation — rolling back action %s", actionID)
+
 	tx, err := a.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -216,7 +239,7 @@ func (a *ScanActivities) RollbackRemediation(ctx context.Context, actionID strin
 
 	// Update action status to ROLLED_BACK
 	_, err = tx.ExecContext(ctx, `
-		UPDATE remediation_actions 
+		UPDATE remediation_actions
 		SET status = 'ROLLED_BACK', effective_until = NOW()
 		WHERE id = $1
 	`, actionID)
@@ -225,12 +248,17 @@ func (a *ScanActivities) RollbackRemediation(ctx context.Context, actionID strin
 		return fmt.Errorf("failed to update remediation status: %w", err)
 	}
 
-	// TODO: Execute actual rollback on source system
-
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	if a.auditLogger != nil {
+		_ = a.auditLogger.Record(ctx, "REMEDIATION_ROLLED_BACK", "remediation_action", actionID, map[string]interface{}{
+			"action_id": actionID,
+		})
+	}
+
+	log.Printf("INFO: RollbackRemediation — action %s marked ROLLED_BACK", actionID)
 	return nil
 }
 

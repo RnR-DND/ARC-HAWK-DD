@@ -127,17 +127,11 @@ func (h *HealthHandler) checkNeo4j(ctx context.Context) ComponentHealth {
 		LastCheck: time.Now(),
 	}
 
-	driver := h.neo4jRepo.GetDriver()
-	if driver == nil {
-		health.Status = "offline"
-		health.Message = "Neo4j driver not initialized"
-		return health
-	}
-
-	if err := driver.VerifyConnectivity(ctx); err != nil {
+	// L3: Use Ping (RETURN 1) for a true circuit-breaker health check
+	if err := h.neo4jRepo.Ping(ctx); err != nil {
 		health.Status = "offline"
 		health.Message = "Neo4j connection failed"
-		health.Details = "Unable to verify connectivity"
+		health.Details = err.Error()
 		return health
 	}
 

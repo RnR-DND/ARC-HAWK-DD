@@ -7,6 +7,35 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+// SyncFindingsToPIICategories aggregates findings by PII type and writes Asset → PII_Category EXPOSES edges.
+// This implements the frozen 3-level contract: System → Asset → PII_Category.
+// We NEVER create Finding nodes — findings are aggregated into PII_Category counts.
+func (r *Neo4jRepository) SyncFindingsToPIICategories(ctx context.Context, assetID string, piiTypeCounts map[string]int) error {
+	if r.driver == nil {
+		return nil
+	}
+	session := r.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
+
+	for piiType, count := range piiTypeCounts {
+		_, err := session.Run(ctx, `
+			MATCH (a:Asset {id: $assetID})
+			MERGE (p:PII_Category {name: $piiType})
+			ON CREATE SET p.pii_type = $piiType, p.created_at = datetime()
+			MERGE (a)-[e:EXPOSES]->(p)
+			SET e.count = $count, e.updated_at = datetime()
+		`, map[string]interface{}{
+			"assetID": assetID,
+			"piiType": piiType,
+			"count":   count,
+		})
+		if err != nil {
+			return fmt.Errorf("sync PII category %s: %w", piiType, err)
+		}
+	}
+	return nil
+}
+
 // === Frozen Semantic Contract: 3-Level Hierarchy ===
 // Node Types: System → Asset → PII_Category
 // Edge Types: SYSTEM_OWNS_ASSET, EXPOSES
@@ -160,6 +189,17 @@ func (r *Neo4jRepository) GetSemanticGraph(ctx context.Context, systemFilter, ri
 					id, _ := node.Props["id"].(string)
 					name, _ := node.Props["name"].(string)
 					path, _ := node.Props["path"].(string)
+					// M11: populate ParentID from the system node's ID
+					parentID := ""
+					if sysVal != nil {
+						if sysNode, ok := sysVal.(neo4j.Node); ok {
+							parentID, _ = sysNode.Props["id"].(string)
+						}
+					}
+					// Prefer stored parent_id from the node itself if present
+					if storedParent, ok := node.Props["parent_id"].(string); ok && storedParent != "" {
+						parentID = storedParent
+					}
 					// Use name if available, otherwise path, otherwise ID
 					label := name
 					if label == "" {
@@ -170,9 +210,10 @@ func (r *Neo4jRepository) GetSemanticGraph(ctx context.Context, systemFilter, ri
 					}
 					if id != "" && !nodeMap[id] {
 						nodes = append(nodes, Node{
-							ID:    id,
-							Label: label,
-							Type:  "asset",
+							ID:       id,
+							Label:    label,
+							Type:     "asset",
+							ParentID: parentID,
 							Metadata: map[string]interface{}{
 								"path":        path,
 								"environment": node.Props["environment"],

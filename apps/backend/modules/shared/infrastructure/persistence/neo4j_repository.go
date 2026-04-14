@@ -73,6 +73,22 @@ func (r *Neo4jRepository) Close(ctx context.Context) error {
 	return r.driver.Close(ctx)
 }
 
+// Ping verifies that the Neo4j server is reachable and responsive.
+// L3: Used by the health check endpoint to detect circuit-breaker conditions.
+func (r *Neo4jRepository) Ping(ctx context.Context) error {
+	if r.driver == nil {
+		return fmt.Errorf("neo4j driver not initialized")
+	}
+	session := r.driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: "neo4j"})
+	defer session.Close(ctx)
+
+	_, err := session.Run(ctx, "RETURN 1", nil)
+	if err != nil {
+		return fmt.Errorf("neo4j ping failed: %w", err)
+	}
+	return nil
+}
+
 // === Node Creation Methods ===
 
 // CreateSystemNode creates or updates a system node in Neo4j
@@ -120,9 +136,13 @@ func (r *Neo4jRepository) CreateAssetNode(ctx context.Context, asset *entity.Ass
 			    a.source_system = $sourceSystem,
 			    a.risk_score = $riskScore,
 			    a.total_findings = $totalFindings,
+			    a.parent_id = $parentID,
 			    a.updated_at = datetime()
 			RETURN a
 		`
+		// M11: parentID is derived from the asset's SourceSystem (system node ID).
+		// The system node ID is set to the SourceSystem value when CreateSystemNode is called.
+		parentID := asset.SourceSystem
 		params := map[string]interface{}{
 			"id":            asset.ID.String(),
 			"name":          asset.Name,
@@ -135,6 +155,7 @@ func (r *Neo4jRepository) CreateAssetNode(ctx context.Context, asset *entity.Ass
 			"sourceSystem":  asset.SourceSystem,
 			"riskScore":     asset.RiskScore,
 			"totalFindings": asset.TotalFindings,
+			"parentID":      parentID,
 		}
 		_, err := tx.Run(ctx, query, params)
 		return nil, err
@@ -321,11 +342,22 @@ func (r *Neo4jRepository) GetLineageGraph(ctx context.Context) (*LineageGraph, e
 					name, _ := node.Props["name"].(string)
 					assetType, _ := node.Props["asset_type"].(string)
 					riskScore, _ := node.Props["risk_score"].(int64)
+					// M11: populate ParentID from system node or stored parent_id
+					parentID, _ := node.Props["parent_id"].(string)
+					if parentID == "" {
+						// Derive from system node in this record
+						if sysNode, ok := record.Get("s"); ok && sysNode != nil {
+							if sNode, ok := sysNode.(neo4j.Node); ok {
+								parentID, _ = sNode.Props["id"].(string)
+							}
+						}
+					}
 					if id != "" && !nodeMap[id] {
 						nodes = append(nodes, Node{
 							ID:        id,
 							Label:     name,
 							Type:      assetType,
+							ParentID:  parentID,
 							RiskScore: int(riskScore),
 							Metadata: map[string]interface{}{
 								"path":           node.Props["path"],

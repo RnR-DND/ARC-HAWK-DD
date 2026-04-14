@@ -27,6 +27,7 @@ type IngestionService struct {
 	enrichment   *EnrichmentService
 	assetManager interfaces.AssetManager
 	encryptor    *encryption.EncryptionService // nil when ENCRYPTION_KEY not set (dev fallback)
+	neo4jRepo    *persistence.Neo4jRepository  // nil when Neo4j is unavailable; writes PII_Category edges
 }
 
 // NewIngestionService creates a new ingestion service
@@ -44,6 +45,12 @@ func NewIngestionService(
 		assetManager: assetManager,
 		encryptor:    encryptor,
 	}
+}
+
+// WithNeo4jRepo wires the Neo4j repository for PII_Category edge syncing (C4/C5).
+func (s *IngestionService) WithNeo4jRepo(neo4jRepo *persistence.Neo4jRepository) *IngestionService {
+	s.neo4jRepo = neo4jRepo
+	return s
 }
 
 // HawkeyeScanInput represents the Hawk-eye scanner JSON format.
@@ -105,10 +112,31 @@ type IngestScanResult struct {
 	PatternsFound int       `json:"patterns_found"`
 }
 
+// normalizeSeverity maps scanner severity terms to canonical internal terms.
+func normalizeSeverity(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "highest", "critical":
+		return "Critical"
+	case "high":
+		return "High"
+	case "medium", "moderate":
+		return "Medium"
+	case "low":
+		return "Low"
+	default:
+		return s
+	}
+}
+
 // IngestScan processes Hawk-eye scan output and normalizes it into the database
 func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInput) (retResult *IngestScanResult, retErr error) {
 	if len(input.Sources) == 0 {
 		return nil, fmt.Errorf("no findings in scan input")
+	}
+
+	tenantID, err := persistence.EnsureTenantID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tenant ID: %w", err)
 	}
 
 	// BEGIN TRANSACTION - Critical fix for ING-001
@@ -190,9 +218,12 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 	}
 
 	// Track created assets and patterns
-	assetMap := make(map[string]uuid.UUID)   // stableID -> UUID
-	patternMap := make(map[string]uuid.UUID) // pattern name -> UUID
+	assetMap := make(map[string]uuid.UUID)                // stableID -> UUID
+	patternMap := make(map[string]uuid.UUID)              // pattern name -> UUID (for getOrCreatePattern cache)
+	assetPIIMap := make(map[uuid.UUID]map[string]int)    // C4/C5: assetID -> piiType -> count for Neo4j PII_Category sync
 	assetsCreated := 0
+	uniquePatternCount := 0
+	seenPatterns := make(map[string]bool)
 
 	// Process each finding
 	for _, hawkeyeFinding := range allFindings {
@@ -215,6 +246,10 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		patternID, err := s.getOrCreatePattern(ctx, &hawkeyeFinding, patternMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get/create pattern: %w", err)
+		}
+		if !seenPatterns[hawkeyeFinding.PatternName] {
+			seenPatterns[hawkeyeFinding.PatternName] = true
+			uniquePatternCount++
 		}
 
 		// ENRICHMENT LAYER - Add contextual intelligence
@@ -267,7 +302,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 
 		decision, err := s.classifier.ClassifyMultiSignal(ctx, multiSignalInput)
 		if err != nil {
-			log.Printf("ERROR: Classification failed for %s: %v", hawkeyeFinding.PatternName, err)
+			log.Printf("WARN: classification failed for %s: %v — skipping finding", hawkeyeFinding.PatternName, err)
 			continue
 		}
 
@@ -336,7 +371,6 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		normalizedValue := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(matchSample, " ", ""), "-", ""))
 		hash := sha256.Sum256([]byte(normalizedValue))
 		valueHash := hex.EncodeToString(hash[:])
-		_ = valueHash // Will be used when entity.Finding has NormalizedValueHash field
 
 		// Check for duplicates (same asset, pattern, and value hash in this scan)
 		// Note: This requires adding GetFindingByHash to repository interface
@@ -370,7 +404,8 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		// Create finding with deduplication hash
 		finding := &entity.Finding{
 			ID:                  uuid.New(),
-			TenantID:            persistence.DevSystemTenantID,
+			TenantID:            tenantID,
+			NormalizedValueHash: valueHash,
 			ScanRunID:           scanRun.ID,
 			AssetID:             assetID,
 			PatternID:           &patternID,
@@ -428,32 +463,19 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 			tx.Rollback()
 			return nil, fmt.Errorf("failed to create review state: %w", err)
 		}
+
+		// C4/C5: Accumulate PII type counts per asset for Neo4j PII_Category sync after commit
+		piiTypeName := hawkeyeFinding.PatternName
+		if _, ok := assetPIIMap[assetID]; !ok {
+			assetPIIMap[assetID] = make(map[string]int)
+		}
+		assetPIIMap[assetID][piiTypeName]++
 	}
 
-	// Update asset total findings and create relationships
-	for stableID, assetID := range assetMap {
-		// Count findings for this asset
-		count, err := s.repo.CountFindings(ctx, repository.FindingFilters{
-			AssetID: &assetID,
-		})
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to count findings: %w", err)
-		}
-
-		// Update asset with finding count
-		asset, _ := s.repo.GetAssetByStableID(ctx, stableID)
-		if asset != nil {
-			asset.TotalFindings = count
-			// Recalculate robust risk score based on all findings
-			if err := s.recalculateAssetRisk(ctx, assetID); err != nil {
-				// Log error but continue with other assets
-				fmt.Printf("Error recalculating risk for asset %s: %v\n", stableID, err)
-			}
-
-			// Note: Lineage sync is now handled by AssetService automatically
-			// No need to call it here - loose coupling achieved!
-		}
+	// Collect asset IDs for post-commit risk recalculation
+	assetIDs := make([]uuid.UUID, 0, len(assetMap))
+	for _, assetID := range assetMap {
+		assetIDs = append(assetIDs, assetID)
 	}
 
 	// Update scan run totals
@@ -469,12 +491,29 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	// Recalculate asset risk AFTER commit so CountFindings sees committed rows
+	for _, assetID := range assetIDs {
+		if err := s.recalculateAssetRisk(ctx, assetID); err != nil {
+			log.Printf("Error recalculating risk for asset %s: %v", assetID, err)
+		}
+	}
+
+	// C4/C5: Sync PII categories to Neo4j for lineage graph (3-level contract: System → Asset → PII_Category)
+	// This runs after commit to avoid blocking the transaction. Failures are non-fatal (logged only).
+	if s.neo4jRepo != nil {
+		for assetID, piiTypes := range assetPIIMap {
+			if err := s.neo4jRepo.SyncFindingsToPIICategories(ctx, assetID.String(), piiTypes); err != nil {
+				log.Printf("WARN: neo4j PII category sync failed for asset %s: %v", assetID, err)
+			}
+		}
+	}
+
 	return &IngestScanResult{
 		ScanRunID:     scanRun.ID,
 		TotalFindings: scanRun.TotalFindings,
 		TotalAssets:   scanRun.TotalAssets,
 		AssetsCreated: assetsCreated,
-		PatternsFound: len(patternMap),
+		PatternsFound: uniquePatternCount,
 	}, nil
 }
 
@@ -499,10 +538,7 @@ func (s *IngestionService) recalculateAssetRisk(ctx context.Context, assetID uui
 
 	// 2. Determine Max Severity
 	// We verify if there are ANY 'Critical' or 'High' findings.
-	hasCritical, err := s.hasFindingWithSeverity(ctx, assetID, "Critical") // "Highest" mapped to Critical in DB?
-	// Wait, internal severity is strings: "Highest", "High", "Medium", "Low".
-	// The scanner sends "Highest" or "High".
-	// Let's check "Highest" (Critical)
+	hasCritical, err := s.hasFindingWithSeverity(ctx, assetID, "Critical")
 	if err != nil {
 		return err
 	}
@@ -536,37 +572,15 @@ func (s *IngestionService) recalculateAssetRisk(ctx context.Context, assetID uui
 }
 
 func (s *IngestionService) hasFindingWithSeverity(ctx context.Context, assetID uuid.UUID, severity string) (bool, error) {
-	// Quick check using CountFindings filtering
-	// Note: Scanner sends "Highest" for Critical. Repo stores what scanner sends (string).
-	// My previous fix used "Highest" -> Critical mapping in calculateRiskScore but persisted the raw string.
-	// Let's check strict_rules.yml or system.py.
-	// verification_output.json showed: "severity": "Highest"
-
-	targetSev := severity
-	if severity == "Critical" {
-		targetSev = "Highest" // Map back to scanner term if needed, or check both
-	}
+	// Normalize to canonical term before querying
+	canonical := normalizeSeverity(severity)
 
 	count, err := s.repo.CountFindings(ctx, repository.FindingFilters{
 		AssetID:  &assetID,
-		Severity: targetSev,
+		Severity: canonical,
 	})
 
-	if count > 0 {
-		return true, nil
-	}
-
-	// Double check alternative naming
-	if severity == "Critical" && targetSev == "Highest" {
-		// Also check "Critical" just in case
-		c2, err := s.repo.CountFindings(ctx, repository.FindingFilters{
-			AssetID:  &assetID,
-			Severity: "Critical",
-		})
-		return c2 > 0, err
-	}
-
-	return false, err
+	return count > 0, err
 }
 
 // getOrCreatePattern gets existing pattern or creates new one

@@ -56,8 +56,14 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	// Create PostgreSQL repository
 	repo := persistence.NewPostgresRepository(deps.DB)
 
+	// Nil-guard LineageSync — fall back to no-op if not wired
+	lineageSync := deps.LineageSync
+	if lineageSync == nil {
+		lineageSync = &interfaces.NoOpLineageSync{}
+	}
+
 	// Initialize services
-	m.enrichmentService = service.NewEnrichmentService(repo, deps.LineageSync)
+	m.enrichmentService = service.NewEnrichmentService(repo, lineageSync)
 	m.classificationService = service.NewClassificationService(repo, deps.Config)
 	m.classificationSummaryService = service.NewClassificationSummaryService(repo)
 
@@ -83,13 +89,14 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 
 	// Ingestion service now uses AssetManager instead of creating assets directly.
 	// EncryptionService is wired here to encrypt PII sample values at rest (DPDPA P0-1).
+	// C4/C5: Wire Neo4j repository so ingestion writes Asset→PII_Category edges after commit.
 	m.ingestionService = service.NewIngestionService(
 		repo,
 		m.classificationService,
 		m.enrichmentService,
 		assetManager,
 		encryptionService,
-	)
+	).WithNeo4jRepo(deps.Neo4jRepo)
 
 	// Initialize handlers
 	m.ingestionHandler = api.NewIngestionHandler(m.ingestionService)
@@ -118,7 +125,9 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 		for {
 			select {
 			case <-ticker.C:
-				m.scanService.CheckAllScanTimeouts(context.Background())
+				timeoutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+				m.scanService.CheckAllScanTimeouts(timeoutCtx)
+				cancel()
 			case <-m.stopTimeout:
 				return
 			}
