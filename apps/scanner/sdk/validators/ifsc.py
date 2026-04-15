@@ -15,7 +15,7 @@ class IFSCValidator:
     """Validates IFSC codes."""
     
     # Format: 4 letters + 0 + 6 alphanumeric
-    IFSC_PATTERN = re.compile(r'^[A-Z]{4}0[A-Z0-9]{6}$')
+    IFSC_PATTERN = re.compile(r'^[A-Z]{4}0[0-9]{6}$')
     
     @classmethod
     def validate(cls, ifsc: str) -> bool:

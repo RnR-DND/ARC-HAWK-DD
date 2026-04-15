@@ -214,6 +214,7 @@ def get_fingerprint_file(args=None):
                 _fingerprint_cache = yaml.safe_load(response.content)
                 # NEW: Validate patterns after loading
                 _validate_fingerprint_patterns(args, _fingerprint_cache)
+                print("DEBUG PATTERNS:", patterns.keys())
                 return _fingerprint_cache
             else:
                 if args:
@@ -861,35 +862,110 @@ def create_jira_ticket(args, issue_data, message):
         print_debug(
             args, f"Failed to create Jira ticket: {response.status_code} - {response.text}")
 
+def register_fingerprint_patterns(engine, patterns):
+    for p in patterns:
+        name = p.get("name")
+        regex_list = p.get("regex", [])
+
+        if not name or not regex_list:
+            continue
+
+        presidio_patterns = []
+        for i, reg in enumerate(regex_list):
+            try:
+                presidio_patterns.append(
+                    Pattern(
+                        name=f"{name}_{i}",
+                        regex=reg,
+                        score=0.5
+                    )
+                )
+            except Exception as e:
+                print(f"[PATTERN ERROR] {name}: {e}")
+                continue
+
+        if presidio_patterns:
+            recognizer = PatternRecognizer(
+                supported_entity=name,
+                patterns=presidio_patterns
+            )
+            engine.registry.add_recognizer(recognizer)
+
 def match_strings(args, content, source='text'):
+    # Step 1: Load connection config (unchanged)
     if args and hasattr(args, 'connection'):
         connections = get_connection(args)
         if 'notify' in connections:
             redacted = connections.get('notify', {}).get('redacted', False)
 
+    # Step 2: Load fingerprint patterns
     patterns = get_fingerprint_file(args)
-
+    # Step 3: Initialize Presidio engine
     from sdk.engine import SharedAnalyzerEngine
-    wrapper = SharedAnalyzerEngine()
-    engine = wrapper.get_engine()
+    from presidio_analyzer import PatternRecognizer, Pattern
+    engine = SharedAnalyzerEngine.get_engine()
+    # Register all patterns from fingerprint.yml
+    #register_fingerprint_patterns(engine, patterns)
 
-    results = engine.analyze(text=content, entities=None, language="en")
+    # Debug: confirm entities
+    print("DEBUG ENGINE", engine)
+    results = engine.analyze(
+        text=content,
+        language="en",
+        entities=[
+            "IN_AADHAAR",
+            "IN_PAN",
+            "CREDIT_CARD",
+            "IN_PASSPORT",
+            "IN_UPI",
+            "IN_IFSC",
+            "IN_BANK_ACCOUNT",
+            "IN_PHONE",
+            "EMAIL_ADDRESS",
+            "IN_VOTER_ID",
+            "IN_DRIVING_LICENSE"
+        ]
+    )
+    print("🔥 PRESIDIO RAW RESULTS:")
+    for r in results:
+        print("   →", r.entity_type, content[r.start:r.end])
+
+    filtered_results = []
+    for r in results:
+        if r.score < 0.2:
+            continue
+        filtered_results.append(r)
+
+    results = filtered_results
 
     findings = []
 
-    for r in results:
-        raw = content[r.start:r.end]
-        raw = raw.strip().upper()
-        matches = re.findall(r'[A-Z]{5}[0-9]{4}[A-Z]', raw)
-        if matches:
-            value = matches[0]
-        else:
-            continue  # skip invalid match completely
+    seen = set()
 
-        print("DEBUG VALUE:", repr(value))
+    for r in results:
+        raw = content[r.start:r.end].strip()
         pattern_name = r.entity_type
+
+        key = (pattern_name, raw)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        if pattern_name == "IN_BANK_ACCOUNT":
+            if start > 0 and content[start - 1].isalpha():
+                continue
+            if end < len(content) and content[end].isalpha():
+                continue
+            if re.search(r'[A-Z]{2}' + re.escape(raw), content):
+                continue
+
         if pattern_name == "IN_PAN":
             pattern_name = "PAN"
+
+        value = raw
+
+        print("DEBUG VALUE:", repr(value), "| TYPE:", pattern_name)
+
         findings.append({
             "pattern_name": pattern_name,
             "confidence_score": r.score,
@@ -902,10 +978,13 @@ def match_strings(args, content, source='text'):
 
     for finding in findings:
         matched_strings.append(finding)
+
         if args:
             print_debug(
                 args,
-                f"Found pattern: {finding['pattern_name']} Score: {finding['confidence_score']}"
+                f"Found pattern: {finding['pattern_name']} "
+                f"Score: {finding['confidence_score']}"
             )
 
     return matched_strings
+

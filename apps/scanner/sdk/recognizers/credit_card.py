@@ -10,8 +10,8 @@ from presidio_analyzer import Pattern, PatternRecognizer
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from validators import Luhn, is_dummy_data
-
+from validators.luhn import validate_credit_card
+from validators import is_dummy_data
 
 class CreditCardRecognizer(PatternRecognizer):
     """Custom recognizer for credit cards with Luhn validation."""
@@ -19,8 +19,8 @@ class CreditCardRecognizer(PatternRecognizer):
     PATTERNS = [
         Pattern(
             name="Credit Card (Visa/MC/Amex/Discover)",
-            regex=r"\b(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b",
-            score=0.3
+            regex=r"\b(?:\d[ -]*?){13,19}\b",
+            score=0.85
         ),
     ]
     
@@ -53,7 +53,7 @@ class CreditCardRecognizer(PatternRecognizer):
         if is_dummy_data(clean):
             return False
         
-        return Luhn.validate(clean)
+        return validate_credit_card(clean)
 
 
 if __name__ == "__main__":

@@ -17,19 +17,12 @@ class IFSCRecognizer(PatternRecognizer):
     PATTERNS = [
         Pattern(
             name="IFSC Code (AAAA0999999)",
-            regex=r"(?i)\b[A-Z]{4}0[A-Z0-9]{6}\b",
-            score=0.6
+            regex=r"[A-Za-z]{4}[\s-]?0[\s-]?[A-Za-z0-9]{6}",
+            score=1.0
         ),
     ]
     
-    CONTEXT = [
-        "ifsc",
-        "ifsc code",
-        "bank code",
-        "branch code",
-        "swift",
-        "routing",
-    ]
+    CONTEXT = []
     
     def __init__(self):
         super().__init__(
@@ -43,7 +36,8 @@ class IFSCRecognizer(PatternRecognizer):
     def validate_result(self, pattern_text: str) -> Optional[bool]:
         """Validate IFSC format using strict validator."""
         # Use the actual IFSC validator
-        return validate_ifsc(pattern_text)
+        clean = pattern_text.replace(" ","").replace("-","").upper()
+        return validate_ifsc(clean)
 
 
 if __name__ == "__main__":

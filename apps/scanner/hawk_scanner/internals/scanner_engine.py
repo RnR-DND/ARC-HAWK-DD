@@ -68,8 +68,11 @@ class ContextAwareScanner:
 
                 for match_obj in matches_iter:
                     # Get the full match string
-                    match_text = match_obj.group(0)
+                    print("VALIDATION:", is_valid_format, method)
+                    print("SCORE BEFORE:", score)
 
+                    match_text = match_obj.group(0)
+                    print("RAW MATCH:", pattern_name, match_text)
                     # Calculate Confidence Score
                     score, reasons = self._calculate_confidence(
                         match_text, pattern_name, context)
@@ -90,7 +93,7 @@ class ContextAwareScanner:
                         pass
                     else:
                         # Validator existed but failed (checksum fail)
-                        score = 0
+                        print("VALIDATION FAILED:", match _test, method)
                         reasons.append("SDK Validation Failed")
 
                     # Final Decision

@@ -18,7 +18,7 @@ class BankAccountRecognizer(PatternRecognizer):
         Pattern(
             name="Bank Account (9-18 digits)",
             regex=r"\b\d{9,18}\b",
-            score=0.3  # Low score as many numbers match this
+            score=0.85
         ),
     ]
     

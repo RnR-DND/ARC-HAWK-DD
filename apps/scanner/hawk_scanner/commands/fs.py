@@ -12,7 +12,12 @@ def process_file(args, file_path, key, results):
             system.print_info(args, f"Skipped binary file: {file_path}")
         return
 
-    matches = system.read_match_strings(args, file_path, 'fs')
+    from hawk_scanner.internals.match_fix import match_strings
+
+    with open(file_path, "r", errors="ignore") as f:
+        content = f.read()
+
+    matches = match_strings(args, content, source='fs')
     file_data = system.getFileData(file_path)
     if matches:
         validated_matches = validate_findings(matches, args)
@@ -74,7 +79,13 @@ def execute(args):
                             process_file, args, file_path, key, results))
 
                     # Wait for all tasks to complete
-                    concurrent.futures.wait(futures)
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            future.result()
+                        except Exception as e:
+                            print("THREAD ERROR:", e)
+                            import traceback
+                            traceback.print_exc()
                 end_time = time.time()
                 system.print_info(
                     args, f"Time taken to analyze {file_stats['text']} text files: {end_time - start_time} seconds")

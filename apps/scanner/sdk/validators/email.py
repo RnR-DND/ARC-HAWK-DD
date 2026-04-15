@@ -32,6 +32,38 @@ class EmailValidator:
         r'^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
     )
     
+    COMMON_TLDS = {
+        "com", "org", "net", "edu", "gov", "mil", "int", "cc", "br",
+        "biz", "io", "ai", "co", "me", "dev", "app", "tech", "xyz",
+        "cloud", "online", "shop", "store", "ltd", "inc", "eu", "nl",
+        "pro", "biz", "company", "us", "uk", "in", "de", "ca", "au",
+        "fr", "jp", "it", "ru", "llc", "info"
+    }
+
+    INVALID_DOMAINS = {
+        "localhost", "internal", "test", "dummy", "example", "lan",
+        "invalid", "local", "home.arpa", "onion", "corp", "xyz",
+        "abc", "sample"
+    }
+
+    INVALID_FILE_EXTENSIONS = {
+        "png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "tiff",
+        "ico", "rtf", "csv", "iso", "sh", "bat", "py", "php" , "xml",
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt",
+        "zip", "rar", "7z", "tar", "gz", "exe", "msi", "bin", "dmg",
+        "html", "htm", "css", "js", "json"
+    }
+
+    SUSPICIOUS_DOMAINS = {
+        "prod", "dev", "test", "stage", "staging", "override",
+        "config", "system", "internal"
+    }
+
+    GENERIC_LOCALS = {
+        "noreply", "no-reply", "donotreply", "admin", "support",
+        "info", "contact"
+    }
+
     @classmethod
     def validate(cls, email: str) -> bool:
         """
@@ -46,8 +78,8 @@ class EmailValidator:
         if not email:
             return False
         
-        # Clean whitespace
-        email = email.strip()
+        # Normalize
+        email = email.strip().strip('.,:;()[]{}"\'').lower()
         
         # Basic format validation
         if not cls.EMAIL_PATTERN.match(email):
@@ -68,6 +100,37 @@ class EmailValidator:
         if '.' not in domain:
             return False
         
+        if '..' in email:
+            return False
+
+        parts = domain.split('.')
+        
+        tld = parts[-1]
+        domain_name = parts[-2] if len(parts) >= 2 else ""
+
+        if domain_name in cls.SUSPICIOUS_DOMAINS:
+            return False
+
+        if len(domain_name) <= 2:
+            return False
+
+        if len(tld) < 2 or len(tld) > 10:
+            return False
+
+        if tld not in cls.COMMON_TLDS:
+            return False
+
+        if any(p in cls.INVALID_DOMAINS for p in parts):
+            return False
+
+        if tld in cls.INVALID_FILE_EXTENSIONS:
+            return False
+
+        if len(local) >= 5 and len(set(local)) <= 2:
+            return False
+
+        if local in cls.GENERIC_LOCALS:
+            return False
         # Reject common invalid patterns
         if cls._is_invalid_pattern(email):
             return False
@@ -77,9 +140,6 @@ class EmailValidator:
     @staticmethod
     def _is_invalid_pattern(email: str) -> bool:
         """Check for obviously invalid patterns."""
-        # Double dots
-        if '..' in email:
-            return True
         
         # Starts or ends with dot
         local, domain = email.split('@')
@@ -92,11 +152,6 @@ class EmailValidator:
         if domain.startswith('-'):
             return True
             
-        # Reject obvious test domains
-        invalid_domains = {"test.com", "example.com", "dummy.com", "localhost", "mailinator.com", "testdomain.com"}
-        if domain.lower() in invalid_domains:
-            return True
-        
         return False
 
 

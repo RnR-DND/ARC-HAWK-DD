@@ -1,96 +1,108 @@
 """
 UPI ID Validator
 ================
-Validates Unified Payments Interface (UPI) IDs.
-
-Format: user@provider (e.g., user@paytm, 9876543210@ybl)
-Providers: paytm, phonepe, googlepay, ybl (Yes Bank), oksbi, etc.
+Robust validation for UPI IDs.
 """
 
 import re
 
 
 class UPIValidator:
-    """Validates UPI IDs."""
-    
-    # Known UPI providers (common ones)
+    # Expanded known providers (not exhaustive)
     KNOWN_PROVIDERS = {
-        'paytm', 'phonepe', 'googlepay', 'gpay', 'ybl', 'oksbi', 'okhdfcbank',
-        'okaxis', 'okicici', 'ibl', 'airtel', 'fbl', 'pockets', 'apl'
+        'paytm', 'phonepe', 'googlepay', 'gpay', 'ybl',
+        'oksbi', 'okhdfcbank', 'okaxis', 'okicici',
+        'ibl', 'airtel', 'fbl', 'pockets', 'apl',
+        'upi', 'axl'
     }
-    
-    # Basic UPI pattern: user@provider
-    UPI_PATTERN = re.compile(r'^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$')
-    
+
+    EMAIL_DOMAINS = {
+        "gmail", "yahoo", "outlook", "hotmail", "protonmail",
+        "icloud", "live", "msn"
+    }
+
+    # More flexible pattern
+    UPI_PATTERN = re.compile(r'^[a-z0-9._-]+@[a-z0-9]+$')
+
     @classmethod
     def validate(cls, upi: str) -> bool:
-        """
-        Validates a UPI ID.
-        
-        Args:
-            upi: UPI ID string
-            
-        Returns:
-            True if valid, False otherwise
-        """
         if not upi:
             return False
-        
-        # Normalize
+
+        # ---------------- NORMALIZE ----------------
         upi = upi.strip().lower()
-        
-        # Must have exactly one @
+
+        # Remove trailing punctuation (real-world logs)
+        upi = re.sub(r'[^\w@._-]+$', '', upi)
+
+        # Must contain exactly one @
         if upi.count('@') != 1:
             return False
-        
-        # Basic format check
+
+        # Basic pattern
         if not cls.UPI_PATTERN.match(upi):
             return False
-        
-        # Split into user and provider
+
+        if len(upi) > 50:  # relaxed upper bound
+            return False
+
         user, provider = upi.split('@')
-        
-        # User part checks
-        if len(user) == 0 or len(user) > 100:
+
+        # ---------------- USER VALIDATION ----------------
+        if not (3 <= len(user) <= 30):
             return False
-        
-        # Provider checks (must be known provider or valid format)
-        if len(provider) < 2 or len(provider) > 50:
+
+        # Avoid extreme garbage only
+        if len(set(user)) == 1:
             return False
-        
-        return True
+
+        # ---------------- PROVIDER VALIDATION ----------------
+        if not (2 <= len(provider) <= 25):
+            return False
+
+        # Known providers → strong signal
+        if provider in cls.KNOWN_PROVIDERS:
+            return True
+
+        # Common UPI pattern: ok*
+        if provider.startswith("ok") and provider.isalnum():
+            return True
+
+        if provider in cls.EMAIL_DOMAINS:
+            return False
+
+        return False
 
 
 def validate_upi(upi: str) -> bool:
-    """
-    Validates a UPI ID.
-    
-    Args:
-        upi: UPI ID string
-        
-    Returns:
-        True if valid, False otherwise
-    """
     return UPIValidator.validate(upi)
 
 
+# ---------------- TEST BLOCK ----------------
 if __name__ == "__main__":
     print("=== UPI ID Validator Tests ===\n")
-    
+
     test_cases = [
-        ("user@paytm", True, "Valid Paytm UPI"),
-        ("9876543210@ybl", True, "Valid phone-based UPI"),
-        ("john.doe@phonepe", True, "Valid with dot"),
-        ("user_name@googlepay", True, "Valid with underscore"),
-        ("test-user@oksbi", True,"Valid with hyphen"),
-        ("invalid", False, "Missing @"),
-        ("@paytm", False, "Missing user"),
-        ("user@", False, "Missing provider"),
-        ("user@@paytm", False, "Double @"),
+        ("user@paytm", True),
+        ("9876543210@ybl", True),
+        ("john.doe@phonepe", True),
+        ("user_name@googlepay", True),
+        ("test-user@oksbi", True),
+        ("rahul@okhdfcbank", True),
+        ("rahul123@upi", True),
+
+        ("invalid", False),
+        ("@paytm", False),
+        ("user@", False),
+        ("user@@paytm", False),
+
+        ("a@upi", False),  # too short user
+        ("user@x", False),  # too short provider
+
+        ("aaaaa@upi", False),  # extreme repetition
     ]
-    
-    for upi, expected, description in test_cases:
+
+    for upi, expected in test_cases:
         result = validate_upi(upi)
         status = "✓" if result == expected else "✗"
-        print(f"{status} {description}: {upi}")
-        print(f"   Expected: {expected}, Got: {result}\n")
+        print(f"{status} {upi} → {result} (expected {expected})")

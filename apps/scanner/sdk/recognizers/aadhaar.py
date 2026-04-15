@@ -85,11 +85,11 @@ class AadhaarRecognizer(PatternRecognizer):
         # Step 4: Dummy Data Detection (CRITICAL FILTER)
         if is_dummy_data(clean_number):
             # This catches: 111111111111, 123456789012, etc.
-            return False
+            return None
         
         # Step 5: Verhoeff Checksum Validation (MATHEMATICAL PROOF)
         if not Verhoeff.validate(clean_number):
-            return False
+            return None
         
         # All checks passed - this is a real Aadhaar number
         return True

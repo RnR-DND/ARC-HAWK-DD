@@ -13,9 +13,9 @@ Phone_US: "\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b"
 Phone_India: "\\b[6-9]\\d{9}\\b"
 
 # Government IDs - India
-Aadhar: "\\b\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}\\b"
+AADHAAR: "\\b[2-9]{1}\\d{3}[-\\s]?\\d{4}[-\\s]?\\d{4}\\b"
 PAN: '(?i)\\b(?:panNumber\\s*:\\s*|PAN\\s*:\\s*|panNo\\s*=\\s*|pan\\s*:\\s*|<)?\\s*[A-Z]{5}[0-9]{4}[A-Z]\\s*(?:>)?\\b'
-Passport_India: "\\b[A-Z]\\d{7}\\b"
+Passport_India: "(?i)(?:passport\\s*(?:no|number)?[:\\s]*)?\\b[A-Z]\\d{7}\\b"
 Voter_ID: "\\b[A-Z]{3}\\d{7}\\b"
 Drivers_License_India: "(?i)(?:dl|license)[#:\\s]+[A-Z]{2}\\d{13}"
 
@@ -30,7 +30,7 @@ Credit_Card_Amex: "\\b3[47]\\d{2}[-\\s]?\\d{6}[-\\s]?\\d{5}\\b"
 Credit_Card_Discover: "\\b6(?:011|5\\d{2})[-\\s]?\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}\\b"
 CVV: "(?i)(?:cvv|cvc|security[_\\s]?code)[\\s:=]+\\d{3,4}"
 UPI_ID: "(?i)\\b[a-z0-9._-]+@[a-z]{3,}\\b"
-IFSC_Code: "\\b[A-Z]{4}0[A-Z0-9]{6}\\b"
+IFSC_Code: "(?i)\\b[A-Z]{4}[\\s-]?0[\\s-]?[A-Z0-9]{6}\\b"
 Account_Number: "(?i)(?:account|acct)[_\\s]?(?:number|no|num)[\\s:=]+\\d{9,18}"
 
 # Personal Data

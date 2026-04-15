@@ -16,7 +16,8 @@ fixed weight (1-9), summed, and Modulo 26 is applied. The remainder
 corresponds to the alphabet of the 10th character.
 """
 
-
+import string
+ALPHABET = string.ascii_uppercase
 class PANValidator:
     """Validates Indian PAN with mathematical check digit."""
     
@@ -32,8 +33,17 @@ class PANValidator:
         'L',  # Local Authority
         'J',  # Artificial Juridical Person
         'G',  # Government
+        'E',  # Limited Liability Partnership(LLP)
+        'K',  # Krishi Kalyan (less common)
     }
     
+
+    _INVALID_PREFIXES = {
+            ALPHABET[i:i+5] for i in range(len(ALPHABET) - 4)
+        } | {
+            ALPHABET[i:i+5][::-1] for i in range(len(ALPHABET) - 4)
+        }
+
     @classmethod
     def validate(cls, pan: str, context: str = "") -> bool:
         """
@@ -68,41 +78,35 @@ class PANValidator:
         
         # === STRICT ANTI-FAKE CHECKS ===
         
-        # 1. Reject obvious test patterns - all 5 letters the same OR 4+ consecutive same letters
-        first_5 = clean[:5]
-        if len(set(first_5)) == 1:  # All same letter (AAAAA, BBBBB, etc.)
+        # 1. Reject obvious test patterns - first 3 letters the same
+        if len(set(clean[:3])) == 1:  # All same letter (AAA, BBB, etc.)
             return False
-        # Check for 4+ consecutive identical letters (but AAA is OK per real PAN format)
-        for i in range(len(first_5) - 3):
-            if len(set(first_5[i:i+4])) == 1:  # 4 consecutive same letters
-                return False
-        
+
         #2. Reject sequential alphabet patterns
-        if first_5 in ['ABCDE', 'BCDEF', 'CDEFG', 'DEFGH', 'EFGHI', 'FGHIJ']:
+        if clean[:3] in {s[:3] for s in cls._INVALID_PREFIXES}:
             return False
         
         # 3. Reject repeated digit sequences (all 4 same)
-        digits = clean[5:9]
-        if len(set(digits)) == 1:  # All same digit (e.g., 1111, 9999)
+        if len(set(clean[5:9])) == 1:  # All same digit (e.g., 1111, 9999)
             return False
-        
-        # Note: Sequential digits (1234, 5678) removed - real PANs can have these
         
         # 4. Context-based rejection: if found in code files, likely test data
         if context:
             code_indicators = [
-                'test_', 'example', 'sample', 'demo', 'dummy',
-                'def ', 'class ', 'import ', '"""', "'''",
-                '.py', '.js', '.java', 'EXAMPLE', 'TEST'
+                'test_', 'example', 'sample', 'demo', 'dummy', '.java',
+                'def ', 'class ', 'import ', '.py', '.js', 'EXAMPLE', 'TEST'
             ]
             context_lower = context.lower()
             if any(indicator.lower() in context_lower for indicator in code_indicators):
                 return False
-        
+        """
+        Valid checksum logic for the 10th character was not found and thus this part i commented out.
+        Uncomment and update the _validate_check_digit function when logic is found
         # 5. Validate 10th character using Weighted Modulo 26
         if not cls._validate_check_digit(clean):
             return False
-        
+        """
+
         return True
     
     @classmethod
@@ -122,25 +126,14 @@ class PANValidator:
         
         total = 0
         for i in range(9):
-            char = pan[i]
-            
-            # Convert character to number
-            if char.isalpha():
-                # A=10, B=11, ..., Z=35
-                value = ord(char) - ord('A') + 10
-            else:
-                # 0=0, 1=1, ..., 9=9
-                value = int(char)
-            
-            # Apply weight and add to total
+            c = pan[i]
+            value = (ord(c) - ord('A') + 10) if c.isalpha() else (int(c) + 26)
             total += value * weights[i]
-        
-        # Calculate expected check letter
-        remainder = total % 26
-        expected_check = chr(remainder + ord('A'))
+
+        expected = chr((total % 26) + ord('A'))
         
         # Compare with actual 10th character
-        return pan[9] == expected_check
+        return pan[9] == expected
 
 
 def validate_pan(pan: str, context: str = "") -> bool:

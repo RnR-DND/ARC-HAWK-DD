@@ -12,13 +12,21 @@ INTELLIGENCE-AT-EDGE: Only validated findings are returned.
 from sdk.validators import IndianPassportValidator
 from sdk.validators import validate_email, IndianPhoneValidator
 from sdk.validators import validate_aadhaar, validate_credit_card, validate_pan
+from sdk.validators.upi import validate_upi
+from sdk.validators.bank_account import validate_bank_account
+from sdk.validators.ifsc import validate_ifsc
+from sdk.engine import SharedAnalyzerEngine
+from sdk.validators.driving_license import validate_driving_license
+from sdk.validators.voter_id import validate_voter_id
 import re
 import sys
+import inspect
+import argparse
 from typing import Optional, List, Dict, Any
 from pathlib import Path
+from presidio_analyzer import PatternRecognizer, Pattern
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 
 VALIDATOR_MAP = {
     "IN_AADHAAR": validate_aadhaar,
@@ -27,23 +35,31 @@ VALIDATOR_MAP = {
     "EMAIL_ADDRESS": validate_email,
     "IN_PHONE": IndianPhoneValidator.validate,
     "IN_PASSPORT": IndianPassportValidator.validate,
+    "IN_BANK_ACCOUNT": validate_bank_account,
+    "IFSC": validate_ifsc,
+    "IFSC_CODE": validate_ifsc,
+    "IN_IFSC": validate_ifsc,
+    "IN_DRIVING_LICENSE": validate_driving_license,
+    "IN_VOTER_ID": validate_voter_id,
+    "IN_UPI": validate_upi
 }
-
 
 PII_TYPE_PATTERNS = {
-    'AADHAAR': r'(?:^|[^0-9])([2-9]{1}[0-9]{3}[0-9]{4}[0-9]{4})(?![0-9])',
-    'PAN': r'(?:^|[^A-Z])([A-Z]{5}[0-9]{4}[A-Z])(?![A-Z0-9])',
-    'CREDIT_CARD': r'(?:^|[^0-9])([0-9]{4}[-\s]?[0-9]{4}[-\s]?[0-9]{4}[-\s]?[0-9]{4})(?![0-9])',
-    'EMAIL': r'(?:^|[^A-Za-z0-9])([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})(?![a-zA-Z0-9._%+-])',
-    'PHONE': r'(?:^|[^0-9])(\+?[91][-\s]?[6-9][0-9]{9})(?![0-9])',
-    'UPI': r'(?:^|[^a-zA-Z0-9])([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)(?![a-zA-Z0-9._-])',
-    'IFSC': r'(?:^|[^A-Z0-9])([A-Z]{4}0[A-Z0-9]{6})(?![A-Z0-9])',
-    'BANK_ACCOUNT': r'(?:^|[^0-9])([0-9]{9,18})(?![0-9])',
-    'PASSPORT': r'(?:^|[^A-Z0-9])([A-Z]{1}[0-9]{7})(?![A-Z0-9])',
-    'VOTER_ID': r'(?:^|[^A-Z0-9])([A-Z]{3}[0-9]{7})(?![A-Z0-9])',
-    'DRIVING_LICENSE': r'(?:^|[^A-Z0-9])([A-Z]{2}[-\s]?[0-9]{2}[-\s]?[0-9]{4,7})(?![A-Z0-9])',
+    'AADHAAR': [r'(?:^|[^0-9])([2-9][0-9]{11})(?![0-9])'],
+    'PAN': [r'(?:^|[^A-Z])([A-Z]{5}[0-9]{4}[A-Z])(?![A-Z0-9])'],
+    'CREDIT_CARD': [
+        r'\b(?:\d[ -]*?){13,19}\b',
+        r'\b(?:4\d{12,18}|5[1-5]\d{14}|3[47]\d{13})\b'
+    ],
+    'EMAIL': [r'(?:^|[^A-Za-z0-9])([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})(?![a-zA-Z0-9._%+-])'],
+    'PHONE': [r'(?<!\d)(\+91[\s-]?[6-9]\d{9}|[6-9]\d{9})(?!\d)'],
+    'UPI': [r'(?:^|[^a-zA-Z0-9])([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+)(?![a-zA-Z0-9._-])'],
+    'IFSC': [r'(?:^|[^A-Za-z0-9])([A-Z]{4}[\s-]?0[\s-]?[A-Z0-9]{6})(?![A-Za-z0-9])'],
+    'IN_BANK_ACCOUNT': [r'(?:^|[^0-9])([0-9]{9,18})(?![0-9])'],
+    'PASSPORT': [r'(?:^|[^A-Za-z0-9])([A-Za-z][0-9]{7})(?![A-Za-z0-9])'],
+    'VOTER_ID': [r'(?:^|[^A-Z0-9])([A-Z]{3}[0-9]{7})(?![A-Z0-9])'],
+    'DRIVING_LICENSE': [r'([A-Z]{2}[-\s]?\d{1,2}[-\s]?\d{4}[-\s]?\d{7})']
 }
-
 
 # Strict PII Scope - Only these types are allowed
 ALLOWED_PII_TYPES = {
@@ -52,12 +68,19 @@ ALLOWED_PII_TYPES = {
     'CREDIT_CARD',
     'EMAIL_ADDRESS',
     'IN_PHONE',
-    'IN_PASSPORT'
+    'IN_PASSPORT',
+    'IN_BANK_ACCOUNT',
+    'IFSC',
+    'IFSC_CODE',
+    'IN_IFSC',
+    'IN_DRIVING_LICENSE',
+    'IN_VOTER_ID',
+    'IN_UPI'
 }
 
 # Mapping from fingerprint.yml pattern names (uppercase) to Validator Keys
 PATTERN_MAPPING = {
-    'AADHAR': 'IN_AADHAAR',  # Common misspelling handled
+    'AADHAR': 'IN_AADHAAR',
     'AADHAAR': 'IN_AADHAAR',
     'PAN': 'IN_PAN',
     'PASSPORT_INDIA': 'IN_PASSPORT',
@@ -80,14 +103,12 @@ def get_validator_for_pattern(pattern_name: str):
 
     return VALIDATOR_MAP.get(normalized_name)
 
-
 def get_normalized_name(pattern_name: str) -> str:
     """Get normalized pattern name for scope checking"""
     pattern_upper = pattern_name.upper()
     return PATTERN_MAPPING.get(pattern_upper, pattern_upper)
 
-
-def validate_match(value: str, pattern_name: str) -> tuple[bool, str]:
+def validate_match(value: str, pattern_name: str, full_text: str = "") -> tuple[bool, str]:
     """
     Validate a match using the appropriate validator.
 
@@ -117,14 +138,17 @@ def validate_match(value: str, pattern_name: str) -> tuple[bool, str]:
         return False, 'no_validator'
 
     try:
-        is_valid = validator(value)
+        params = inspect.signature(validator).parameters
+        if len(params) ==1:
+            is_valid = validator(value)
+        else:
+            is_valid = validator(value, full_text)
         method = validator.__name__
         return is_valid, method
     except Exception as e:
         # 3. EXCEPTION HANDLING: Fail closed
         print(f"[VALIDATION ERROR] {pattern_name}: {e}")
         return False, 'error'
-
 
 def validate_findings(findings: List[Dict[str, Any]], args=None, strict_mode: bool = False) -> List[Dict[str, Any]]:
     """
@@ -144,8 +168,9 @@ def validate_findings(findings: List[Dict[str, Any]], args=None, strict_mode: bo
         List of validated findings only
     """
     validated_findings = []
-    total_original = len(findings)
+    total_original = sum(len(f.get('matches', [])) for f in findings)
 
+    normalized_seen = set()
     for finding in findings:
         pattern_name = finding.get('pattern_name', '')
         matches = finding.get('matches', [])
@@ -153,18 +178,31 @@ def validate_findings(findings: List[Dict[str, Any]], args=None, strict_mode: bo
         validation_info = {}
 
         for match in matches:
-            is_valid, method = validate_match(match, pattern_name)
+            if pattern_name == "IN_PASSPORT":
+                # 🔥 Passport-specific normalization (SAFE)
+                clean = match.upper()
+                m = re.search(r'[A-Z][0-9]{7}', clean)
+                clean = m.group() if m else match.strip()
+
+            else:
+                clean = match.strip()
+
+            unique_key = (pattern_name, clean)
+
+            # Deduplicate globally
+            if unique_key in normalized_seen:
+                continue
+
+            is_valid, method = validate_match(clean, pattern_name, str(finding))
 
             if is_valid:
+                normalized_seen.add(unique_key)
                 validated_matches.append(match)
+
                 if method not in validation_info:
                     validation_info[method] = []
-                validation_info[method].append(
-                    match[:10] + '...' if len(match) > 10 else match)
-            else:
-                if args and hasattr(args, 'debug') and args.debug:
-                    print(
-                        f"[VALIDATION REJECTED] {pattern_name}: {match[:20]}...")
+
+                validation_info[method].append(match)
 
         if validated_matches:
             finding_copy = finding.copy()
@@ -174,14 +212,7 @@ def validate_findings(findings: List[Dict[str, Any]], args=None, strict_mode: bo
             finding_copy['validated_match_count'] = len(validated_matches)
             validated_findings.append(finding_copy)
 
-    rejected_count = total_original - len(validated_findings)
-
-    if args and not args.quiet:
-        print(
-            f"[VALIDATION] {len(validated_findings)}/{total_original} findings passed validation")
-        if rejected_count > 0:
-            print(
-                f"[VALIDATION] {rejected_count} findings rejected by SDK validators")
+        sum(len(f.get('matches', [])) for f in validated_findings)
 
     return validated_findings
 
@@ -207,7 +238,7 @@ def validate_and_enhance_result(result: Dict[str, Any], args=None) -> Optional[D
     for match in matches:
         is_valid, method = validate_match(match, pattern_name)
         if is_valid:
-            validated_matches.append(match)
+            validated_matches.append(clean)
 
     if not validated_matches:
         if args and hasattr(args, 'debug') and args.debug:
@@ -234,31 +265,45 @@ def run_validated_scan(args, content: str, source: str = 'text') -> List[Dict[st
     Returns:
         List of validated findings
     """
-    from hawk_scanner.internals import system
+    engine = SharedAnalyzerEngine.get_engine()
+    results = engine.analyze(
+        text=content,
+        language="en",
+        entities=[
+            "IFSC",
+            "IN_AADHAAR",
+            "IN_PAN",
+            "IN_PHONE",
+            "EMAIL_ADDRESS",
+            "CREDIT_CARD",
+            "IN_BANK_ACCOUNT",
+            "IN_PASSPORT"
+        ]
+    )
+    findings = []
+    print("RAW PRESIDIO RESULTS:", results)
 
-    patterns = system.get_fingerprint_file(args)
-    matched_strings = []
+    for r in results:
+        match_text = content[r.start:r.end]
 
-    for pattern_name, pattern_regex in patterns.items():
-        compiled_regex = re.compile(pattern_regex, re.IGNORECASE)
-        matches = re.findall(compiled_regex, content)
+        print("ENTITY:", r.entity_type, "VALUE:", match_text)
 
-        if matches:
-            found = {
-                'data_source': source,
-                'pattern_name': pattern_name,
-                'matches': list(set(matches)),
-                'sample_text': content[:100],
-            }
-            matched_strings.append(found)
+        findings.append({
+            "data_source": source,
+            "pattern_name": r.entity_type,
+            "matches": [match_text],
+            "score": r.score,
+        })
 
-    validated_results = validate_findings(matched_strings, args)
+    print("DEBUG ENTITY:", r.entity_type, "TEXT:", content[r.start:r.end])
 
+    for f in findings:
+        print("DETECTED TYPE:", f.get("pattern_name"))
+    print("DEBUG PRESIDIO FINDINGS:", findings)
+    validated_results = validate_findings(findings, args)
     return validated_results
 
-
 if __name__ == '__main__':
-    import argparse
 
     parser = argparse.ArgumentParser(
         description='Test scanner validation integration')

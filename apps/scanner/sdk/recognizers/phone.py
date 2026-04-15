@@ -16,14 +16,9 @@ class IndianPhoneRecognizer(PatternRecognizer):
     
     PATTERNS = [
         Pattern(
-            name="Indian Phone (+91 prefix)",
-            regex=r"(?i)\+91[-\s]?[6-9]\d{9}\b",
-            score=0.7
-        ),
-        Pattern(
-            name="Indian Phone (10 digits)",
-            regex=r"\b[6-9]\d{9}\b",
-            score=0.4
+            name="Indian Phone (flexible)",
+            regex=r"(?<!\d)(?:\+91[- ]?|0|91)?([6-9]\d{9})(?!\d)",
+            score=0.8
         ),
     ]
     

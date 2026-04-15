@@ -17,8 +17,8 @@ class IndianPassportRecognizer(PatternRecognizer):
     PATTERNS = [
         Pattern(
             name="Passport (A1234567)",
-            regex=r"(?i)\b[A-Z][0-9]{7}\b",
-            score=0.5
+            regex=r"(?i)(?:passport\s*(?:no|number)?[:\s]*)?\b[A-Z][0-9]{7}\b",
+            score=0.6
         ),
     ]
     

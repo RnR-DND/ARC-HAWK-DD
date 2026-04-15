@@ -1,90 +1,76 @@
 """
 Indian Passport Number Validator
-=================================
-Validates Indian passport numbers.
-
-Format: Starts with uppercase letter, followed by 7 digits
-Example: A1234567, Z9876543
+================================
+Strict validation based on:
+- Format (1 letter + 7 digits)
+- Valid prefix categories
 """
 
 import re
 
 
 class IndianPassportValidator:
-    """Validates Indian passport numbers with type checking."""
-    
-    # Passport types (first character)
-    DIPLOMATIC_TYPES = {'J', 'Z'}  # Diplomatic/Official
-    PERSONAL_TYPES = set('ABCDEFGHIKLMNOPQRSTUVWX')  # Regular Personal (A-W, excluding J, Z)
-    
-    # Format: Letter + 7 digits
+    # Passport types
+    DIPLOMATIC_TYPES = {'J', 'Z'}
+    PERSONAL_TYPES = set('ABCDEFGHIKLMNOPQRSTUVWX')
+
+    VALID_PREFIXES = DIPLOMATIC_TYPES | PERSONAL_TYPES
+
     PASSPORT_PATTERN = re.compile(r'^[A-Z][0-9]{7}$')
-    
+
     @classmethod
     def validate(cls, passport: str) -> bool:
-        """
-        Validates an Indian passport number.
-        
-        Alpha-Numeric Traffic Logic:
-        - First Character: Passport type
-          J, Z = Diplomatic/Official contexts
-          A-W = Regular Personal Passports
-        - Following 7 characters: Strictly numeric
-        
-        Args:
-            passport: Passport number string
-            
-        Returns:
-            True if valid, False otherwise
-        """
         if not passport:
             return False
-        
-        # Normalize (uppercase, remove spaces)
-        clean = passport.upper().replace(' ', '').replace('-', '')
-        
-        # Check pattern
-        if not cls.PASSPORT_PATTERN.match(clean):
+
+        # ---------------- NORMALIZE ----------------
+        clean = passport.upper().strip()
+        clean = re.sub(r'[^A-Z0-9]', '', clean)
+
+        # ---------------- STRUCTURE CHECK ----------------
+        if not cls.PASSPORT_PATTERN.fullmatch(clean):
             return False
-        
-        # Validate first character (passport type)
-        first_char = clean[0]
-        if first_char not in (cls.DIPLOMATIC_TYPES | cls.PERSONAL_TYPES):
+
+        # ---------------- PREFIX CHECK ----------------
+        if clean[0] not in cls.VALID_PREFIXES:
             return False
-        
+
         return True
+
+    @classmethod
+    def extract(cls, text: str) -> str | None:
+        if not text:
+            return None
+
+        match = re.search(r'[A-Z][0-9]{7}', text.upper())
+        return match.group() if match else None
 
 
 def validate_indian_passport(passport: str) -> bool:
-    """
-    Validates an Indian passport number.
-    
-    Args:
-        passport: Passport number string
-        
-    Returns:
-        True if valid, False otherwise
-    """
     return IndianPassportValidator.validate(passport)
 
 
+# ---------------- TEST BLOCK ----------------
 if __name__ == "__main__":
     print("=== Indian Passport Validator Tests ===\n")
-    
+
     test_cases = [
-        ("A1234567", True, "Valid passport"),
-        ("Z9876543", True, "Valid passport with Z"),
-        ("M5432109", True, "Valid passport with M"),
-        ("a1234567", True, "Valid (lowercase converted)"),
-        ("A 1234567", True, "Valid with space"),
-        ("12345678", False, "Missing letter"),
-        ("AB123456", False, "Two letters"),
-        ("A12345", False, "Too few digits"),
-        ("A123456789", False, "Too many digits"),
+        ("A1234567", True),
+        ("Z9876543", True),
+        ("M5432109", True),
+        ("a1234567", True),
+        ("A 1234567", True),
+
+        ("12345678", False),
+        ("AB123456", False),
+        ("A12345", False),
+        ("A123456789", False),
+
+        ("Q1234567", False),  # invalid prefix
+        ("X1234567", False),  # invalid prefix
     ]
-    
-    for passport, expected, description in test_cases:
+
+    for passport, expected in test_cases:
         result = validate_indian_passport(passport)
         status = "✓" if result == expected else "✗"
-        print(f"{status} {description}: {passport}")
-        print(f"   Expected: {expected}, Got: {result}\n")
+        print(f"{status} {passport} → {result} (expected {expected})")

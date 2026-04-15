@@ -31,7 +31,8 @@ class VoterIDValidator:
             return False
         
         # Normalize (uppercase, remove spaces)
-        clean = voter_id.upper().replace(' ', '').replace('-', '').replace('/', '')
+        raw = voter_id.strip()
+        clean = re.sub(r'[\s\-/]','',raw.upper())
         
         # Must be exactly 10 characters
         if len(clean) != 10:
@@ -41,6 +42,9 @@ class VoterIDValidator:
         if not cls.VOTER_ID_PATTERN.match(clean):
             return False
         
+        if raw != clean:
+            return True
+
         return True
 
 

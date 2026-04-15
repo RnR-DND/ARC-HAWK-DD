@@ -9,106 +9,58 @@ CRITICAL: Uses en_core_web_sm (Small) model to keep RAM under 1GB.
 
 import os
 import yaml
+import threading
 from typing import Optional
 from presidio_analyzer import AnalyzerEngine, RecognizerRegistry
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 
-
 class SharedAnalyzerEngine:
-    """
-    Singleton wrapper for Presidio AnalyzerEngine.
-    Ensures only one instance exists across all scanning threads.
-    """
-    
-    _instance: Optional[AnalyzerEngine] = None
-    _config = None
-    
+    _engine = None
+    _lock = threading.Lock()
+
     @classmethod
-    def get_engine(cls, config_path: str = None) -> AnalyzerEngine:
-        """
-        Get or create the singleton AnalyzerEngine instance.
-        
-        Args:
-            config_path: Path to SDK configuration YAML
-            
-        Returns:
-            Configured AnalyzerEngine instance
-        """
-        if cls._instance is None:
-            cls._instance = cls._initialize_engine(config_path)
-        return cls._instance
-    
-    @classmethod
-    def _initialize_engine(cls, config_path: Optional[str]) -> AnalyzerEngine:
-        """
-        Initialize the AnalyzerEngine with configuration.
-        
-        Args:
-            config_path: Path to config.yml
-            
-        Returns:
-            Configured AnalyzerEngine
-        """
-        # Load configuration
-        if config_path and os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                cls._config = yaml.safe_load(f)
-        else:
-            # Default configuration
-            cls._config = {
-                'model': {
-                    'name': 'en_core_web_sm',
-                    'lang_code': 'en'
-                },
-                'allow_list': []
-            }
-        
-        # Get model configuration
-        model_name = cls._config.get('model', {}).get('name', 'en_core_web_sm')
-        lang_code = cls._config.get('model', {}).get('lang_code', 'en')
-        
-        # CRITICAL: Enforce small model
-        if 'lg' in model_name.lower():
-            raise ValueError(
-                f"Large models are forbidden! Got: {model_name}. "
-                f"Use en_core_web_sm to prevent RAM explosion."
-            )
-        
-        print(f"[SDK] Initializing Presidio with model: {model_name}")
-        
-        # Configure NLP engine with small model (Presidio-required format)
-        nlp_configuration = {
-            "nlp_engine_name": "spacy",
-            "models": [
-                {
-                    "lang_code": lang_code,
-                    "model_name": model_name,
-                }
-            ]
-        }
-        
-        nlp_engine = NlpEngineProvider(nlp_configuration=nlp_configuration).create_engine()
-        
-        # Create empty registry (we'll add custom recognizers later)
-        # NOTE: Not loading predefined recognizers to avoid version compatibility issues
-        registry = RecognizerRegistry()
-        # registry.load_predefined_recognizers(nlp_engine=nlp_engine, languages=[lang_code])  # Disabled
-        
-        # Create analyzer engine
-        analyzer = AnalyzerEngine(
-            nlp_engine=nlp_engine,
-            registry=registry,
-            supported_languages=[lang_code]
-        )
-        
-        # Register all custom recognizers for locked PII types
-        cls._register_custom_recognizers(analyzer)
-        
-        print(f"[SDK] AnalyzerEngine initialized successfully")
-        print(f"[SDK] Memory footprint: ~500-800MB (Small model)")
-        
-        return analyzer
-    
+    def get_engine(cls):
+        if cls._engine is None:
+            with cls._lock:
+                if cls._engine is None:  # double-checked locking
+
+                    print("[SDK] Initializing Presidio with model: en_core_web_sm")
+
+                    nlp_configuration = {
+                        "nlp_engine_name": "spacy",
+                        "models": [
+                            {
+                                "lang_code": "en",
+                                "model_name": "en_core_web_sm",
+                            }
+                        ]
+                    }
+
+                    nlp_engine = NlpEngineProvider(
+                        nlp_configuration=nlp_configuration
+                    ).create_engine()
+
+                    registry = RecognizerRegistry()
+                    registry._recognizers = []   # ✅ clean registry
+
+                    engine = AnalyzerEngine(
+                        nlp_engine=nlp_engine,
+                        registry=registry,
+                        supported_languages=["en"]
+                    )
+
+                    # 🚨 HARD reset after init
+                    engine.registry._recognizers = []
+                    engine.registry.recognizers = []
+
+                    cls._register_custom_recognizers(engine)
+
+                    cls._engine = engine
+
+                    print("[SDK] Engine initialized ONCE")
+
+        return cls._engine
+
     @classmethod
     def _register_custom_recognizers(cls, analyzer: AnalyzerEngine) -> None:
         """
@@ -121,7 +73,7 @@ class SharedAnalyzerEngine:
         
         # Import all custom recognizers
         from sdk.recognizers.aadhaar import AadhaarRecognizer
-        from sdk.recognizers.pan import PANRecognizer  
+        from sdk.recognizers.pan import PANRecognizer
         from sdk.recognizers.credit_card import CreditCardRecognizer
         from sdk.recognizers.passport import IndianPassportRecognizer
         from sdk.recognizers.upi import UPIRecognizer
@@ -146,11 +98,19 @@ class SharedAnalyzerEngine:
             VoterIDRecognizer(),
             DrivingLicenseRecognizer(),
         ]
-        
         for recognizer in recognizers:
             analyzer.registry.add_recognizer(recognizer)
             print(f"  ✓ Registered: {recognizer.name}")
-        
+        entities = []
+        for r in analyzer.registry.recognizers:
+            if hasattr(r, "supported_entity"):
+                entities.append(r.supported_entity)
+            elif hasattr(r, "supported_entities"):
+                entities.extend(r.supported_entities)
+            else:
+                entities.append(type(r).__name__)
+
+        print("DEBUG ENTITIES:", entities)
         print(f"[SDK] Registered {len(recognizers)} custom recognizers")
     
     @classmethod
@@ -185,6 +145,7 @@ if __name__ == "__main__":
     # Test initialization
     try:
         engine = SharedAnalyzerEngine.get_engine()
+
         print(f"✓ Engine initialized")
         print(f"✓ Supported languages: {engine.supported_languages}")
         
@@ -195,7 +156,7 @@ if __name__ == "__main__":
         
         # Test analysis
         text = "My email is test@example.com"
-        results = engine.analyze(text=text, language='en')
+        results = engine.analyze(text=text, language='en', entities=engine.get_supported_entities())
         print(f"\n✓ Test analysis: Found {len(results)} entities")
         for result in results:
             print(f"  - {result.entity_type}: {text[result.start:result.end]}")

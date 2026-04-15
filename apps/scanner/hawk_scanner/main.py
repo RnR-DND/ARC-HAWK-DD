@@ -12,15 +12,12 @@ from hawk_scanner.internals import system
 from rich import print
 # SSL verification is enabled by default
 
-
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
-
 
 clear_screen()
 
 console = Console()
-
 
 def load_command_module(command):
     try:
@@ -30,11 +27,9 @@ def load_command_module(command):
         print(f"Command '{command}' is not supported. {e}")
         sys.exit(1)
 
-
 def execute_command(command, args):
     module = load_command_module(command)
     return module.execute(args)
-
 
 def group_results(args, results):
     grouped_results = defaultdict(list)
@@ -43,7 +38,6 @@ def group_results(args, results):
         result = system.evaluate_severity(result, connection)
         grouped_results[result['data_source']].append(result)
     return grouped_results
-
 
 def format_slack_message(group, result, records_mini, mention):
     template_map = {
@@ -187,7 +181,6 @@ def format_slack_message(group, result, records_mini, mention):
         exposed_values=records_mini
     )
 
-
 def add_columns_to_table(group, table):
     if group in ['s3', 'firebase', 'gcs']:
         table.add_column("Bucket > File Path")
@@ -213,26 +206,19 @@ def add_columns_to_table(group, table):
     table.add_column("Exposed Values")
     table.add_column("Sample Text")
 
-
 def main():
     start_time = time.time()
-
     args = system.parse_args()
-
-    # NEW: Read scan config file if provided (from Go backend)
     if hasattr(args, 'config') and args.config:
         try:
             with open(args.config, 'r') as f:
                 scan_config = json.load(f)
-                # Extract ingest_url if not provided via command line
                 if hasattr(args, 'ingest_url') and args.ingest_url:
-                    pass  # Use command line value
+                    pass
                 elif 'ingest_url' in scan_config:
                     args.ingest_url = scan_config['ingest_url']
-                    print(
-                        f"[INFO] Using ingest_url from config: {args.ingest_url}")
+                    print(f"[INFO] Using ingest_url from config: {args.ingest_url}")
 
-                # Extract scan_id if present
                 if 'scan_id' in scan_config:
                     args.scan_id = scan_config['scan_id']
                     print(f"[INFO] Using Scan ID from config: {args.scan_id}")
@@ -379,7 +365,6 @@ def main():
 
         console.print(table)
 
-    # NEW: Auto-ingestion to backend API
     if hasattr(args, 'ingest_url') and args.ingest_url:
         from hawk_scanner.internals.auto_ingest import ingest_scan_results, validate_ingest_url
 
@@ -394,7 +379,7 @@ def main():
             ingest_scan_results(args, grouped_results, scan_metadata)
         else:
             console.print(
-                f"[bold red]❌ Invalid ingestion URL: {args.ingest_url}[/bold red]")
+                f"[bold red] Invalid ingestion URL: {args.ingest_url}[/bold red]")
             console.print(
                 "[yellow]URL should end with /ingest, /api/v1/ingest, or /api/ingest[/yellow]")
 
