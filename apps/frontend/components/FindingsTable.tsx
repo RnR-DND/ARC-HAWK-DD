@@ -76,19 +76,22 @@ export default function FindingsTable({
                                 </td>
                             </tr>
                         ) : (
-                            findings.map((finding) => {
-                                const classification = finding.classifications[0];
-                                const piiType = classification?.classification_type || 'Unknown';
-                                const confidence = classification?.confidence_score || 0;
+                            findings.map((finding, rowIdx) => {
+                                const classification = finding.classifications?.[0];
+                                const piiType = classification?.classification_type || finding.pii_type || finding.pattern_name || 'Unknown';
+                                const confidence = classification?.confidence_score ?? finding.confidence_score ?? 0;
 
                                 const fullPath = finding.asset_path || '';
-                                const lastSeparatorIndex = Math.max(fullPath.lastIndexOf('/'), fullPath.lastIndexOf('.'));
-                                const path = lastSeparatorIndex > -1 ? fullPath.substring(0, lastSeparatorIndex) : 'Root';
-                                const field = lastSeparatorIndex > -1 ? fullPath.substring(lastSeparatorIndex + 1) : fullPath;
+                                const lastSepIdx = Math.max(fullPath.lastIndexOf('/'), fullPath.lastIndexOf(':'));
+                                const path = lastSepIdx > -1 ? fullPath.substring(0, lastSepIdx) : (fullPath || '—');
+                                // Use explicit field_name if path-parsing yields nothing
+                                const field = lastSepIdx > -1
+                                    ? fullPath.substring(lastSepIdx + 1)
+                                    : (finding.pattern_name || '');
 
                                 return (
                                     <tr
-                                        key={finding.id}
+                                        key={`${finding.id}-${rowIdx}`}
                                         onClick={() => handleRowClick(finding)}
                                         className="hover:bg-slate-50 cursor-pointer transition-colors group"
                                     >

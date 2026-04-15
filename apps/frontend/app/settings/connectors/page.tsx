@@ -3,15 +3,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Trash2, Edit2, RefreshCw, CheckCircle, XCircle,
-    AlertTriangle, Database, Plug, Loader2, Server, Cloud, HardDrive,
+    AlertTriangle, Database, Plug, Loader2, Server, Cloud, HardDrive, FileText,
 } from 'lucide-react';
 import {
     getConnections,
     addConnection,
     deleteConnection,
     testConnection,
+    getAvailableTypes,
     type Connection,
     type ConnectionConfig,
+    type AvailableSourceType,
 } from '@/services/connections.api';
 import { put } from '@/utils/api-client';
 
@@ -23,20 +25,79 @@ interface ConnectorRow extends Connection {
     status?: ConnectorStatus;
 }
 
-// Only source types actually supported by hawk_scanner CLI
-const CONNECTOR_TYPES = [
-    { value: 'postgresql', label: 'PostgreSQL',          icon: <Database className="w-4 h-4" />,  category: 'Databases' },
-    { value: 'mysql',      label: 'MySQL',               icon: <Database className="w-4 h-4" />,  category: 'Databases' },
-    { value: 'mongodb',    label: 'MongoDB',             icon: <Database className="w-4 h-4" />,  category: 'Databases' },
-    { value: 'redis',      label: 'Redis',               icon: <Server className="w-4 h-4" />,    category: 'Databases' },
-    { value: 'couchdb',    label: 'CouchDB',             icon: <Database className="w-4 h-4" />,  category: 'Databases' },
-    { value: 's3',         label: 'AWS S3',              icon: <Cloud className="w-4 h-4" />,     category: 'Cloud Storage' },
-    { value: 'gcs',        label: 'Google Cloud Storage',icon: <Cloud className="w-4 h-4" />,     category: 'Cloud Storage' },
-    { value: 'firebase',   label: 'Firebase',            icon: <Cloud className="w-4 h-4" />,     category: 'Cloud Storage' },
-    { value: 'fs',         label: 'Filesystem',          icon: <HardDrive className="w-4 h-4" />, category: 'Files' },
-    { value: 'slack',      label: 'Slack',               icon: <Server className="w-4 h-4" />,    category: 'Apps' },
-    { value: 'gdrive',     label: 'Google Drive',        icon: <Cloud className="w-4 h-4" />,     category: 'Apps' },
+interface ConnectorType {
+    value: string;
+    label: string;
+    icon: React.ReactNode;
+    category: string;
+}
+
+// Full list of all 36 supported connector types — used as fallback when API unavailable
+const FALLBACK_CONNECTOR_TYPES: ConnectorType[] = [
+    // Databases
+    { value: 'postgresql',     label: 'PostgreSQL',         icon: <Database className="w-4 h-4" />,  category: 'Databases' },
+    { value: 'mysql',          label: 'MySQL',              icon: <Database className="w-4 h-4" />,  category: 'Databases' },
+    { value: 'mongodb',        label: 'MongoDB',            icon: <Database className="w-4 h-4" />,  category: 'Databases' },
+    { value: 'redis',          label: 'Redis',              icon: <Server className="w-4 h-4" />,    category: 'Databases' },
+    { value: 'sqlite',         label: 'SQLite',             icon: <Database className="w-4 h-4" />,  category: 'Databases' },
+    { value: 'mssql',          label: 'SQL Server',         icon: <Database className="w-4 h-4" />,  category: 'Databases' },
+    { value: 'couchdb',        label: 'CouchDB',            icon: <Database className="w-4 h-4" />,  category: 'Databases' },
+    { value: 'firebase',       label: 'Firebase',           icon: <Cloud className="w-4 h-4" />,     category: 'Databases' },
+    { value: 'oracle',         label: 'Oracle',             icon: <Database className="w-4 h-4" />,  category: 'Databases' },
+    // Cloud
+    { value: 's3',             label: 'AWS S3',             icon: <Cloud className="w-4 h-4" />,     category: 'Cloud' },
+    { value: 'gcs',            label: 'Google Cloud Storage', icon: <Cloud className="w-4 h-4" />,   category: 'Cloud' },
+    { value: 'azure_blob',     label: 'Azure Blob',         icon: <Cloud className="w-4 h-4" />,     category: 'Cloud' },
+    { value: 'gdrive',         label: 'Google Drive',       icon: <Cloud className="w-4 h-4" />,     category: 'Cloud' },
+    { value: 'gdrive_workspace', label: 'Google Workspace', icon: <Cloud className="w-4 h-4" />,     category: 'Cloud' },
+    // Warehouses
+    { value: 'bigquery',       label: 'BigQuery',           icon: <Server className="w-4 h-4" />,    category: 'Warehouses' },
+    { value: 'snowflake',      label: 'Snowflake',          icon: <Server className="w-4 h-4" />,    category: 'Warehouses' },
+    { value: 'redshift',       label: 'Redshift',           icon: <Server className="w-4 h-4" />,    category: 'Warehouses' },
+    // Queues
+    { value: 'kafka',          label: 'Kafka',              icon: <Server className="w-4 h-4" />,    category: 'Queues' },
+    { value: 'kinesis',        label: 'AWS Kinesis',        icon: <Server className="w-4 h-4" />,    category: 'Queues' },
+    // Files
+    { value: 'filesystem',     label: 'Filesystem',         icon: <HardDrive className="w-4 h-4" />, category: 'Files' },
+    { value: 'text',           label: 'Text Files',         icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'csv_excel',      label: 'CSV / Excel',        icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'html',           label: 'HTML Files',         icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'pdf',            label: 'PDF',                icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'docx',           label: 'Word (DOCX)',        icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'pptx',           label: 'PowerPoint (PPTX)', icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'email',          label: 'Email (EML)',        icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'avro',           label: 'Avro',               icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'parquet',        label: 'Parquet',            icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'orc',            label: 'ORC',                icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    { value: 'scanned_images', label: 'Scanned Images',     icon: <FileText className="w-4 h-4" />,  category: 'Files' },
+    // SaaS
+    { value: 'slack',          label: 'Slack',              icon: <Plug className="w-4 h-4" />,      category: 'SaaS' },
+    { value: 'jira',           label: 'Jira',               icon: <Plug className="w-4 h-4" />,      category: 'SaaS' },
+    { value: 'salesforce',     label: 'Salesforce',         icon: <Plug className="w-4 h-4" />,      category: 'SaaS' },
+    { value: 'hubspot',        label: 'HubSpot',            icon: <Plug className="w-4 h-4" />,      category: 'SaaS' },
+    { value: 'ms_teams',       label: 'Microsoft Teams',    icon: <Plug className="w-4 h-4" />,      category: 'SaaS' },
 ];
+
+function iconForType(iconHint: string, category: string): React.ReactNode {
+    const hint = (iconHint || '').toLowerCase();
+    const cat = (category || '').toLowerCase();
+    if (hint === 'database' || cat === 'databases') return <Database className="w-4 h-4" />;
+    if (hint === 'cloud' || cat === 'cloud') return <Cloud className="w-4 h-4" />;
+    if (hint === 'server' || cat === 'warehouses' || cat === 'queues') return <Server className="w-4 h-4" />;
+    if (hint === 'hard-drive' || cat === 'files') return <HardDrive className="w-4 h-4" />;
+    if (cat === 'saas' || cat === 'apps') return <Plug className="w-4 h-4" />;
+    return <Database className="w-4 h-4" />;
+}
+
+function mapApiTypes(apiTypes: AvailableSourceType[]): ConnectorType[] {
+    return apiTypes.map(t => ({
+        value: t.source_type,
+        label: t.display_name,
+        icon: iconForType(t.icon, t.category),
+        // Normalize category capitalization
+        category: t.category.charAt(0).toUpperCase() + t.category.slice(1),
+    }));
+}
 
 const DB_FIELDS: Record<string, { key: string; label: string; type?: string; placeholder?: string }[]> = {
     postgresql: [
@@ -62,12 +123,33 @@ const DB_FIELDS: Record<string, { key: string; label: string; type?: string; pla
         { key: 'port',     label: 'Port',     placeholder: '6379' },
         { key: 'password', label: 'Password', type: 'password', placeholder: '••••••••' },
     ],
+    sqlite: [
+        { key: 'path', label: 'Database File Path', placeholder: '/data/mydb.sqlite' },
+    ],
+    mssql: [
+        { key: 'host',     label: 'Host',     placeholder: 'mssql.example.com' },
+        { key: 'port',     label: 'Port',     placeholder: '1433' },
+        { key: 'database', label: 'Database', placeholder: 'mydb' },
+        { key: 'user',     label: 'Username', placeholder: 'sa' },
+        { key: 'password', label: 'Password', type: 'password', placeholder: '••••••••' },
+    ],
+    oracle: [
+        { key: 'host',     label: 'Host',           placeholder: 'oracle.example.com' },
+        { key: 'port',     label: 'Port',           placeholder: '1521' },
+        { key: 'service',  label: 'Service Name',   placeholder: 'ORCL' },
+        { key: 'user',     label: 'Username',       placeholder: 'system' },
+        { key: 'password', label: 'Password', type: 'password', placeholder: '••••••••' },
+    ],
     couchdb: [
         { key: 'host',     label: 'Host',     placeholder: 'couchdb.example.com' },
         { key: 'port',     label: 'Port',     placeholder: '5984' },
         { key: 'user',     label: 'Username', placeholder: 'admin' },
         { key: 'password', label: 'Password', type: 'password', placeholder: '••••••••' },
         { key: 'database', label: 'Database', placeholder: 'mydb' },
+    ],
+    firebase: [
+        { key: 'credentials_file', label: 'Service Account JSON Path', placeholder: '/path/to/serviceAccount.json' },
+        { key: 'storage_bucket',   label: 'Storage Bucket',            placeholder: 'my-project.appspot.com' },
     ],
     s3: [
         { key: 'region',     label: 'Region',          placeholder: 'us-east-1' },
@@ -76,23 +158,92 @@ const DB_FIELDS: Record<string, { key: string; label: string; type?: string; pla
         { key: 'secret_key', label: 'Secret Key', type: 'password', placeholder: '••••••••' },
     ],
     gcs: [
-        { key: 'bucket',                 label: 'Bucket Name',         placeholder: 'my-gcs-bucket' },
-        { key: 'project',                label: 'Project ID',          placeholder: 'my-gcp-project' },
-        { key: 'credentials_json',       label: 'Service Account JSON',placeholder: '{"type":"service_account",...}' },
+        { key: 'bucket',           label: 'Bucket Name',          placeholder: 'my-gcs-bucket' },
+        { key: 'project',          label: 'Project ID',           placeholder: 'my-gcp-project' },
+        { key: 'credentials_json', label: 'Service Account JSON', placeholder: '{"type":"service_account",...}' },
     ],
-    firebase: [
-        { key: 'credentials_file', label: 'Service Account JSON Path', placeholder: '/path/to/serviceAccount.json' },
-        { key: 'storage_bucket',   label: 'Storage Bucket',            placeholder: 'my-project.appspot.com' },
-    ],
-    fs: [
-        { key: 'path', label: 'Root Path', placeholder: '/data/uploads' },
-    ],
-    slack: [
-        { key: 'token', label: 'Bot Token', placeholder: 'xoxb-...' },
+    azure_blob: [
+        { key: 'account_name', label: 'Storage Account Name', placeholder: 'mystorageaccount' },
+        { key: 'account_key',  label: 'Account Key', type: 'password', placeholder: 'base64key...' },
+        { key: 'container',    label: 'Container Name',       placeholder: 'my-container' },
     ],
     gdrive: [
         { key: 'credentials_file', label: 'OAuth Credentials JSON', placeholder: '/path/to/credentials.json' },
         { key: 'token_file',       label: 'Token File',             placeholder: '/path/to/token.json' },
+    ],
+    gdrive_workspace: [
+        { key: 'credentials_json', label: 'Service Account JSON', placeholder: '{"type":"service_account",...}' },
+        { key: 'admin_email',      label: 'Admin Email',           placeholder: 'admin@domain.com' },
+    ],
+    bigquery: [
+        { key: 'project',          label: 'Project ID',           placeholder: 'my-gcp-project' },
+        { key: 'dataset',          label: 'Dataset (optional)',    placeholder: 'my_dataset' },
+        { key: 'credentials_json', label: 'Service Account JSON', placeholder: '{"type":"service_account",...}' },
+    ],
+    snowflake: [
+        { key: 'account',   label: 'Account',   placeholder: 'xy12345.us-east-1' },
+        { key: 'warehouse', label: 'Warehouse', placeholder: 'COMPUTE_WH' },
+        { key: 'database',  label: 'Database',  placeholder: 'MY_DB' },
+        { key: 'schema',    label: 'Schema',    placeholder: 'PUBLIC' },
+        { key: 'user',      label: 'Username',  placeholder: 'myuser' },
+        { key: 'password',  label: 'Password', type: 'password', placeholder: '••••••••' },
+    ],
+    redshift: [
+        { key: 'host',     label: 'Host',     placeholder: 'cluster.region.redshift.amazonaws.com' },
+        { key: 'port',     label: 'Port',     placeholder: '5439' },
+        { key: 'database', label: 'Database', placeholder: 'mydb' },
+        { key: 'user',     label: 'Username', placeholder: 'awsuser' },
+        { key: 'password', label: 'Password', type: 'password', placeholder: '••••••••' },
+    ],
+    kafka: [
+        { key: 'brokers', label: 'Brokers (comma-separated)', placeholder: 'broker1:9092,broker2:9092' },
+        { key: 'topic',   label: 'Topic',                     placeholder: 'my-topic' },
+    ],
+    kinesis: [
+        { key: 'region',      label: 'Region',      placeholder: 'us-east-1' },
+        { key: 'stream_name', label: 'Stream Name', placeholder: 'my-stream' },
+        { key: 'access_key',  label: 'Access Key ID', placeholder: 'AKIAIOSFODNN7EXAMPLE' },
+        { key: 'secret_key',  label: 'Secret Key', type: 'password', placeholder: '••••••••' },
+    ],
+    filesystem: [
+        { key: 'path', label: 'Root Path', placeholder: '/data/uploads' },
+    ],
+    // Legacy alias
+    fs: [
+        { key: 'path', label: 'Root Path', placeholder: '/data/uploads' },
+    ],
+    text:          [{ key: 'path', label: 'File Path', placeholder: '/data/file.txt' }],
+    csv_excel:     [{ key: 'path', label: 'File Path', placeholder: '/data/file.csv' }],
+    html:          [{ key: 'path', label: 'File Path', placeholder: '/data/file.html' }],
+    pdf:           [{ key: 'path', label: 'File Path', placeholder: '/data/file.pdf' }],
+    docx:          [{ key: 'path', label: 'File Path', placeholder: '/data/file.docx' }],
+    pptx:          [{ key: 'path', label: 'File Path', placeholder: '/data/file.pptx' }],
+    email:         [{ key: 'path', label: 'File / Directory Path', placeholder: '/data/emails/' }],
+    avro:          [{ key: 'path', label: 'File Path', placeholder: '/data/file.avro' }],
+    parquet:       [{ key: 'path', label: 'File Path', placeholder: '/data/file.parquet' }],
+    orc:           [{ key: 'path', label: 'File Path', placeholder: '/data/file.orc' }],
+    scanned_images:[{ key: 'path', label: 'File / Directory Path', placeholder: '/data/scans/' }],
+    slack: [
+        { key: 'token', label: 'Bot Token', placeholder: 'xoxb-...' },
+    ],
+    jira: [
+        { key: 'url',   label: 'Site URL', placeholder: 'https://yoursite.atlassian.net' },
+        { key: 'user',  label: 'Email',    placeholder: 'you@example.com' },
+        { key: 'token', label: 'API Token', type: 'password', placeholder: '••••••••' },
+    ],
+    salesforce: [
+        { key: 'instance_url',    label: 'Instance URL',    placeholder: 'https://yourorg.salesforce.com' },
+        { key: 'username',        label: 'Username',        placeholder: 'user@example.com' },
+        { key: 'password',        label: 'Password', type: 'password', placeholder: '••••••••' },
+        { key: 'security_token',  label: 'Security Token', type: 'password', placeholder: 'token...' },
+    ],
+    hubspot: [
+        { key: 'api_key', label: 'API Key / Private App Token', type: 'password', placeholder: 'pat-na1-...' },
+    ],
+    ms_teams: [
+        { key: 'tenant_id',     label: 'Tenant ID',     placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+        { key: 'client_id',     label: 'Client ID',     placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+        { key: 'client_secret', label: 'Client Secret', type: 'password', placeholder: '••••••••' },
     ],
 };
 
@@ -144,10 +295,12 @@ interface ConnectorFormState {
 
 function ConnectorModal({
     initial,
+    connectorTypes,
     onSave,
     onClose,
 }: {
     initial?: ConnectorRow;
+    connectorTypes: ConnectorType[];
     onSave: (data: ConnectorFormState) => Promise<void>;
     onClose: () => void;
 }) {
@@ -161,7 +314,7 @@ function ConnectorModal({
     const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
     const configFields = form.source_type ? getConfigFields(form.source_type) : [];
-    const categories = [...new Set(CONNECTOR_TYPES.map(c => c.category))];
+    const categories = [...new Set(connectorTypes.map(c => c.category))];
 
     const setConfig = (key: string, value: string) => {
         setForm(f => ({ ...f, config: { ...f.config, [key]: value } }));
@@ -208,7 +361,7 @@ function ConnectorModal({
                             <div key={cat}>
                                 <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{cat}</div>
                                 <div className="grid grid-cols-3 gap-2 mb-3">
-                                    {CONNECTOR_TYPES.filter(c => c.category === cat).map(ct => (
+                                    {connectorTypes.filter(c => c.category === cat).map(ct => (
                                         <label
                                             key={ct.value}
                                             className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-sm ${
@@ -324,6 +477,20 @@ export default function ConnectorsSettingsPage() {
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [testingId, setTestingId] = useState<string | null>(null);
     const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>({});
+    const [availableTypes, setAvailableTypes] = useState<ConnectorType[]>(FALLBACK_CONNECTOR_TYPES);
+
+    // Fetch available connector types from backend; fall back to static list on error
+    useEffect(() => {
+        getAvailableTypes()
+            .then(res => {
+                if (res?.types?.length) {
+                    setAvailableTypes(mapApiTypes(res.types));
+                }
+            })
+            .catch(() => {
+                // Backend may be stale — static fallback already in state
+            });
+    }, []);
 
     const loadConnectors = useCallback(async () => {
         setLoading(true);
@@ -380,8 +547,8 @@ export default function ConnectorsSettingsPage() {
         }
     };
 
-    const typeLabel = (t: string) => CONNECTOR_TYPES.find(c => c.value === t)?.label ?? t;
-    const typeIcon  = (t: string) => CONNECTOR_TYPES.find(c => c.value === t)?.icon ?? <Database className="w-4 h-4" />;
+    const typeLabel = (t: string) => availableTypes.find(c => c.value === t)?.label ?? t;
+    const typeIcon  = (t: string) => availableTypes.find(c => c.value === t)?.icon ?? <Database className="w-4 h-4" />;
 
     return (
         <div className="p-8 space-y-6">
@@ -526,8 +693,8 @@ export default function ConnectorsSettingsPage() {
                 </div>
             )}
 
-            {showAdd && <ConnectorModal onSave={handleAdd} onClose={() => setShowAdd(false)} />}
-            {editTarget && <ConnectorModal initial={editTarget} onSave={handleEdit} onClose={() => setEditTarget(null)} />}
+            {showAdd && <ConnectorModal connectorTypes={availableTypes} onSave={handleAdd} onClose={() => setShowAdd(false)} />}
+            {editTarget && <ConnectorModal initial={editTarget} connectorTypes={availableTypes} onSave={handleEdit} onClose={() => setEditTarget(null)} />}
         </div>
     );
 }

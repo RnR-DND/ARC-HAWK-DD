@@ -200,51 +200,138 @@ export default function DashboardPage() {
                     ))}
 
                     {/* Path View */}
-                    {viewMode === 'path' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {(lineageData?.nodes || [])
-                                .filter(n => n.type === 'asset' || n.type === 'system')
-                                .map(node => (
-                                    <div
-                                        key={node.id}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '12px',
-                                            padding: '10px 16px',
-                                            backgroundColor: theme.colors.background.card,
-                                            border: `1px solid ${theme.colors.border.subtle}`,
-                                            borderRadius: '8px',
-                                        }}
-                                    >
-                                        <span style={{
-                                            fontSize: '11px',
-                                            padding: '2px 8px',
-                                            borderRadius: '4px',
-                                            backgroundColor: node.type === 'system' ? '#1e3a5f' : '#2d2d2d',
-                                            color: node.type === 'system' ? '#93c5fd' : '#d1d5db',
-                                            fontWeight: 500,
-                                        }}>
-                                            {node.type}
-                                        </span>
-                                        <span style={{ fontSize: '13px', color: theme.colors.text.primary, fontFamily: 'monospace' }}>
-                                            {node.label}
-                                        </span>
-                                        {'finding_count' in node.metadata && node.metadata.finding_count ? (
-                                            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#f87171' }}>
-                                                {String(node.metadata.finding_count)} findings
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                ))
+                    {viewMode === 'path' && (() => {
+                        const nodes = lineageData?.nodes || [];
+                        const edges = lineageData?.edges || [];
+
+                        // Build adjacency: parent → children
+                        const children: Record<string, string[]> = {};
+                        edges.forEach(e => {
+                            if (!children[e.source]) children[e.source] = [];
+                            children[e.source].push(e.target);
+                        });
+                        // Build reverse: child → parent
+                        const parent: Record<string, string> = {};
+                        edges.forEach(e => { parent[e.target] = e.source; });
+
+                        const nodeMap: Record<string, typeof nodes[0]> = {};
+                        nodes.forEach(n => { nodeMap[n.id] = n; });
+
+                        // Build full path for a node by walking up to root
+                        function getAncestorPath(nodeId: string): typeof nodes[0][] {
+                            const path: typeof nodes[0][] = [];
+                            let cur: string | undefined = nodeId;
+                            const visited = new Set<string>();
+                            while (cur && nodeMap[cur] && !visited.has(cur)) {
+                                visited.add(cur);
+                                path.unshift(nodeMap[cur]);
+                                cur = parent[cur];
                             }
-                            {!lineageData?.nodes?.length && (
-                                <p style={{ textAlign: 'center', color: theme.colors.text.muted, padding: '48px 0', fontSize: '14px' }}>
-                                    No lineage data available. Run a scan to populate.
-                                </p>
-                            )}
-                        </div>
-                    )}
+                            return path;
+                        }
+
+                        // Show PII category nodes with their full ancestor chain
+                        const piiNodes = nodes.filter(n => n.type === 'pii_category');
+                        // If no PII nodes, show all nodes grouped by type
+                        const showNodes = piiNodes.length > 0 ? piiNodes : nodes;
+
+                        const typeColors: Record<string, { bg: string; text: string }> = {
+                            system:       { bg: '#1e3a5f', text: '#93c5fd' },
+                            asset:        { bg: '#1e4d2b', text: '#86efac' },
+                            pii_category: { bg: '#4c1d3f', text: '#f0abfc' },
+                            file:         { bg: '#2d2d2d', text: '#d1d5db' },
+                            table:        { bg: '#1c3557', text: '#7dd3fc' },
+                        };
+
+                        const getColor = (type: string) => typeColors[type] ?? { bg: '#2d2d2d', text: '#d1d5db' };
+
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: 'calc(100vh - 320px)' }}>
+                                {showNodes.map(node => {
+                                    const chain = getAncestorPath(node.id);
+                                    return (
+                                        <div
+                                            key={node.id}
+                                            style={{
+                                                backgroundColor: theme.colors.background.card,
+                                                border: `1px solid ${theme.colors.border.subtle}`,
+                                                borderRadius: '10px',
+                                                padding: '12px 16px',
+                                            }}
+                                        >
+                                            {/* Breadcrumb chain */}
+                                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                                                {chain.map((n, i) => {
+                                                    const col = getColor(n.type);
+                                                    return (
+                                                        <React.Fragment key={n.id}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <span style={{
+                                                                    fontSize: '10px',
+                                                                    padding: '2px 6px',
+                                                                    borderRadius: '4px',
+                                                                    backgroundColor: col.bg,
+                                                                    color: col.text,
+                                                                    fontWeight: 600,
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.05em',
+                                                                }}>
+                                                                    {n.type}
+                                                                </span>
+                                                                <span style={{
+                                                                    fontSize: '13px',
+                                                                    color: i === chain.length - 1 ? theme.colors.text.primary : theme.colors.text.secondary,
+                                                                    fontFamily: 'monospace',
+                                                                    fontWeight: i === chain.length - 1 ? 600 : 400,
+                                                                }}>
+                                                                    {n.label}
+                                                                </span>
+                                                            </div>
+                                                            {i < chain.length - 1 && (
+                                                                <span style={{ color: theme.colors.text.muted, fontSize: '14px', fontWeight: 300 }}>›</span>
+                                                            )}
+                                                        </React.Fragment>
+                                                    );
+                                                })}
+                                            </div>
+                                            {/* Finding count badge */}
+                                            {'finding_count' in node.metadata && node.metadata.finding_count ? (
+                                                <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <span style={{
+                                                        fontSize: '11px',
+                                                        color: '#f87171',
+                                                        backgroundColor: 'rgba(248,113,113,0.1)',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '4px',
+                                                        fontWeight: 600,
+                                                    }}>
+                                                        {String(node.metadata.finding_count)} findings
+                                                    </span>
+                                                    {(node.metadata as Record<string, unknown>).risk_score != null && (
+                                                        <span style={{
+                                                            fontSize: '11px',
+                                                            color: '#fb923c',
+                                                            backgroundColor: 'rgba(251,146,60,0.1)',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '4px',
+                                                            fontWeight: 600,
+                                                        }}>
+                                                            Risk {Number((node.metadata as Record<string, unknown>).risk_score).toFixed(0)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    );
+                                })}
+                                {!nodes.length && (
+                                    <p style={{ textAlign: 'center', color: theme.colors.text.muted, padding: '48px 0', fontSize: '14px' }}>
+                                        No lineage data available. Run a scan to populate.
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* Findings Link */}

@@ -168,7 +168,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
             });
             setCustomPatterns(prev => [...prev, created]);
             setSelectedCustomPatterns(prev => [...prev, created.id!]);
-            setNewPattern({ name: '', display_name: '', regex: '', category: 'Custom', description: '' });
+            setNewPattern({ name: '', display_name: '', regex: '', category: 'Custom', description: '', context_keywords: [], negative_keywords: [] });
             setShowAddPattern(false);
         } catch (err: any) {
             setPatternError(err?.response?.data?.error || 'Failed to save pattern.');

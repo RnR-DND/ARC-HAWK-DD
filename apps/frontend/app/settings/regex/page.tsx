@@ -23,6 +23,8 @@ interface CustomPattern {
     fp_rate: number;
     created_at: string;
     test_cases?: string[];
+    context_keywords?: string[];
+    negative_keywords?: string[];
 }
 
 interface PatternStats {
@@ -46,6 +48,8 @@ interface PatternFormData {
     sensitivity: 'low' | 'medium' | 'high' | 'critical';
     description: string;
     test_cases: string[];
+    context_keywords: string[];
+    negative_keywords: string[];
 }
 
 const EMPTY_FORM: PatternFormData = {
@@ -56,6 +60,8 @@ const EMPTY_FORM: PatternFormData = {
     sensitivity: 'medium',
     description: '',
     test_cases: [],
+    context_keywords: [],
+    negative_keywords: [],
 };
 
 const SENSITIVITY_COLORS: Record<string, string> = {
@@ -324,12 +330,16 @@ function PatternModal({
                 sensitivity: initial.sensitivity,
                 description: initial.description,
                 test_cases: initial.test_cases ?? [],
+                context_keywords: initial.context_keywords ?? [],
+                negative_keywords: initial.negative_keywords ?? [],
             }
             : { ...EMPTY_FORM }
     );
     const [saving, setSaving] = useState(false);
     const [regexError, setRegexError] = useState('');
     const [testCaseInput, setTestCaseInput] = useState('');
+    const [contextKwInput, setContextKwInput] = useState('');
+    const [negativeKwInput, setNegativeKwInput] = useState('');
 
     const validateRegex = (r: string) => {
         try { new RegExp(r); setRegexError(''); }
@@ -464,6 +474,108 @@ function PatternModal({
                                     <span key={tc} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-full text-xs font-mono text-slate-700">
                                         {tc}
                                         <button type="button" onClick={() => removeTestCase(tc)} className="text-slate-400 hover:text-red-500">
+                                            <XCircle className="w-3 h-3" />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Context Keywords */}
+                    <div className="space-y-2 border-t border-slate-100 pt-4">
+                        <div>
+                            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Boost Keywords</label>
+                            <p className="text-xs text-slate-400 mt-0.5">Words that, if found near a match, increase confidence (e.g. "aadhaar", "national id").</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                value={contextKwInput}
+                                onChange={e => setContextKwInput(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        const kw = contextKwInput.trim();
+                                        if (kw && !form.context_keywords.includes(kw)) {
+                                            setForm(f => ({ ...f, context_keywords: [...f.context_keywords, kw] }));
+                                            setContextKwInput('');
+                                        }
+                                    }
+                                }}
+                                placeholder="e.g. aadhaar, national id..."
+                                className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-900"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const kw = contextKwInput.trim();
+                                    if (kw && !form.context_keywords.includes(kw)) {
+                                        setForm(f => ({ ...f, context_keywords: [...f.context_keywords, kw] }));
+                                        setContextKwInput('');
+                                    }
+                                }}
+                                className="px-3 py-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg text-sm font-medium text-green-700"
+                            >
+                                Add
+                            </button>
+                        </div>
+                        {form.context_keywords.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {form.context_keywords.map(kw => (
+                                    <span key={kw} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-200 rounded-full text-xs font-medium text-green-700">
+                                        {kw}
+                                        <button type="button" onClick={() => setForm(f => ({ ...f, context_keywords: f.context_keywords.filter(k => k !== kw) }))} className="text-green-400 hover:text-red-500">
+                                            <XCircle className="w-3 h-3" />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Negative Keywords */}
+                    <div className="space-y-2">
+                        <div>
+                            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Suppress Keywords</label>
+                            <p className="text-xs text-slate-400 mt-0.5">Words that, if found near a match, decrease confidence (e.g. "test", "sample", "dummy").</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                value={negativeKwInput}
+                                onChange={e => setNegativeKwInput(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        const kw = negativeKwInput.trim();
+                                        if (kw && !form.negative_keywords.includes(kw)) {
+                                            setForm(f => ({ ...f, negative_keywords: [...f.negative_keywords, kw] }));
+                                            setNegativeKwInput('');
+                                        }
+                                    }
+                                }}
+                                placeholder="e.g. test, sample, dummy..."
+                                className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400 text-slate-900"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const kw = negativeKwInput.trim();
+                                    if (kw && !form.negative_keywords.includes(kw)) {
+                                        setForm(f => ({ ...f, negative_keywords: [...f.negative_keywords, kw] }));
+                                        setNegativeKwInput('');
+                                    }
+                                }}
+                                className="px-3 py-2 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-sm font-medium text-red-700"
+                            >
+                                Add
+                            </button>
+                        </div>
+                        {form.negative_keywords.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {form.negative_keywords.map(kw => (
+                                    <span key={kw} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-full text-xs font-medium text-red-700">
+                                        {kw}
+                                        <button type="button" onClick={() => setForm(f => ({ ...f, negative_keywords: f.negative_keywords.filter(k => k !== kw) }))} className="text-red-400 hover:text-red-600">
                                             <XCircle className="w-3 h-3" />
                                         </button>
                                     </span>

@@ -59,6 +59,7 @@ export default function FindingsPage() {
             });
 
             // Explode findings: One row per match
+            // Preserve original finding.id so remediation API receives a valid UUID
             const explodedFindings: FindingWithDetails[] = [];
 
             result.findings.forEach(finding => {
@@ -67,12 +68,23 @@ export default function FindingsPage() {
                         explodedFindings.push({
                             ...finding,
                             matches: [match],
-                            id: `${finding.id}-${match}`
+                            // Keep original ID — FindingsTable uses array index as React key
                         });
                     });
                 } else {
                     explodedFindings.push(finding);
                 }
+            });
+
+            // Supplement facets from loaded findings when getFacets returns nothing
+            setFacets(prev => {
+                const piiTypes = prev.pii_types.length > 0
+                    ? prev.pii_types
+                    : [...new Set(result.findings.flatMap(f => f.classifications?.map((c: any) => c.classification_type) ?? []))].filter(Boolean) as string[];
+                const assets = prev.assets.length > 0
+                    ? prev.assets
+                    : [...new Set(result.findings.map(f => f.asset_name).filter(Boolean))] as string[];
+                return { ...prev, pii_types: piiTypes, assets };
             });
 
             const data: FindingsResponse = {
