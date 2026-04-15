@@ -19,6 +19,7 @@ interface ScanConfig {
     piiTypes: string[];
     executionMode: 'sequential' | 'parallel';
     classificationMode: 'regex' | 'ner' | 'contextual';
+    piiTypesPerSource?: Record<string, string[]>;
 }
 
 const PII_TYPES = [
@@ -67,6 +68,8 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
     const [selectedPiiTypes, setSelectedPiiTypes] = useState<string[]>(['PAN', 'AADHAAR', 'EMAIL']);
     const [executionMode, setExecutionMode] = useState<'sequential' | 'parallel'>('parallel');
     const [classificationMode, setClassificationMode] = useState<'regex' | 'ner' | 'contextual'>('contextual');
+    const [perSourcePiiEnabled, setPerSourcePiiEnabled] = useState(false);
+    const [piiTypesPerSource, setPiiTypesPerSource] = useState<Record<string, string[]>>({});
 
     // Real data state
     const [sources, setSources] = useState<Connection[]>([]);
@@ -126,9 +129,19 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
     };
 
     const toggleSource = (sourceId: string) => {
-        setSelectedSources(prev =>
-            prev.includes(sourceId) ? prev.filter(id => id !== sourceId) : [...prev, sourceId]
-        );
+        setSelectedSources(prev => {
+            const removing = prev.includes(sourceId);
+            const next = removing ? prev.filter(id => id !== sourceId) : [...prev, sourceId];
+            if (removing) {
+                setPiiTypesPerSource(p => {
+                    const { [sourceId]: _, ...rest } = p;
+                    return rest;
+                });
+            } else if (perSourcePiiEnabled && !piiTypesPerSource[sourceId]) {
+                setPiiTypesPerSource(p => ({ ...p, [sourceId]: [...selectedPiiTypes] }));
+            }
+            return next;
+        });
     };
 
     const togglePiiType = (piiId: string) => {
@@ -139,6 +152,24 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
 
     const selectAllPii = () => setSelectedPiiTypes(PII_TYPES.map(p => p.id));
     const deselectAllPii = () => setSelectedPiiTypes([]);
+
+    const togglePerSourcePii = (piiId: string, profileName: string) => {
+        setPiiTypesPerSource(prev => {
+            const current = prev[profileName] || [...selectedPiiTypes];
+            const updated = current.includes(piiId)
+                ? current.filter(id => id !== piiId)
+                : [...current, piiId];
+            return { ...prev, [profileName]: updated };
+        });
+    };
+
+    const selectAllPiiForSource = (profileName: string) => {
+        setPiiTypesPerSource(prev => ({ ...prev, [profileName]: PII_TYPES.map(p => p.id) }));
+    };
+
+    const deselectAllPiiForSource = (profileName: string) => {
+        setPiiTypesPerSource(prev => ({ ...prev, [profileName]: [] }));
+    };
 
     const toggleCustomPattern = (id: string) => {
         setSelectedCustomPatterns(prev =>
@@ -219,8 +250,11 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                 custom_patterns: activeCustomPatterns,
             };
 
+            if (perSourcePiiEnabled && Object.keys(piiTypesPerSource).length > 0) {
+                config.pii_types_per_source = piiTypesPerSource;
+            }
+
             const response = await scansApi.triggerScan(config);
-            console.log(`Scan triggered: ${response.scan_id}`);
             onRunScan?.(config);
             onClose();
         } catch (error) {
@@ -346,6 +380,70 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                             ))}
                         </div>
                     </div>
+
+                    {/* Per-Source PII Config Toggle */}
+                    {selectedSources.length > 1 && (
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <label className="text-sm font-medium text-slate-600">Per-Source PII Configuration</label>
+                                    <p className="text-xs text-slate-400 mt-0.5">Assign different PII types to each data source</p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const next = !perSourcePiiEnabled;
+                                        setPerSourcePiiEnabled(next);
+                                        if (next) {
+                                            const init: Record<string, string[]> = {};
+                                            selectedSources.forEach(s => { init[s] = [...selectedPiiTypes]; });
+                                            setPiiTypesPerSource(init);
+                                        } else {
+                                            setPiiTypesPerSource({});
+                                        }
+                                    }}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${perSourcePiiEnabled ? 'bg-green-500' : 'bg-slate-300'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${perSourcePiiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            {perSourcePiiEnabled && (
+                                <div className="mt-3 space-y-3">
+                                    {selectedSources.map(sourceName => {
+                                        const source = sources.find(s => s.profile_name === sourceName);
+                                        const sourcePii = piiTypesPerSource[sourceName] || [];
+                                        return (
+                                            <div key={sourceName} className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div>
+                                                        <span className="text-sm font-medium text-slate-900">{sourceName}</span>
+                                                        {source && <span className="text-xs text-slate-400 ml-2">{source.source_type}</span>}
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => selectAllPiiForSource(sourceName)} className="text-xs text-blue-600 hover:text-blue-700">All</button>
+                                                        <span className="text-slate-300">|</span>
+                                                        <button onClick={() => deselectAllPiiForSource(sourceName)} className="text-xs text-blue-600 hover:text-blue-700">None</button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {PII_TYPES.map(pii => (
+                                                        <button
+                                                            key={pii.id}
+                                                            onClick={() => togglePerSourcePii(pii.id, sourceName)}
+                                                            className={`px-2 py-1 rounded text-xs font-medium transition-all ${sourcePii.includes(pii.id) ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                                                        >
+                                                            {pii.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-1.5">{sourcePii.length} / {PII_TYPES.length} types selected</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Classification Engine */}
                     <div>
@@ -627,7 +725,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                     </button>
                     <button
                         onClick={handleRunScan}
-                        disabled={selectedSources.length === 0 || selectedPiiTypes.length === 0}
+                        disabled={selectedSources.length === 0 || selectedPiiTypes.length === 0 || (perSourcePiiEnabled && selectedSources.some(s => !(piiTypesPerSource[s]?.length)))}
                         className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-lg font-medium transition-colors"
                     >
                         <Play className="w-4 h-4" />

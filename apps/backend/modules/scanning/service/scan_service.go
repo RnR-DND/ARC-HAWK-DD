@@ -63,6 +63,10 @@ type TriggerScanRequest struct {
 	Sources            []string `json:"sources" binding:"required,min=1,dive,required"`
 	PIITypes           []string `json:"pii_types" binding:"required,min=1,dive,required"`
 	ExecutionMode      string   `json:"execution_mode" binding:"required,oneof=sequential parallel"`
+	// PIITypesPerSource maps profile_name → PII types for that source.
+	// When set, overrides the global PIITypes for the specified sources.
+	// Sources not listed here fall back to the global PIITypes.
+	PIITypesPerSource  map[string][]string `json:"pii_types_per_source,omitempty"`
 	// ClassificationMode controls which detection engines the scanner uses.
 	// Options: "regex" (regex only), "ner" (regex+spaCy NER), "contextual" (regex+NER+contextual).
 	// Default (empty) = "contextual" (all engines enabled).

@@ -80,7 +80,7 @@ function DiscoveryOverviewPageInner() {
                 discoveryApi.getDriftTimeline(10).catch(() => ({ events: [] as DriftEvent[], count: 0, snapshot_id: '' })),
             ]);
             setOverview(ov);
-            setLatestSnapshot(snaps.items[0] ?? null);
+            setLatestSnapshot(snaps.items?.[0] ?? null);
             setDrifts(dr.events ?? []);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load discovery dashboard');

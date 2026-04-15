@@ -898,13 +898,30 @@ def create_jira_ticket(args, issue_data, message):
         print_debug(
             args, f"Failed to create Jira ticket: {response.status_code} - {response.text}")
 
-def match_strings(args, content, source='text'):
+def match_strings(args, content, source='text', pii_types=None):
     if args and hasattr(args, 'connection'):
         connections = get_connection(args)
         if 'notify' in connections:
             redacted = connections.get('notify', {}).get('redacted', False)
+        # Auto-read pii_types from connection config when not explicitly passed.
+        # This gives ALL connectors selective PII filtering automatically.
+        if pii_types is None:
+            conn_pii_types = connections.get('pii_types', [])
+            if conn_pii_types:
+                pii_types = conn_pii_types
 
     patterns = get_fingerprint_file(args)
+
+    # Filter fingerprint patterns to only user-selected PII types
+    if pii_types and patterns:
+        from sdk.pii_type_mapping import filter_fingerprint_patterns
+        patterns = filter_fingerprint_patterns(patterns, pii_types)
+
+    # Resolve Presidio entity list (None = all, list = selective)
+    presidio_entities = None
+    if pii_types:
+        from sdk.pii_type_mapping import get_presidio_entities_for_pii_types
+        presidio_entities = get_presidio_entities_for_pii_types(pii_types)
 
     all_findings = []
     seen = set()
@@ -935,7 +952,9 @@ def match_strings(args, content, source='text'):
         from sdk.engine import SharedAnalyzerEngine
         wrapper = SharedAnalyzerEngine()
         engine = wrapper.get_engine()
-        presidio_results = engine.analyze(text=content, entities=None, language="en")
+        presidio_results = engine.analyze(
+            text=content, entities=presidio_entities, language="en"
+        )
 
         for r in presidio_results:
             raw = content[r.start:r.end].strip()
