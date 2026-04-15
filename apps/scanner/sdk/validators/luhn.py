@@ -63,7 +63,7 @@ def valid_issuer(clean: str) -> bool:
     length = len(clean)
 
     # ---------------- VISA ----------------
-    if clean.startswith('4') and length in [13, 16, 19]:
+    if clean.startswith('4') and length in [16, 19]:
         return True
 
     # ------------- MASTERCARD -------------
@@ -105,7 +105,7 @@ def validate_credit_card(number: str) -> bool:
     clean = ''.join(c for c in number if c.isdigit())
 
     # ---------------- LENGTH CHECK ----------------
-    if not (13 <= len(clean) <= 19):
+    if not len(clean) in [15, 16, 19]:
         return False
 
     # ---------------- HARD REJECTIONS ----------------
