@@ -171,14 +171,10 @@ func (s *ClassificationService) ClassifyMultiSignal(ctx context.Context, input M
 	entropySignal := s.classifyWithEntropy(input)
 	decision.EntropySignal = entropySignal
 
-	// STAGE 5: Confidence Tier Assignment (NOT probabilistic scoring)
-	// All validated findings have FinalScore = 1.0 (binary: validated or not)
-	// Confidence tier is based on enrichment, not validation
-	decision.FinalScore = 1.0
-	decision.ConfidenceLevel = s.assignConfidenceTier(
-		presidioSignal.Confidence,
-		contextSignal.RawScore,
-	)
+	// STAGE 5: Compute weighted confidence score from available signals.
+	// Rules (40%) + Context (30%) are always applicable. Entropy (10%) only for secrets.
+	decision.FinalScore = s.computeWeightedScore(ruleSignal, contextSignal, entropySignal, input.PatternName)
+	decision.ConfidenceLevel = s.assignConfidenceTierFromScore(decision.FinalScore)
 
 	// STAGE 6: Classification Type Assignment (Trust-based)
 	// Backend trusts scanner SDK - classify based on pattern name
@@ -222,6 +218,45 @@ func (s *ClassificationService) assignConfidenceTier(presidioMLConf float64, con
 
 	// TIER 3: VALIDATED - All validated findings that don't meet higher tiers
 	return "VALIDATED"
+}
+
+// computeWeightedScore combines rule + context + (optional entropy) signals into a
+// single 0-1 confidence value. Entropy is only meaningful for secret/token patterns.
+func (s *ClassificationService) computeWeightedScore(rule, context, entropy SignalScore, patternName string) float64 {
+	totalWeighted := rule.WeightedScore + context.WeightedScore
+	totalWeight := rule.Weight + context.Weight
+
+	if isSecretPattern(patternName) {
+		totalWeighted += entropy.WeightedScore
+		totalWeight += entropy.Weight
+	}
+
+	if totalWeight == 0 {
+		return rule.RawScore
+	}
+
+	score := totalWeighted / totalWeight
+	if score > 1.0 {
+		score = 1.0
+	}
+	if score < 0.0 {
+		score = 0.0
+	}
+	return score
+}
+
+// assignConfidenceTierFromScore maps a numeric score to a labelled confidence tier.
+func (s *ClassificationService) assignConfidenceTierFromScore(score float64) string {
+	if score >= ThresholdConfirmed {
+		return "CONFIRMED" // >= 0.85
+	}
+	if score >= ThresholdHigh {
+		return "HIGH_CONFIDENCE" // >= 0.65
+	}
+	if score >= ThresholdNeedsReview {
+		return "VALIDATED" // >= 0.45
+	}
+	return "NEEDS_REVIEW"
 }
 
 // extractClassificationFromPattern maps pattern names to classification types
