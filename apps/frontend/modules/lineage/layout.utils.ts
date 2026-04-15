@@ -52,27 +52,20 @@ export function getLayoutedElements(nodes: Node[], edges: Edge[]) {
         // Ensure these match LineageNode.tsx exactly or are slightly larger
         switch (node.data.type) {
             case 'system':
-                width = 320; // Increased width
-                height = 180; // Increased to safe height for text wrapping
-                break;
+                width = 260; height = 140; break;
             case 'asset':
             case 'file':
             case 'table':
-                width = 280;
-                height = 160; // Increased height
-                break;
+                width = 240; height = 130; break;
+            case 'pii_category':
+                width = 230; height = 165; break;
             case 'data_category':
             case 'category':
-                width = 240;
-                height = 140; // Increased height
-                break;
+                width = 230; height = 150; break;
             case 'finding':
-                width = 220;
-                height = 120; // Increased height
-                break;
+                width = 220; height = 120; break;
             default:
-                width = 240;
-                height = 140;
+                width = 240; height = 130;
         }
 
         dagreGraph.setNode(node.id, { width, height });
@@ -93,11 +86,12 @@ export function getLayoutedElements(nodes: Node[], edges: Edge[]) {
         let width = 240;
         let height = 100;
         switch (node.data.type) {
-            case 'system': width = 320; height = 180; break;
-            case 'asset': case 'file': case 'table': width = 280; height = 160; break;
-            case 'data_category': case 'category': width = 240; height = 140; break;
+            case 'system': width = 260; height = 140; break;
+            case 'asset': case 'file': case 'table': width = 240; height = 130; break;
+            case 'pii_category': width = 230; height = 165; break;
+            case 'data_category': case 'category': width = 230; height = 150; break;
             case 'finding': width = 220; height = 120; break;
-            default: width = 240; height = 140;
+            default: width = 240; height = 130;
         }
 
         return {

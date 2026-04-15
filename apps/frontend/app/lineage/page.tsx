@@ -403,7 +403,7 @@ export default function LineagePage() {
                 {viewMode === 'graph' && (
                     <div style={{
                         border: `1px solid ${theme.colors.border.default}`,
-                        borderRadius: '14px', overflow: 'hidden', height: '600px',
+                        borderRadius: '14px', overflow: 'hidden', height: 'calc(100vh - 320px)', minHeight: '520px',
                         background: '#fff', boxShadow: theme.shadows.sm,
                     }}>
                         {lineageData ? (

@@ -2,206 +2,203 @@
 
 import React from 'react';
 import { Handle, Position } from 'reactflow';
-import { Server, Database, Shield, FileText } from 'lucide-react';
-import { theme } from '@/design-system/theme';
-import type { LineageNode as LineageNodeType } from './lineage.types';
+import { Server, Database, Shield, FileText, Table2 } from 'lucide-react';
 
-interface LineageNodeProps {
-    data: LineageNodeType;
-    id: string;
+// ─── Risk helpers ─────────────────────────────────────────────────────────────
+
+const RISK_CONFIG: Record<string, { header: string; badge: string; badgeText: string; accent: string }> = {
+    Critical: { header: '#fef2f2', badge: '#ef4444', badgeText: '#fff',  accent: '#ef4444' },
+    High:     { header: '#fff7ed', badge: '#f97316', badgeText: '#fff',  accent: '#f97316' },
+    Medium:   { header: '#fefce8', badge: '#eab308', badgeText: '#713f12', accent: '#eab308' },
+    Low:      { header: '#f0fdf4', badge: '#22c55e', badgeText: '#14532d', accent: '#22c55e' },
+};
+
+const DEFAULT_RISK = { header: '#f8fafc', badge: '#64748b', badgeText: '#fff', accent: '#64748b' };
+
+// ─── Node type config ─────────────────────────────────────────────────────────
+
+const TYPE_CONFIG: Record<string, { icon: React.ReactNode; typeLabel: string; accentColor: string; headerBg: string }> = {
+    system:       { icon: <Server   size={14} strokeWidth={2.5} />, typeLabel: 'System',   accentColor: '#3b82f6', headerBg: '#eff6ff' },
+    asset:        { icon: <Database size={14} strokeWidth={2.5} />, typeLabel: 'Asset',    accentColor: '#10b981', headerBg: '#f0fdf4' },
+    table:        { icon: <Table2   size={14} strokeWidth={2.5} />, typeLabel: 'Table',    accentColor: '#06b6d4', headerBg: '#ecfeff' },
+    file:         { icon: <FileText size={14} strokeWidth={2.5} />, typeLabel: 'File',     accentColor: '#a855f7', headerBg: '#faf5ff' },
+    pii_category: { icon: <Shield   size={14} strokeWidth={2.5} />, typeLabel: 'PII Type', accentColor: '#ef4444', headerBg: '#fef2f2' },
+};
+const DEFAULT_TYPE = { icon: <Shield size={14} strokeWidth={2.5} />, typeLabel: 'Node', accentColor: '#64748b', headerBg: '#f8fafc' };
+
+// ─── Mini confidence bar ──────────────────────────────────────────────────────
+
+function ConfBar({ score }: { score: number }) {
+    const pct = Math.round(score * 100);
+    const color = pct >= 85 ? '#22c55e' : pct >= 65 ? '#f59e0b' : '#ef4444';
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <div style={{ flex: 1, height: '4px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '2px' }} />
+            </div>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', width: '28px', textAlign: 'right' }}>{pct}%</span>
+        </div>
+    );
 }
 
-export default function LineageNode({ data, id }: LineageNodeProps) {
-    const { label, type, metadata } = data;
-    const risk_score = (metadata as any)?.risk_score || 0;
-    const review_status = (metadata as any)?.review_status;
-    const expanded = (data as any).expanded;
-    const onExpand = (data as any).onExpand;
-    const childCount = (data as any).childCount;
+// ─── Main node ────────────────────────────────────────────────────────────────
 
-    // Simple color scheme
-    const getNodeColors = () => {
-        switch (type) {
-            case 'system':
-                return { bg: theme.colors.background.primary, border: theme.colors.primary.DEFAULT, text: theme.colors.text.primary };
-            case 'asset':
-            case 'file':
-            case 'table':
-                return { bg: theme.colors.background.primary, border: theme.colors.secondary.DEFAULT, text: theme.colors.text.primary };
-            case 'pii_category':
-                if (risk_score >= 70) return { bg: theme.colors.background.primary, border: theme.colors.risk.critical, text: theme.colors.text.primary };
-                if (risk_score >= 40) return { bg: theme.colors.background.primary, border: theme.colors.risk.high, text: theme.colors.text.primary };
-                return { bg: theme.colors.background.primary, border: theme.colors.risk.low, text: theme.colors.text.primary };
-            default:
-                return { bg: theme.colors.background.primary, border: theme.colors.text.muted, text: theme.colors.text.primary };
-        }
+interface LineageNodeProps {
+    data: any;
+    selected?: boolean;
+}
+
+export default function LineageNode({ data, selected }: LineageNodeProps) {
+    const { label, type, metadata = {} } = data;
+
+    const typeCfg = TYPE_CONFIG[type] ?? DEFAULT_TYPE;
+    const riskLevel: string = metadata.risk_level ?? '';
+    const riskCfg = RISK_CONFIG[riskLevel] ?? DEFAULT_RISK;
+
+    // Shared card style
+    const cardStyle: React.CSSProperties = {
+        background: '#ffffff',
+        border: `2px solid ${selected ? typeCfg.accentColor : '#e2e8f0'}`,
+        borderRadius: '10px',
+        overflow: 'hidden',
+        fontFamily: 'Inter, -apple-system, sans-serif',
+        boxShadow: selected
+            ? `0 0 0 3px ${typeCfg.accentColor}30, 0 4px 12px rgba(0,0,0,0.12)`
+            : '0 2px 8px rgba(0,0,0,0.06)',
+        cursor: 'pointer',
+        transition: 'box-shadow 0.15s, border-color 0.15s',
+        minWidth: type === 'system' ? 240 : type === 'pii_category' ? 210 : 220,
+        maxWidth: type === 'system' ? 240 : type === 'pii_category' ? 210 : 220,
     };
 
-    const colors = getNodeColors();
-
-    const getIcon = () => {
-        switch (type) {
-            case 'system': return <Server size={16} strokeWidth={2} />;
-            case 'asset':
-            case 'table': return <Database size={16} strokeWidth={2} />;
-            case 'file': return <FileText size={16} strokeWidth={2} />;
-            case 'pii_category': return <Shield size={16} strokeWidth={2} />;
-            default: return <Shield size={16} strokeWidth={2} />;
-        }
-    };
-
-    const getNodeSize = () => {
-        switch (type) {
-            case 'system': return { width: 260, minHeight: 90 };
-            case 'asset':
-            case 'file':
-            case 'table': return { width: 240, minHeight: 85 };
-            default: return { width: 220, minHeight: 80 };
-        }
-    };
-
-    const size = getNodeSize();
+    // Left accent bar color
+    const accentBar = type === 'pii_category' ? riskCfg.accent : typeCfg.accentColor;
 
     return (
-        <div
-            style={{
-                background: colors.bg,
-                border: `2px solid ${colors.border}`,
-                borderRadius: '8px',
-                minWidth: size.width,
-                maxWidth: size.width,
-                minHeight: size.minHeight,
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-                fontFamily: 'Inter, sans-serif',
-                overflow: 'hidden',
-                transition: 'box-shadow 0.15s',
-                cursor: 'pointer',
-                opacity: review_status === 'false_positive' ? 0.5 : 1,
-            }}
-        >
+        <div style={{ ...cardStyle, borderLeft: `4px solid ${accentBar}` }}>
+            {/* Target handle */}
             <Handle
                 type="target"
                 position={Position.Left}
-                style={{
-                    background: colors.border,
-                    width: 10,
-                    height: 10,
-                    border: '2px solid #ffffff',
-                    left: -6,
-                }}
+                style={{ background: accentBar, width: 8, height: 8, border: '2px solid #fff', left: -5 }}
             />
 
-            {/* Header */}
-            <div
-                style={{
-                    padding: '12px 16px',
-                    borderBottom: `1px solid ${colors.border}40`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ color: colors.border }}>
-                        {getIcon()}
-                    </div>
-                    <span
-                        style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: theme.colors.text.secondary,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                        }}
-                    >
-                        {type.replace('_', ' ')}
+            {/* ── Header ── */}
+            <div style={{
+                padding: '8px 12px',
+                background: type === 'pii_category' ? riskCfg.header : typeCfg.headerBg,
+                borderBottom: '1px solid #f1f5f9',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: accentBar, display: 'flex', alignItems: 'center' }}>
+                        {typeCfg.icon}
+                    </span>
+                    <span style={{
+                        fontSize: '10px', fontWeight: 700, color: '#64748b',
+                        textTransform: 'uppercase', letterSpacing: '0.07em',
+                    }}>
+                        {typeCfg.typeLabel}
                     </span>
                 </div>
 
-                {risk_score >= 1 && (
-                    <div
-                        style={{
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            background: risk_score >= 70
-                                ? `${theme.colors.risk.critical}15`
-                                : risk_score >= 40
-                                    ? `${theme.colors.risk.high}15`
-                                    : `${theme.colors.risk.low}15`,
-                            color: risk_score >= 70
-                                ? theme.colors.risk.critical
-                                : risk_score >= 40
-                                    ? theme.colors.risk.high
-                                    : theme.colors.risk.low,
-                            border: `1px solid ${risk_score >= 70
-                                ? `${theme.colors.risk.critical}30`
-                                : risk_score >= 40
-                                    ? `${theme.colors.risk.high}30`
-                                    : `${theme.colors.risk.low}30`}`,
-                        }}
-                    >
-                        {risk_score}
-                    </div>
+                {/* Risk badge for PII nodes */}
+                {type === 'pii_category' && riskLevel && (
+                    <span style={{
+                        background: riskCfg.badge, color: riskCfg.badgeText,
+                        borderRadius: '4px', padding: '1px 6px',
+                        fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em',
+                    }}>
+                        {riskLevel}
+                    </span>
+                )}
+
+                {/* Environment badge for asset nodes */}
+                {(type === 'asset' || type === 'table' || type === 'file') && metadata.environment && (
+                    <span style={{
+                        background: '#f0fdf4', color: '#166534',
+                        border: '1px solid #bbf7d0',
+                        borderRadius: '4px', padding: '1px 6px', fontSize: '10px', fontWeight: 600,
+                    }}>
+                        {metadata.environment}
+                    </span>
                 )}
             </div>
 
-            {/* Body */}
-            <div style={{ padding: '16px' }}>
-                <div
-                    style={{
-                        fontWeight: 500,
-                        fontSize: '14px',
-                        color: colors.text,
-                        marginBottom: '8px',
-                        wordBreak: 'break-word',
-                        lineHeight: '1.4',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                    }}
-                    title={label}
-                >
+            {/* ── Body ── */}
+            <div style={{ padding: '10px 12px' }}>
+                {/* Main label */}
+                <div style={{
+                    fontSize: '13px', fontWeight: 600, color: '#0f172a',
+                    lineHeight: '1.3', wordBreak: 'break-all',
+                    display: '-webkit-box', WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    marginBottom: '6px',
+                    fontFamily: type === 'pii_category' ? 'JetBrains Mono, monospace' : 'inherit',
+                }} title={label}>
                     {label}
                 </div>
 
-                {(metadata as any)?.environment && (
-                    <div
-                        style={{
-                            fontSize: '12px',
-                            color: '#64748b',
-                            marginTop: '8px',
-                        }}
-                    >
-                        {(metadata as any).environment}
+                {/* ── System-specific ── */}
+                {type === 'system' && metadata.host && metadata.host !== label && (
+                    <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace', marginBottom: '4px', wordBreak: 'break-all' }}>
+                        {metadata.host}
                     </div>
                 )}
 
-                {childCount && childCount > 0 && (
-                    <div
-                        style={{
-                            fontSize: '11px',
-                            color: theme.colors.text.tertiary,
-                            marginTop: '8px',
-                        }}
-                    >
-                        {childCount} {childCount === 1 ? 'child' : 'children'}
+                {/* ── Asset-specific ── */}
+                {(type === 'asset' || type === 'table' || type === 'file') && metadata.path && (
+                    <div style={{
+                        fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        marginBottom: '4px',
+                    }} title={metadata.path}>
+                        {metadata.path}
                     </div>
+                )}
+
+                {/* ── PII-specific ── */}
+                {type === 'pii_category' && (
+                    <>
+                        {/* DPDPA category */}
+                        {metadata.dpdpa_category && (
+                            <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '6px', lineHeight: '1.3' }}>
+                                {metadata.dpdpa_category}
+                            </div>
+                        )}
+
+                        {/* Finding count pill */}
+                        {metadata.finding_count > 0 && (
+                            <div style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                background: '#fef2f2', border: '1px solid #fecaca',
+                                borderRadius: '4px', padding: '2px 7px',
+                                fontSize: '11px', fontWeight: 700, color: '#b91c1c',
+                                marginBottom: '6px',
+                            }}>
+                                <span style={{ fontSize: '9px' }}>▲</span>
+                                {metadata.finding_count} finding{metadata.finding_count !== 1 ? 's' : ''}
+                            </div>
+                        )}
+
+                        {/* Confidence bar */}
+                        {metadata.avg_confidence != null && (
+                            <div style={{ marginTop: '2px' }}>
+                                <div style={{ fontSize: '9px', color: '#94a3b8', marginBottom: '3px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Avg Confidence
+                                </div>
+                                <ConfBar score={metadata.avg_confidence} />
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
+            {/* Source handle */}
             <Handle
                 type="source"
                 position={Position.Right}
-                style={{
-                    background: colors.border,
-                    width: 10,
-                    height: 10,
-                    border: '2px solid #ffffff',
-                    right: -6,
-                }}
+                style={{ background: accentBar, width: 8, height: 8, border: '2px solid #fff', right: -5 }}
             />
         </div>
     );

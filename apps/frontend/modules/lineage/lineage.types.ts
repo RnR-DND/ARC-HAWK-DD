@@ -100,9 +100,9 @@ export const RISK_COLORS = {
 // Graph Layout Configuration
 export const DEFAULT_LAYOUT_CONFIG = {
     rankdir: 'LR', // Left to right: System → Asset → PII
-    nodesep: 80,
-    ranksep: 150,
-    edgesep: 50,
-    marginx: 50,
-    marginy: 50,
+    nodesep: 40,
+    ranksep: 120,
+    edgesep: 30,
+    marginx: 60,
+    marginy: 40,
 };
