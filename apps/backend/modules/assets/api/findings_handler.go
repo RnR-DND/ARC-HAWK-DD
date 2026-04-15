@@ -30,13 +30,20 @@ func NewFindingsHandlerWithRepo(svc *service.FindingsService, repo *persistence.
 // GetFindings handles GET /api/v1/findings
 func (h *FindingsHandler) GetFindings(c *gin.Context) {
 	// Parse query parameters
+	// pii_type is an alias for pattern_name (sent by findings explorer UI)
+	patternName := c.Query("pattern_name")
+	if patternName == "" {
+		patternName = c.Query("pii_type")
+	}
 	query := service.FindingsQuery{
-		Severity:    c.Query("severity"),
-		PatternName: c.Query("pattern_name"),
-		DataSource:  c.Query("data_source"),
-		Search:      c.Query("search"),
-		SortBy:      c.DefaultQuery("sort_by", "created_at"),
-		SortOrder:   c.DefaultQuery("sort_order", "desc"),
+		Severity:     c.Query("severity"),
+		PatternName:  patternName,
+		DataSource:   c.Query("data_source"),
+		Search:       c.Query("search"),
+		AssetName:    c.Query("asset"),    // asset name filter from UI
+		ReviewStatus: c.Query("status"),   // "Active" | "Suppressed" | "Remediated"
+		SortBy:       c.DefaultQuery("sort_by", "created_at"),
+		SortOrder:    c.DefaultQuery("sort_order", "desc"),
 	}
 
 	// Parse pagination

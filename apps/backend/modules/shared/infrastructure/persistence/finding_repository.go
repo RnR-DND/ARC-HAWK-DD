@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/domain/repository"
@@ -120,14 +121,33 @@ func (r *PostgresRepository) ListFindings(ctx context.Context, filters repositor
 		return nil, err
 	}
 
+	// Allowlist for sort columns to prevent SQL injection
+	validSortCols := map[string]string{
+		"created_at":   "f.created_at",
+		"severity":     "f.severity",
+		"pattern_name": "f.pattern_name",
+		"asset_name":   "a.name",
+		"confidence":   "f.confidence_score",
+	}
+	sortCol, ok := validSortCols[strings.ToLower(filters.SortBy)]
+	if !ok {
+		sortCol = "f.created_at"
+	}
+	sortDir := "DESC"
+	if strings.EqualFold(filters.SortOrder, "asc") {
+		sortDir = "ASC"
+	}
+
 	// AUTO-EXCLUDE Non-PII: Join with classifications to filter out false positives
-	// Join assets for search support
+	// Join assets for search and asset-name filter support
+	// Join review_states for status filter
 	query := `
 		SELECT DISTINCT f.id, f.tenant_id, f.scan_run_id, f.asset_id, f.pattern_id, f.pattern_name, f.matches, f.sample_text,
 			f.severity, f.severity_description, f.confidence_score, f.environment, f.context, f.created_at, f.updated_at
 		FROM findings f
 		LEFT JOIN classifications c ON f.id = c.finding_id
 		LEFT JOIN assets a ON f.asset_id = a.id
+		LEFT JOIN review_states rs ON rs.finding_id = f.id
 		WHERE f.tenant_id = $1 AND (c.classification_type IS NULL OR c.classification_type != 'Non-PII')`
 
 	args := []interface{}{tenantID}
@@ -142,6 +162,12 @@ func (r *PostgresRepository) ListFindings(ctx context.Context, filters repositor
 	if filters.AssetID != nil {
 		query += fmt.Sprintf(" AND f.asset_id = $%d", argCount)
 		args = append(args, *filters.AssetID)
+		argCount++
+	}
+
+	if filters.AssetName != "" {
+		query += fmt.Sprintf(" AND a.name ILIKE $%d", argCount)
+		args = append(args, "%"+filters.AssetName+"%")
 		argCount++
 	}
 
@@ -169,7 +195,17 @@ func (r *PostgresRepository) ListFindings(ctx context.Context, filters repositor
 		argCount++
 	}
 
-	query += fmt.Sprintf(" ORDER BY f.created_at DESC LIMIT $%d OFFSET $%d", argCount, argCount+1)
+	// Status filter maps to review_states.status
+	switch filters.ReviewStatus {
+	case "Active":
+		query += " AND (rs.status IS NULL OR rs.status = 'pending')"
+	case "Suppressed":
+		query += " AND rs.status = 'false_positive'"
+	case "Remediated":
+		query += " AND rs.status = 'confirmed'"
+	}
+
+	query += fmt.Sprintf(" ORDER BY %s %s LIMIT $%d OFFSET $%d", sortCol, sortDir, argCount, argCount+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -203,11 +239,13 @@ func (r *PostgresRepository) CountFindings(ctx context.Context, filters reposito
 	}
 
 	// AUTO-EXCLUDE Non-PII: Join with classifications to filter out false positives
+	// Join assets for asset-name filter, join review_states for status filter
 	query := `
 		SELECT COUNT(DISTINCT f.id)
 		FROM findings f
 		LEFT JOIN classifications c ON f.id = c.finding_id
 		LEFT JOIN assets a ON f.asset_id = a.id
+		LEFT JOIN review_states rs ON rs.finding_id = f.id
 		WHERE f.tenant_id = $1 AND (c.classification_type IS NULL OR c.classification_type != 'Non-PII')`
 
 	args := []interface{}{tenantID}
@@ -225,6 +263,12 @@ func (r *PostgresRepository) CountFindings(ctx context.Context, filters reposito
 		argCount++
 	}
 
+	if filters.AssetName != "" {
+		query += fmt.Sprintf(" AND a.name ILIKE $%d", argCount)
+		args = append(args, "%"+filters.AssetName+"%")
+		argCount++
+	}
+
 	if filters.Severity != "" {
 		query += fmt.Sprintf(" AND f.severity = ANY(string_to_array($%d, ','))", argCount)
 		args = append(args, filters.Severity)
@@ -237,10 +281,26 @@ func (r *PostgresRepository) CountFindings(ctx context.Context, filters reposito
 		argCount++
 	}
 
+	if filters.DataSource != "" {
+		query += fmt.Sprintf(" AND f.data_source = $%d", argCount)
+		args = append(args, filters.DataSource)
+		argCount++
+	}
+
 	if filters.Search != "" {
 		query += fmt.Sprintf(" AND (a.name ILIKE $%d OR a.path ILIKE $%d OR f.pattern_name ILIKE $%d)", argCount, argCount, argCount)
 		args = append(args, "%"+filters.Search+"%")
 		argCount++
+	}
+
+	// Status filter maps to review_states.status
+	switch filters.ReviewStatus {
+	case "Active":
+		query += " AND (rs.status IS NULL OR rs.status = 'pending')"
+	case "Suppressed":
+		query += " AND rs.status = 'false_positive'"
+	case "Remediated":
+		query += " AND rs.status = 'confirmed'"
 	}
 
 	var count int

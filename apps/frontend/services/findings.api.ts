@@ -28,6 +28,8 @@ export const findingsApi = {
         asset?: string;
         pii_type?: string;
         search?: string;
+        sort_by?: string;
+        sort_order?: 'asc' | 'desc';
     }): Promise<FindingsResponse> => {
         // Backend returns wrapped response: { data: { findings: [], total: ... } }
         const res = await get<any>('/findings', params);

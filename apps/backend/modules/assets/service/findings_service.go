@@ -23,16 +23,18 @@ func NewFindingsService(repo *persistence.PostgresRepository) *FindingsService {
 
 // FindingsQuery represents query parameters
 type FindingsQuery struct {
-	ScanRunID   *uuid.UUID
-	AssetID     *uuid.UUID
-	Severity    string
-	PatternName string
-	DataSource  string
-	Search      string
-	Page        int
-	PageSize    int
-	SortBy      string
-	SortOrder   string
+	ScanRunID    *uuid.UUID
+	AssetID      *uuid.UUID
+	Severity     string
+	PatternName  string
+	DataSource   string
+	Search       string
+	AssetName    string // filter by asset display name
+	ReviewStatus string // "Active" | "Suppressed" | "Remediated"
+	Page         int
+	PageSize     int
+	SortBy       string
+	SortOrder    string
 }
 
 // FindingsResponse represents paginated findings response
@@ -70,12 +72,16 @@ func (s *FindingsService) GetFindings(ctx context.Context, query FindingsQuery) 
 
 	// Build filters
 	filters := repository.FindingFilters{
-		ScanRunID:   query.ScanRunID,
-		AssetID:     query.AssetID,
-		Severity:    query.Severity,
-		PatternName: query.PatternName,
-		DataSource:  query.DataSource,
-		Search:      query.Search,
+		ScanRunID:    query.ScanRunID,
+		AssetID:      query.AssetID,
+		Severity:     query.Severity,
+		PatternName:  query.PatternName,
+		DataSource:   query.DataSource,
+		Search:       query.Search,
+		AssetName:    query.AssetName,
+		ReviewStatus: query.ReviewStatus,
+		SortBy:       query.SortBy,
+		SortOrder:    query.SortOrder,
 	}
 
 	// Get findings

@@ -468,7 +468,7 @@ func (s *RemediationService) GetAllRemediationActions(ctx context.Context, limit
 		       COALESCE(f.pattern_name, '') AS pii_type,
 		       COALESCE(f.severity, 'Medium') AS risk_level
 		FROM remediation_actions ra
-		LEFT JOIN findings f ON f.id::text = ra.finding_id
+		LEFT JOIN findings f ON f.id = ra.finding_id
 		LEFT JOIN assets a   ON a.id = f.asset_id
 		WHERE 1=1
 	`
@@ -527,7 +527,7 @@ func (s *RemediationService) GetRemediationHistory(ctx context.Context, assetID 
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT ra.id, ra.finding_id, ra.action_type, ra.executed_by, ra.executed_at, ra.status
 		FROM remediation_actions ra
-		JOIN findings f ON ra.finding_id = f.id::text
+		JOIN findings f ON ra.finding_id = f.id
 		WHERE f.asset_id = $1
 		ORDER BY ra.executed_at DESC
 	`, assetID)

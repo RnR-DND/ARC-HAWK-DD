@@ -16,6 +16,9 @@ interface FindingsTableProps {
     onRemediate?: (id: string, action: 'MASK' | 'DELETE') => void;
     onMarkFalsePositive?: (id: string) => Promise<void> | void;
     onRowClick?: (finding: FindingWithDetails) => void;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    onSortChange?: (col: string) => void;
 }
 
 export default function FindingsTable({
@@ -29,6 +32,9 @@ export default function FindingsTable({
     onRemediate,
     onMarkFalsePositive,
     onRowClick,
+    sortBy = 'created_at',
+    sortOrder = 'desc',
+    onSortChange,
 }: FindingsTableProps) {
     const [selectedFinding, setSelectedFinding] = useState<FindingWithDetails | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -51,27 +57,42 @@ export default function FindingsTable({
         }
     };
 
+    const SortIcon = ({ col }: { col: string }) => {
+        if (sortBy !== col) return <span className="ml-1 text-slate-300 select-none">↕</span>;
+        return <span className="ml-1 text-blue-500 select-none">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+    };
+
+    const SortableTh = ({ col, label, className }: { col: string; label: string; className?: string }) => (
+        <th
+            className={`px-4 py-3 font-semibold cursor-pointer hover:bg-slate-100 transition-colors select-none ${className ?? ''}`}
+            onClick={() => onSortChange?.(col)}
+        >
+            {label}<SortIcon col={col} />
+        </th>
+    );
+
     return (
         <div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead>
                         <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                            <th className="px-4 py-3 font-semibold">Asset</th>
+                            <SortableTh col="asset_name" label="Asset" />
                             <th className="px-4 py-3 font-semibold">Object/Path</th>
                             <th className="px-4 py-3 font-semibold">Field</th>
-                            <th className="px-4 py-3 font-semibold">PII Type</th>
-                            <th className="px-4 py-3 font-semibold">Risk</th>
-                            <th className="px-4 py-3 font-semibold">Conf</th>
+                            <SortableTh col="pattern_name" label="PII Type" />
+                            <SortableTh col="severity" label="Risk" />
+                            <SortableTh col="confidence" label="Conf" />
                             <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Detector</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
+                            <SortableTh col="created_at" label="Created" className="text-right" />
                             <th className="px-4 py-3 font-semibold text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {findings.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="text-center py-12 text-slate-500">
+                                <td colSpan={10} className="text-center py-12 text-slate-500">
                                     No findings match the current filters
                                 </td>
                             </tr>
@@ -137,6 +158,11 @@ export default function FindingsTable({
                                             <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                                                 Active
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-xs text-slate-400 text-right font-mono whitespace-nowrap">
+                                            {finding.created_at
+                                                ? new Date(finding.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+                                                : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex items-center justify-end gap-2">

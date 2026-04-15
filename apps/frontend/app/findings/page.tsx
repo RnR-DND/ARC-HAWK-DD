@@ -22,6 +22,8 @@ export default function FindingsPage() {
     const [statusFilter, setStatusFilter] = useState('');
     const [assetFilter, setAssetFilter] = useState('');
     const [piiTypeFilter, setPiiTypeFilter] = useState('');
+    const [sortBy, setSortBy] = useState('created_at');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
     // Facets state — populated once on mount from API
     const [facets, setFacets] = useState<{ pii_types: string[]; assets: string[]; severities: string[] }>({
@@ -40,7 +42,7 @@ export default function FindingsPage() {
 
     useEffect(() => {
         fetchFindings();
-    }, [page, searchTerm, severityFilter, statusFilter, assetFilter, piiTypeFilter]);
+    }, [page, searchTerm, severityFilter, statusFilter, assetFilter, piiTypeFilter, sortBy, sortOrder]);
 
 
     const fetchFindings = async () => {
@@ -55,7 +57,9 @@ export default function FindingsPage() {
                 status: statusFilter || undefined,
                 asset: assetFilter || undefined,
                 pii_type: piiTypeFilter || undefined,
-                search: searchTerm || undefined
+                search: searchTerm || undefined,
+                sort_by: sortBy,
+                sort_order: sortOrder,
             });
 
             // Explode findings: One row per match
@@ -107,6 +111,16 @@ export default function FindingsPage() {
     const handleFilterChange = (filters: { severity?: string; search?: string }) => {
         if (filters.search !== undefined) setSearchTerm(filters.search);
         if (filters.severity !== undefined) setSeverityFilter(filters.severity);
+        setPage(1);
+    };
+
+    const handleSortChange = (col: string) => {
+        if (col === sortBy) {
+            setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(col);
+            setSortOrder('desc');
+        }
         setPage(1);
     };
 
@@ -267,6 +281,9 @@ export default function FindingsPage() {
                                 onRemediate={handleRemediateRequest}
                                 onMarkFalsePositive={handleMarkFalsePositive}
                                 onRowClick={setSelectedFinding}
+                                sortBy={sortBy}
+                                sortOrder={sortOrder}
+                                onSortChange={handleSortChange}
                             />
                         ) : (
                             <div className="text-center py-12 text-slate-500">
