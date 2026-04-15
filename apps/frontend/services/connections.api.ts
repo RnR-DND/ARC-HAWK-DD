@@ -22,6 +22,13 @@ export interface Connection {
     updated_at: string;
 }
 
+export interface AvailableSourceType {
+    source_type: string;
+    display_name: string;
+    category: string;
+    icon: string;
+}
+
 /** Normalize config keys: rename username → user for backend compatibility */
 function normalizeConfig(data: ConnectionConfig): ConnectionConfig {
     const { config } = data;
@@ -56,6 +63,10 @@ export async function testConnection(data: ConnectionConfig): Promise<unknown> {
     return post<unknown>('/connections/test', normalizeConfig(data));
 }
 
+export async function getAvailableTypes(): Promise<{ types: AvailableSourceType[] }> {
+    return get<{ types: AvailableSourceType[] }>('/connections/available-types');
+}
+
 export const connectionsApi = {
     addConnection,
     getConnections,
@@ -63,6 +74,7 @@ export const connectionsApi = {
     syncConnections,
     validateSync,
     testConnection,
+    getAvailableTypes,
 };
 
 export default connectionsApi;

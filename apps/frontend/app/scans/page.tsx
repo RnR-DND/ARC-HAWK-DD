@@ -8,6 +8,33 @@ import { format } from 'date-fns';
 
 import { ScanConfigModal } from '@/components/scans/ScanConfigModal';
 
+function LiveDuration({ startedAt }: { startedAt: string | null }) {
+    const [elapsed, setElapsed] = React.useState(0);
+
+    React.useEffect(() => {
+        if (!startedAt || startedAt.startsWith('0001-01-01')) return;
+        const start = new Date(startedAt).getTime();
+        const update = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+        update();
+        const id = setInterval(update, 1000);
+        return () => clearInterval(id);
+    }, [startedAt]);
+
+    if (!startedAt || startedAt.startsWith('0001-01-01')) return <span className="text-slate-400">—</span>;
+
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+
+    const fmt = h > 0
+        ? `${h}h ${m}m ${s}s`
+        : m > 0
+        ? `${m}m ${s}s`
+        : `${s}s`;
+
+    return <span className="text-yellow-600 font-mono">{fmt}</span>;
+}
+
 export default function ScansPage() {
     const router = useRouter();
     const [scans, setScans] = useState<any[]>([]);
@@ -184,7 +211,10 @@ export default function ScansPage() {
                                     <td className="px-6 py-4 text-slate-600">
                                         <div className="flex items-center gap-2">
                                             <Clock className="w-4 h-4 text-slate-400" />
-                                            {getDuration(scan.scan_started_at, scan.scan_completed_at, scan.status)}
+                                            {(scan.status === 'running' || scan.status === 'pending')
+                                                ? <LiveDuration startedAt={scan.scan_started_at} />
+                                                : getDuration(scan.scan_started_at, scan.scan_completed_at, scan.status)
+                                            }
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-slate-700">

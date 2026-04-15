@@ -96,7 +96,7 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 		m.enrichmentService,
 		assetManager,
 		encryptionService,
-	).WithNeo4jRepo(deps.Neo4jRepo)
+	).WithNeo4jRepo(deps.Neo4jRepo).WithWebSocket(deps.WebSocketService)
 
 	// Initialize handlers
 	m.ingestionHandler = api.NewIngestionHandler(m.ingestionService)
@@ -173,6 +173,7 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		}, m.scanStatusHandler.DeleteScan)
 		scans.GET("/:id/pii-summary", m.scanStatusHandler.GetScanPIISummary)
 		scans.GET("/:id/delta", m.scanTriggerHandler.GetScanDelta)
+		scans.POST("/:id/progress-event", m.scanStatusHandler.ReceiveProgressEvent)
 	}
 
 	// Classification

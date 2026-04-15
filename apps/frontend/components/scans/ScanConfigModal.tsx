@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Play, Zap, Clock, Trash2, Plus, Brain, Search, Regex } from 'lucide-react';
 import { scansApi } from '@/services/scans.api';
 import { connectionsApi, type Connection } from '@/services/connections.api';
@@ -60,6 +61,7 @@ const CLASSIFICATION_MODES = [
 ];
 
 export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalProps) {
+    const router = useRouter();
     const [scanName, setScanName] = useState('');
     const [selectedSources, setSelectedSources] = useState<string[]>([]);
     const [selectedPiiTypes, setSelectedPiiTypes] = useState<string[]>(['PAN', 'AADHAAR', 'EMAIL']);
@@ -75,7 +77,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
     const [customPatterns, setCustomPatterns] = useState<CustomPattern[]>([]);
     const [selectedCustomPatterns, setSelectedCustomPatterns] = useState<string[]>([]);
     const [showAddPattern, setShowAddPattern] = useState(false);
-    const [newPattern, setNewPattern] = useState({ name: '', display_name: '', regex: '', category: 'Custom', description: '' });
+    const [newPattern, setNewPattern] = useState({ name: '', display_name: '', regex: '', category: 'Custom', description: '', context_keywords: [] as string[], negative_keywords: [] as string[] });
     const [patternError, setPatternError] = useState('');
     const [savingPattern, setSavingPattern] = useState(false);
 
@@ -274,7 +276,15 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                     <button onClick={loadSources} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded text-sm text-slate-900">Retry</button>
                                 </div>
                             ) : sources.length === 0 ? (
-                                <div className="col-span-3 text-center py-8 text-slate-500">No data sources configured. Please add a source first.</div>
+                                <div className="col-span-3 text-center py-8 border border-dashed border-slate-300 rounded-lg">
+                                    <p className="text-slate-500 text-sm mb-3">No data sources configured yet</p>
+                                    <button
+                                        onClick={() => { onClose(); router.push('/connections'); }}
+                                        className="text-blue-600 hover:text-blue-700 text-sm font-medium underline"
+                                    >
+                                        Add your first connector →
+                                    </button>
+                                </div>
                             ) : (
                                 sources.map((source) => (
                                     <div
@@ -300,6 +310,16 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                 ))
                             )}
                         </div>
+                        {sources.length > 0 && (
+                            <div className="mt-2 text-right">
+                                <button
+                                    onClick={() => { onClose(); router.push('/connections'); }}
+                                    className="text-xs text-slate-400 hover:text-slate-600"
+                                >
+                                    Need a different source? Add connector →
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* PII Scope */}
@@ -433,6 +453,64 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                         />
                                     </div>
                                 </div>
+                                {/* Boost keywords */}
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                                        Boost keywords <span className="text-slate-400 font-normal">(words near match that increase confidence — press Enter)</span>
+                                    </label>
+                                    <div className="flex flex-wrap gap-1 mb-1">
+                                        {newPattern.context_keywords.map((kw, i) => (
+                                            <span key={i} className="flex items-center gap-1 bg-green-100 border border-green-300 text-green-800 text-xs px-2 py-0.5 rounded-full">
+                                                {kw}
+                                                <button onClick={() => setNewPattern(p => ({ ...p, context_keywords: p.context_keywords.filter((_, j) => j !== i) }))} className="hover:text-green-600 ml-0.5">×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. aadhaar, national id, uid"
+                                        className="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                const val = (e.target as HTMLInputElement).value.trim();
+                                                if (val) {
+                                                    setNewPattern(p => ({ ...p, context_keywords: [...p.context_keywords, val] }));
+                                                    (e.target as HTMLInputElement).value = '';
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                {/* Suppress keywords */}
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                                        Suppress keywords <span className="text-slate-400 font-normal">(words near match that decrease confidence — press Enter)</span>
+                                    </label>
+                                    <div className="flex flex-wrap gap-1 mb-1">
+                                        {newPattern.negative_keywords.map((kw, i) => (
+                                            <span key={i} className="flex items-center gap-1 bg-red-100 border border-red-300 text-red-800 text-xs px-2 py-0.5 rounded-full">
+                                                {kw}
+                                                <button onClick={() => setNewPattern(p => ({ ...p, negative_keywords: p.negative_keywords.filter((_, j) => j !== i) }))} className="hover:text-red-600 ml-0.5">×</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. test, sample, dummy"
+                                        className="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-400"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                const val = (e.target as HTMLInputElement).value.trim();
+                                                if (val) {
+                                                    setNewPattern(p => ({ ...p, negative_keywords: [...p.negative_keywords, val] }));
+                                                    (e.target as HTMLInputElement).value = '';
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </div>
                                 {patternError && (
                                     <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700" role="alert">
                                         <span aria-hidden="true">⚠</span>
@@ -441,7 +519,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                                 )}
                                 <div className="flex gap-2 justify-end">
                                     <button
-                                        onClick={() => { setShowAddPattern(false); setPatternError(''); setNewPattern({ name: '', display_name: '', regex: '', category: 'Custom', description: '' }); }}
+                                        onClick={() => { setShowAddPattern(false); setPatternError(''); setNewPattern({ name: '', display_name: '', regex: '', category: 'Custom', description: '', context_keywords: [], negative_keywords: [] }); }}
                                         className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-900"
                                     >
                                         Cancel

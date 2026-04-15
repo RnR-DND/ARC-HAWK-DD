@@ -9,6 +9,8 @@ export interface CustomPattern {
     description?: string;
     is_active?: boolean;
     created_at?: string;
+    context_keywords?: string[];
+    negative_keywords?: string[];
 }
 
 export const patternsApi = {

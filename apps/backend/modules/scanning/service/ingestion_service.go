@@ -33,12 +33,13 @@ var findingsIngestedTotal = promauto.NewCounterVec(
 
 // IngestionService handles scan ingestion and normalization
 type IngestionService struct {
-	repo         *persistence.PostgresRepository
-	classifier   *ClassificationService
-	enrichment   *EnrichmentService
-	assetManager interfaces.AssetManager
-	encryptor    *encryption.EncryptionService // nil when ENCRYPTION_KEY not set (dev fallback)
-	neo4jRepo    *persistence.Neo4jRepository  // nil when Neo4j is unavailable; writes PII_Category edges
+	repo             *persistence.PostgresRepository
+	classifier       *ClassificationService
+	enrichment       *EnrichmentService
+	assetManager     interfaces.AssetManager
+	encryptor        *encryption.EncryptionService // nil when ENCRYPTION_KEY not set (dev fallback)
+	neo4jRepo        *persistence.Neo4jRepository  // nil when Neo4j is unavailable; writes PII_Category edges
+	websocketService interface{}                   // nil when WebSocket service not wired
 }
 
 // NewIngestionService creates a new ingestion service
@@ -62,6 +63,34 @@ func NewIngestionService(
 func (s *IngestionService) WithNeo4jRepo(neo4jRepo *persistence.Neo4jRepository) *IngestionService {
 	s.neo4jRepo = neo4jRepo
 	return s
+}
+
+// WithWebSocket wires a WebSocket service for real-time finding broadcasts.
+func (s *IngestionService) WithWebSocket(ws interface{}) *IngestionService {
+	s.websocketService = ws
+	return s
+}
+
+// broadcastFindings sends new_finding events via WebSocket for each ingested finding.
+func (s *IngestionService) broadcastFindings(scanID string, findings []map[string]interface{}) {
+	if s.websocketService == nil {
+		return
+	}
+	type broadcaster interface {
+		BroadcastNewFinding(finding map[string]interface{})
+	}
+	ws, ok := s.websocketService.(broadcaster)
+	if !ok {
+		return
+	}
+	for _, f := range findings {
+		ws.BroadcastNewFinding(map[string]interface{}{
+			"scan_id":    scanID,
+			"pii_type":   f["pattern_name"],
+			"severity":   f["severity"],
+			"asset_name": f["asset_name"],
+		})
+	}
 }
 
 // HawkeyeScanInput represents the Hawk-eye scanner JSON format.
@@ -532,6 +561,19 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 				log.Printf("WARN: neo4j PII category sync failed for asset %s: %v", assetID, err)
 			}
 		}
+	}
+
+	// WS6: Broadcast new findings via WebSocket for real-time dashboard updates.
+	if s.websocketService != nil && len(allFindings) > 0 {
+		broadcastBatch := make([]map[string]interface{}, 0, len(allFindings))
+		for _, f := range allFindings {
+			broadcastBatch = append(broadcastBatch, map[string]interface{}{
+				"pattern_name": f.PatternName,
+				"severity":     f.Severity,
+				"asset_name":   "",
+			})
+		}
+		go s.broadcastFindings(input.ScanID, broadcastBatch)
 	}
 
 	return &IngestScanResult{

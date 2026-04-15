@@ -11,6 +11,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // CustomPattern represents a user-defined PII detection pattern.
@@ -35,6 +36,9 @@ type CustomPattern struct {
 	FalsePositiveCount  int64      `json:"false_positive_count"`
 	FalsePositiveRate   float64    `json:"false_positive_rate"`
 	AutoDeactivated     bool       `json:"auto_deactivated"`
+	// WS4: context keyword boosting for custom patterns (migration 000038)
+	ContextKeywords     []string   `json:"context_keywords"`
+	NegativeKeywords    []string   `json:"negative_keywords"`
 }
 
 // PatternStats is the response type for GET /patterns/:id/stats.
@@ -146,7 +150,8 @@ func NewPatternsService(repo *persistence.PostgresRepository) *PatternsService {
 func (s *PatternsService) ListPatterns(ctx context.Context, tenantID uuid.UUID) ([]*CustomPattern, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, tenant_id, name, display_name, regex, category, description,
-		        is_active, created_by, created_at, updated_at
+		        is_active, created_by, created_at, updated_at,
+		        COALESCE(context_keywords, '{}'), COALESCE(negative_keywords, '{}')
 		   FROM custom_patterns
 		  WHERE tenant_id = $1
 		  ORDER BY created_at DESC`, tenantID)
@@ -160,8 +165,15 @@ func (s *PatternsService) ListPatterns(ctx context.Context, tenantID uuid.UUID) 
 		p := &CustomPattern{}
 		if err := rows.Scan(&p.ID, &p.TenantID, &p.Name, &p.DisplayName, &p.Regex,
 			&p.Category, &p.Description, &p.IsActive, &p.CreatedBy,
-			&p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.CreatedAt, &p.UpdatedAt,
+			pq.Array(&p.ContextKeywords), pq.Array(&p.NegativeKeywords)); err != nil {
 			return nil, err
+		}
+		if p.ContextKeywords == nil {
+			p.ContextKeywords = []string{}
+		}
+		if p.NegativeKeywords == nil {
+			p.NegativeKeywords = []string{}
 		}
 		out = append(out, p)
 	}
@@ -181,13 +193,21 @@ func (s *PatternsService) CreatePattern(ctx context.Context, tenantID uuid.UUID,
 		p.Category = "Custom"
 	}
 
+	if p.ContextKeywords == nil {
+		p.ContextKeywords = []string{}
+	}
+	if p.NegativeKeywords == nil {
+		p.NegativeKeywords = []string{}
+	}
 	err := s.db.QueryRowContext(ctx,
 		`INSERT INTO custom_patterns
 		   (tenant_id, name, display_name, regex, category, description,
-		    is_active, created_by, validation_status, backtrack_safe)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'valid',TRUE)
+		    is_active, created_by, validation_status, backtrack_safe,
+		    context_keywords, negative_keywords)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'valid',TRUE,$9,$10)
 		 RETURNING id, created_at, updated_at`,
 		tenantID, p.Name, p.DisplayName, p.Regex, p.Category, p.Description, true, createdBy,
+		pq.Array(p.ContextKeywords), pq.Array(p.NegativeKeywords),
 	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create pattern: %w", err)
@@ -206,22 +226,32 @@ func (s *PatternsService) UpdatePattern(ctx context.Context, tenantID, id uuid.U
 		return nil, fmt.Errorf("unsafe regex rejected: %w", err)
 	}
 
+	if p.ContextKeywords == nil {
+		p.ContextKeywords = []string{}
+	}
+	if p.NegativeKeywords == nil {
+		p.NegativeKeywords = []string{}
+	}
 	var updated CustomPattern
 	err := s.db.QueryRowContext(ctx,
 		`UPDATE custom_patterns
 		    SET display_name=$3, regex=$4, category=$5, description=$6, is_active=$7,
-		        validation_status='valid', backtrack_safe=TRUE, updated_at=NOW()
+		        validation_status='valid', backtrack_safe=TRUE, updated_at=NOW(),
+		        context_keywords=$8, negative_keywords=$9
 		  WHERE id=$1 AND tenant_id=$2
 		  RETURNING id, tenant_id, name, display_name, regex, category, description,
 		            is_active, created_by, created_at, updated_at,
 		            validation_status, backtrack_safe, match_count_lifetime, last_matched_at,
-		            false_positive_count, false_positive_rate, auto_deactivated`,
+		            false_positive_count, false_positive_rate, auto_deactivated,
+		            COALESCE(context_keywords, '{}'), COALESCE(negative_keywords, '{}')`,
 		id, tenantID, p.DisplayName, p.Regex, p.Category, p.Description, p.IsActive,
+		pq.Array(p.ContextKeywords), pq.Array(p.NegativeKeywords),
 	).Scan(&updated.ID, &updated.TenantID, &updated.Name, &updated.DisplayName, &updated.Regex,
 		&updated.Category, &updated.Description, &updated.IsActive, &updated.CreatedBy,
 		&updated.CreatedAt, &updated.UpdatedAt,
 		&updated.ValidationStatus, &updated.BacktrackSafe, &updated.MatchCountLifetime, &updated.LastMatchedAt,
-		&updated.FalsePositiveCount, &updated.FalsePositiveRate, &updated.AutoDeactivated)
+		&updated.FalsePositiveCount, &updated.FalsePositiveRate, &updated.AutoDeactivated,
+		pq.Array(&updated.ContextKeywords), pq.Array(&updated.NegativeKeywords))
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("pattern not found")
 	}
@@ -350,7 +380,8 @@ func (s *PatternsService) getPatternByID(ctx context.Context, tenantID, id uuid.
 		`SELECT id, tenant_id, name, display_name, regex, category, description,
 		        is_active, created_by, created_at, updated_at,
 		        validation_status, backtrack_safe, match_count_lifetime, last_matched_at,
-		        false_positive_count, false_positive_rate, auto_deactivated
+		        false_positive_count, false_positive_rate, auto_deactivated,
+		        COALESCE(context_keywords, '{}'), COALESCE(negative_keywords, '{}')
 		   FROM custom_patterns
 		  WHERE id=$1 AND tenant_id=$2`,
 		id, tenantID,
@@ -358,7 +389,8 @@ func (s *PatternsService) getPatternByID(ctx context.Context, tenantID, id uuid.
 		&p.Category, &p.Description, &p.IsActive, &p.CreatedBy,
 		&p.CreatedAt, &p.UpdatedAt,
 		&p.ValidationStatus, &p.BacktrackSafe, &p.MatchCountLifetime, &p.LastMatchedAt,
-		&p.FalsePositiveCount, &p.FalsePositiveRate, &p.AutoDeactivated)
+		&p.FalsePositiveCount, &p.FalsePositiveRate, &p.AutoDeactivated,
+		pq.Array(&p.ContextKeywords), pq.Array(&p.NegativeKeywords))
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("pattern not found")
 	}

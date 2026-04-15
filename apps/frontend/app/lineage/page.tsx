@@ -53,6 +53,9 @@ export default function DashboardPage() {
         }, 0) / lineageData.nodes.length)
         : 0;
 
+    // View mode: graph or path tree
+    const [viewMode, setViewMode] = useState<'graph' | 'path'>('graph');
+
     // Filter nodes based on search
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -141,8 +144,42 @@ export default function DashboardPage() {
                         </span>
                     </div>
 
+                    {/* View mode tabs */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                        <button
+                            onClick={() => setViewMode('graph')}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: viewMode === 'graph' ? theme.colors.primary.DEFAULT : theme.colors.background.card,
+                                color: viewMode === 'graph' ? '#fff' : theme.colors.text.secondary,
+                            }}
+                        >
+                            Graph View
+                        </button>
+                        <button
+                            onClick={() => setViewMode('path')}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: viewMode === 'path' ? theme.colors.primary.DEFAULT : theme.colors.background.card,
+                                color: viewMode === 'path' ? '#fff' : theme.colors.text.secondary,
+                            }}
+                        >
+                            Path View
+                        </button>
+                    </div>
+
                     {/* Lineage Canvas */}
-                    {lineageData ? (
+                    {viewMode === 'graph' && (lineageData ? (
                         <div style={{
                             flex: 1,
                             border: `1px solid ${theme.colors.border.default}`,
@@ -160,6 +197,53 @@ export default function DashboardPage() {
                         </div>
                     ) : (
                         <LoadingState message="Initializing visualization..." />
+                    ))}
+
+                    {/* Path View */}
+                    {viewMode === 'path' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {(lineageData?.nodes || [])
+                                .filter(n => n.type === 'asset' || n.type === 'system')
+                                .map(node => (
+                                    <div
+                                        key={node.id}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            padding: '10px 16px',
+                                            backgroundColor: theme.colors.background.card,
+                                            border: `1px solid ${theme.colors.border.subtle}`,
+                                            borderRadius: '8px',
+                                        }}
+                                    >
+                                        <span style={{
+                                            fontSize: '11px',
+                                            padding: '2px 8px',
+                                            borderRadius: '4px',
+                                            backgroundColor: node.type === 'system' ? '#1e3a5f' : '#2d2d2d',
+                                            color: node.type === 'system' ? '#93c5fd' : '#d1d5db',
+                                            fontWeight: 500,
+                                        }}>
+                                            {node.type}
+                                        </span>
+                                        <span style={{ fontSize: '13px', color: theme.colors.text.primary, fontFamily: 'monospace' }}>
+                                            {node.label}
+                                        </span>
+                                        {'finding_count' in node.metadata && node.metadata.finding_count ? (
+                                            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#f87171' }}>
+                                                {String(node.metadata.finding_count)} findings
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                ))
+                            }
+                            {!lineageData?.nodes?.length && (
+                                <p style={{ textAlign: 'center', color: theme.colors.text.muted, padding: '48px 0', fontSize: '14px' }}>
+                                    No lineage data available. Run a scan to populate.
+                                </p>
+                            )}
+                        </div>
                     )}
                 </div>
 

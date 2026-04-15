@@ -32,7 +32,7 @@ func NewConnectionHandler(s *service.ConnectionService, syncService *service.Con
 // AddConnectionRequest represents the request body for adding a connection
 type AddConnectionRequest struct {
 	Name	    string                 `json:"name"`
-	SourceType  string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack firebase couchdb gcs gdrive gdrive_workspace text"`
+	SourceType  string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb redis sqlite oracle mssql firebase couchdb s3 gcs azure_blob gdrive gdrive_workspace bigquery snowflake redshift kafka kinesis filesystem csv_excel pdf docx pptx html_files email_files parquet orc avro scanned_images text slack salesforce hubspot jira ms_teams"`
 	ProfileName string                 `json:"profile_name" binding:"required,min=1,max=50"`
 	Config      map[string]any `json:"config" binding:"required"`
 }
@@ -113,7 +113,7 @@ func (h *ConnectionHandler) DeleteConnection(c *gin.Context) {
 
 // TestConnectionRequest represents the request body for testing a connection
 type TestConnectionRequest struct {
-	SourceType string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb s3 filesystem redis slack firebase couchdb gcs gdrive gdrive_workspace text"`
+	SourceType string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb redis sqlite oracle mssql firebase couchdb s3 gcs azure_blob gdrive gdrive_workspace bigquery snowflake redshift kafka kinesis filesystem csv_excel pdf docx pptx html_files email_files parquet orc avro scanned_images text slack salesforce hubspot jira ms_teams"`
 	Config     map[string]any `json:"config" binding:"required"`
 }
 
@@ -145,4 +145,48 @@ func (h *ConnectionHandler) TestConnectionByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// AvailableSourceTypes handles GET /api/v1/connections/available-types
+// Returns all supported connector types with display metadata.
+func (h *ConnectionHandler) AvailableSourceTypes(c *gin.Context) {
+	types := []map[string]string{
+		{"source_type": "postgresql", "display_name": "PostgreSQL", "category": "databases", "icon": "database"},
+		{"source_type": "mysql", "display_name": "MySQL", "category": "databases", "icon": "database"},
+		{"source_type": "mongodb", "display_name": "MongoDB", "category": "databases", "icon": "database"},
+		{"source_type": "redis", "display_name": "Redis", "category": "databases", "icon": "database"},
+		{"source_type": "sqlite", "display_name": "SQLite", "category": "databases", "icon": "database"},
+		{"source_type": "oracle", "display_name": "Oracle DB", "category": "databases", "icon": "database"},
+		{"source_type": "mssql", "display_name": "SQL Server", "category": "databases", "icon": "database"},
+		{"source_type": "firebase", "display_name": "Firebase", "category": "databases", "icon": "database"},
+		{"source_type": "couchdb", "display_name": "CouchDB", "category": "databases", "icon": "database"},
+		{"source_type": "s3", "display_name": "AWS S3", "category": "cloud", "icon": "cloud"},
+		{"source_type": "gcs", "display_name": "Google Cloud Storage", "category": "cloud", "icon": "cloud"},
+		{"source_type": "azure_blob", "display_name": "Azure Blob Storage", "category": "cloud", "icon": "cloud"},
+		{"source_type": "gdrive", "display_name": "Google Drive", "category": "cloud", "icon": "cloud"},
+		{"source_type": "gdrive_workspace", "display_name": "Google Workspace", "category": "cloud", "icon": "cloud"},
+		{"source_type": "bigquery", "display_name": "BigQuery", "category": "warehouses", "icon": "warehouse"},
+		{"source_type": "snowflake", "display_name": "Snowflake", "category": "warehouses", "icon": "warehouse"},
+		{"source_type": "redshift", "display_name": "Redshift", "category": "warehouses", "icon": "warehouse"},
+		{"source_type": "kafka", "display_name": "Apache Kafka", "category": "queues", "icon": "queue"},
+		{"source_type": "kinesis", "display_name": "AWS Kinesis", "category": "queues", "icon": "queue"},
+		{"source_type": "filesystem", "display_name": "File System", "category": "files", "icon": "folder"},
+		{"source_type": "csv_excel", "display_name": "CSV / Excel", "category": "files", "icon": "file"},
+		{"source_type": "pdf", "display_name": "PDF Files", "category": "files", "icon": "file"},
+		{"source_type": "docx", "display_name": "Word Documents", "category": "files", "icon": "file"},
+		{"source_type": "pptx", "display_name": "PowerPoint Files", "category": "files", "icon": "file"},
+		{"source_type": "html_files", "display_name": "HTML Files", "category": "files", "icon": "file"},
+		{"source_type": "email_files", "display_name": "Email Files (EML/MSG)", "category": "files", "icon": "file"},
+		{"source_type": "parquet", "display_name": "Parquet Files", "category": "files", "icon": "file"},
+		{"source_type": "orc", "display_name": "ORC Files", "category": "files", "icon": "file"},
+		{"source_type": "avro", "display_name": "Avro Files", "category": "files", "icon": "file"},
+		{"source_type": "scanned_images", "display_name": "Scanned Images (OCR)", "category": "files", "icon": "image"},
+		{"source_type": "text", "display_name": "Text Files", "category": "files", "icon": "file"},
+		{"source_type": "slack", "display_name": "Slack", "category": "saas", "icon": "chat"},
+		{"source_type": "salesforce", "display_name": "Salesforce", "category": "saas", "icon": "crm"},
+		{"source_type": "hubspot", "display_name": "HubSpot", "category": "saas", "icon": "crm"},
+		{"source_type": "jira", "display_name": "Jira", "category": "saas", "icon": "ticket"},
+		{"source_type": "ms_teams", "display_name": "Microsoft Teams", "category": "saas", "icon": "chat"},
+	}
+	c.JSON(http.StatusOK, gin.H{"types": types})
 }

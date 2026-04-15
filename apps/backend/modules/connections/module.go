@@ -65,6 +65,7 @@ func (m *ConnectionsModule) Initialize(deps *interfaces.ModuleDependencies) erro
 }
 
 func (m *ConnectionsModule) RegisterRoutes(router *gin.RouterGroup) {
+	router.GET("/connections/available-types", m.connectionHandler.AvailableSourceTypes)
 	router.POST("/connections", m.connectionHandler.AddConnection)
 	router.GET("/connections", m.connectionHandler.GetConnections)
 	router.DELETE("/connections/:id", m.connectionHandler.DeleteConnection)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -258,4 +259,34 @@ func (h *ScanStatusHandler) GetScanPIISummary(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": summary})
+}
+
+// ProgressEvent is the payload from the Go scanner reporting scan progress.
+type ProgressEvent struct {
+	ScanID        string  `json:"scan_id"`
+	FindingsFound int     `json:"findings_found"`
+	Source        string  `json:"current_source"`
+	PercentDone   float64 `json:"percent_done"`
+}
+
+// ReceiveProgressEvent handles POST /api/v1/scans/:id/progress-event
+// Called by the Go scanner every 50 findings to broadcast live progress.
+func (h *ScanStatusHandler) ReceiveProgressEvent(c *gin.Context) {
+	scanID := c.Param("id")
+	var event ProgressEvent
+	if err := c.ShouldBindJSON(&event); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if event.ScanID == "" {
+		event.ScanID = scanID
+	}
+
+	if h.websocketService != nil {
+		if wsService, ok := h.websocketService.(*websocket.WebSocketService); ok {
+			msg := fmt.Sprintf("Found %d findings in %s", event.FindingsFound, event.Source)
+			wsService.BroadcastScanProgress(event.ScanID, int(event.PercentDone), "running", msg)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
