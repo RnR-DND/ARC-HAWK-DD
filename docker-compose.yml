@@ -11,7 +11,6 @@ volumes:
   postgres_data:
   neo4j_data:
   neo4j_logs:
-  scanner-config:
   vault_data:
 
 services:
@@ -183,9 +182,8 @@ services:
       - PRESIDIO_ADDR=http://presidio-analyzer:3000
       - TEMPORAL_HOST_PORT=temporal:7233
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - SCANNER_URL=http://scanner:5002
+      - SCANNER_URL=http://go-scanner:8001
       - ARC_HAWK_ROOT=/app
-      - SCANNER_CONFIG_PATH=/app/config/connection.yml
       - PORT=8080
       - VAULT_ENABLED=${VAULT_ENABLED:-false}
       - VAULT_ADDR=http://vault:8200
@@ -200,6 +198,8 @@ services:
         condition: service_healthy
       temporal:
         condition: service_started
+      go-scanner:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -210,8 +210,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    volumes:
-      - ./apps/scanner/config:/app/config
 
   frontend:
     build:
@@ -232,39 +230,29 @@ services:
     depends_on:
       - backend
 
-  scanner:
+  go-scanner:
     build:
-      context: ./apps/scanner
+      context: ./apps/goScanner
       dockerfile: Dockerfile
-    container_name: arc-platform-scanner
+    container_name: arc-platform-go-scanner
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.40
     ports:
-      - "5002:5002"
+      - "8001:8001"
     environment:
-      - BACKEND_URL=http://backend:8080
-      - PORT=5002
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-    volumes:
-      - ./scripts:/app/scripts
-      - /tmp:/tmp
-      - ./apps/scanner/scanner_api.py:/app/scanner_api.py
-      - ./apps/scanner/hawk_scanner:/app/hawk_scanner
-      - ./apps/scanner/config:/app/config
-      - ./testdata:/app/testdata
+      - PORT=8001
+      - LOG_LEVEL=info
     deploy:
       resources:
         limits:
-          memory: 2G
-    depends_on:
-      backend:
-        condition: service_healthy
+          memory: 512M
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5002/health" ]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:latest
