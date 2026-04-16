@@ -24,6 +24,8 @@ type ComplianceModule struct {
 	retentionHandler       *api.RetentionHandler
 	auditHandler           *api.AuditHandler
 	dpdpaReportHandler     *api.DPDPAReportHandler
+	dataPrincipalHandler   *api.DataPrincipalHandler
+	groHandler             *api.GROHandler
 
 	deps *interfaces.ModuleDependencies
 }
@@ -53,8 +55,10 @@ func (m *ComplianceModule) Initialize(deps *interfaces.ModuleDependencies) error
 	m.retentionHandler = api.NewRetentionHandler(m.retentionService)
 	m.auditHandler = api.NewAuditHandler(m.auditService)
 	m.dpdpaReportHandler = api.NewDPDPAReportHandler(m.obligationService, m.reportService)
+	m.dataPrincipalHandler = api.NewDataPrincipalHandler(deps.DB)
+	m.groHandler = api.NewGROHandler(deps.DB)
 
-	log.Printf("✅ Compliance Module initialized (6 services)")
+	log.Printf("✅ Compliance Module initialized (6 services, Sec 7/11/12 handlers)")
 	return nil
 }
 
@@ -75,6 +79,16 @@ func (m *ComplianceModule) RegisterRoutes(router *gin.RouterGroup) {
 		consentRec.GET("", m.consentRecordsHandler.ListConsentRecords)
 		consentRec.POST("", m.consentRecordsHandler.CreateConsentRecord)
 		consentRec.DELETE("/:id", m.consentRecordsHandler.WithdrawConsentRecord)
+
+		// DPDPA Sec 7 — Data Principal Rights requests
+		compliance.POST("/dpr", m.dataPrincipalHandler.SubmitRequest)
+		compliance.GET("/dpr", m.dataPrincipalHandler.ListRequests)
+		compliance.GET("/dpr/stats", m.dataPrincipalHandler.GetStats)
+		compliance.PATCH("/dpr/:id/status", m.dataPrincipalHandler.UpdateStatus)
+
+		// DPDPA Sec 11 — Grievance Redressal Officer settings
+		compliance.GET("/gro-settings", m.groHandler.GetSettings)
+		compliance.PUT("/gro-settings", m.groHandler.UpdateSettings)
 	}
 
 	// Consent management routes
@@ -105,7 +119,7 @@ func (m *ComplianceModule) RegisterRoutes(router *gin.RouterGroup) {
 		audit.GET("/recent", m.auditHandler.GetRecentActivity)
 	}
 
-	log.Printf("⚖️  Compliance routes registered (20 endpoints)")
+	log.Printf("⚖️  Compliance routes registered (26 endpoints)")
 }
 
 func (m *ComplianceModule) Shutdown() error {
