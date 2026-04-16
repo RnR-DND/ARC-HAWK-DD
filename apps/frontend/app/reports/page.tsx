@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { exportToCSV } from '@/utils/export';
 import { findingsApi } from '@/services/findings.api';
 import { assetsApi } from '@/services/assets.api';
+import { complianceApi } from '@/services/compliance.api';
+import { ComplianceOverview } from '@/types/api';
 
 interface ReportMetrics {
     totalFindings: number;
@@ -20,6 +22,7 @@ interface ReportMetrics {
 
 export default function ReportsPage() {
     const [metrics, setMetrics] = useState<ReportMetrics | null>(null);
+    const [complianceData, setComplianceData] = useState<ComplianceOverview | null>(null);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
 
@@ -30,17 +33,20 @@ export default function ReportsPage() {
     const fetchReportMetrics = async () => {
         try {
             // Get metrics from multiple APIs
-            const [findingsRes, assetsRes] = await Promise.all([
+            const [findingsRes, assetsRes, complianceRes] = await Promise.all([
                 findingsApi.getFindings({ page_size: 1000 }),
-                assetsApi.getAssets({ page_size: 1000 })
+                assetsApi.getAssets({ page_size: 1000 }),
+                complianceApi.getOverview().catch(() => null)
             ]);
+
+            if (complianceRes) {
+                setComplianceData(complianceRes);
+            }
 
             const totalFindings = findingsRes.total || 0;
             const criticalFindings = findingsRes.findings?.filter(f => f.severity === 'Critical').length || 0;
             const assetsScanned = assetsRes.total || 0;
-
-            // Calculate compliance score based on findings (simplified)
-            const complianceScore = Math.max(0, 100 - (totalFindings * 2));
+            const complianceScore = complianceRes?.compliance_score ?? 0;
 
             setMetrics({
                 totalFindings,
@@ -131,6 +137,13 @@ export default function ReportsPage() {
                     </div>
                 </div>
 
+                {/* Truncation warning */}
+                {metrics && metrics.totalFindings > 1000 && (
+                    <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                        Note: Showing summary metrics for {metrics.totalFindings.toLocaleString()} findings. Report exports are limited to the first 1,000 records.
+                    </div>
+                )}
+
                 {/* Metrics Overview */}
                 {metrics && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -183,7 +196,7 @@ export default function ReportsPage() {
                             buttonClass="bg-blue-600 hover:bg-blue-700"
                             onDownload={() => handleDownloadCSV('compliance')}
                             loading={generating}
-                            features={['Executive metrics', 'Risk trends', 'Compliance score', 'PDF format']}
+                            features={['Executive metrics', 'Risk trends', 'Compliance score', 'CSV format']}
                         />
                         <ReportCard
                             title="Technical Findings Report"

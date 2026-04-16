@@ -62,6 +62,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     setIsConnecting(true);
 
     try {
+      // httpOnly session cookies are sent automatically by the browser
+      // on the WebSocket upgrade handshake — no explicit auth header needed.
       const ws = new WebSocket(url);
       socketRef.current = ws;
       setSocket(ws);

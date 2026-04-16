@@ -1,5 +1,6 @@
 import { get, post } from '@/utils/api-client';
 import { unwrapResponse, unwrapArray } from '@/lib/api-utils';
+import { ComplianceOverview } from '@/types/api';
 
 // DPDPA obligation gap types (from dpdpa_obligation_service.go)
 export interface ObligationGap {
@@ -46,8 +47,8 @@ export interface RetentionPolicy {
 }
 
 export const complianceApi = {
-    getOverview: async (): Promise<any> => {
-        const res = await get<any>('/compliance/overview');
+    getOverview: async (): Promise<ComplianceOverview> => {
+        const res = await get<ComplianceOverview>('/compliance/overview');
         return res;
     },
 
