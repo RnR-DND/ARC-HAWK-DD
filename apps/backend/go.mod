@@ -8,7 +8,7 @@ require (
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.1
-	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
@@ -23,7 +23,6 @@ require (
 	go.mongodb.org/mongo-driver v1.14.0
 	go.temporal.io/sdk v1.25.0
 	golang.org/x/crypto v0.48.0
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -107,4 +106,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/grpc v1.74.2 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
