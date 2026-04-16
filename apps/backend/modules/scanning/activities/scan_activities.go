@@ -306,10 +306,7 @@ type StreamCheckpoint struct {
 // RunStreamingWindowActivity reads a batch of messages from a Redis stream.
 // Temporal calls this once per micro-batch window.
 func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueName string, windowSec int) ([]StreamMessage, error) {
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
+	redisAddr := func() string { if v := os.Getenv("REDIS_ADDR"); v != "" { return v }; return "localhost:6379" }()
 	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
 	defer rdb.Close()
 
@@ -365,10 +362,7 @@ func (a *ScanActivities) IngestStreamingFindings(ctx context.Context, msgs []Str
 
 // PersistStreamingCheckpoints saves the last-processed stream position to Redis.
 func (a *ScanActivities) PersistStreamingCheckpoints(ctx context.Context, cp StreamCheckpoint) error {
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
+	redisAddr := func() string { if v := os.Getenv("REDIS_ADDR"); v != "" { return v }; return "localhost:6379" }()
 	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
 	defer rdb.Close()
 

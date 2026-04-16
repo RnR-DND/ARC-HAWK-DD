@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 )
@@ -70,12 +71,12 @@ func ValidateRequiredEnvVars(isProduction bool) error {
 	return nil
 }
 
-// MustEnv returns the value of key, or panics with a helpful message.
+// MustEnv returns the value of key, or calls log.Fatal with a helpful message.
 // Use sparingly — prefer ValidateRequiredEnvVars at startup.
 func MustEnv(key string) string {
 	v := os.Getenv(key)
 	if v == "" {
-		panic(fmt.Sprintf("required environment variable %s is not set", key))
+		log.Fatalf("required environment variable %s is not set", key)
 	}
 	return v
 }
