@@ -38,6 +38,7 @@ func (m *AnalyticsModule) RegisterRoutes(router *gin.RouterGroup) {
 	{
 		analytics.GET("/heatmap", m.analyticsHandler.GetPIIHeatmap)
 		analytics.GET("/trends", m.analyticsHandler.GetRiskTrend)
+		analytics.GET("/risk-distribution", m.analyticsHandler.GetRiskDistribution)
 	}
 	log.Printf("📊 Analytics routes registered")
 }
