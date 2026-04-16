@@ -13,13 +13,16 @@ import (
 type DPDPAObligation string
 
 const (
-	ObligationSec4LawfulProcessing DPDPAObligation = "Sec4_LawfulProcessing"
+	ObligationSec4LawfulProcessing  DPDPAObligation = "Sec4_LawfulProcessing"
 	ObligationSec5PurposeLimitation DPDPAObligation = "Sec5_PurposeLimitation"
-	ObligationSec6Consent          DPDPAObligation = "Sec6_Consent"
-	ObligationSec8DataAccuracy     DPDPAObligation = "Sec8_DataAccuracy"
-	ObligationSec9ChildrensData    DPDPAObligation = "Sec9_ChildrensData"
-	ObligationSec10DataFiduciary   DPDPAObligation = "Sec10_DataFiduciary"
-	ObligationSec17Retention       DPDPAObligation = "Sec17_Retention"
+	ObligationSec6Consent           DPDPAObligation = "Sec6_Consent"
+	ObligationSec7DataPrincipalRights DPDPAObligation = "Sec7_DataPrincipalRights"
+	ObligationSec8DataAccuracy      DPDPAObligation = "Sec8_DataAccuracy"
+	ObligationSec9ChildrensData     DPDPAObligation = "Sec9_ChildrensData"
+	ObligationSec10DataFiduciary    DPDPAObligation = "Sec10_DataFiduciary"
+	ObligationSec11GRO              DPDPAObligation = "Sec11_GRO"
+	ObligationSec12CrossBorder      DPDPAObligation = "Sec12_CrossBorder"
+	ObligationSec17Retention        DPDPAObligation = "Sec17_Retention"
 )
 
 // ObligationStatus is whether a DPDPA obligation is met, violated, or unknown.
@@ -78,9 +81,12 @@ func (s *DPDPAObligationService) BuildGapReport(ctx context.Context) (*Complianc
 		s.checkSec4LawfulProcessing,
 		s.checkSec5PurposeLimitation,
 		s.checkSec6Consent,
+		s.checkSec7DataPrincipalRights,
 		s.checkSec8DataAccuracy,
 		s.checkSec9ChildrensData,
 		s.checkSec10DataFiduciary,
+		s.checkSec11GRO,
+		s.checkSec12CrossBorder,
 		s.checkSec17Retention,
 	}
 
@@ -311,13 +317,14 @@ func (s *DPDPAObligationService) checkSec9ChildrensData(ctx context.Context, rep
 	return nil
 }
 
-// checkSec10DataFiduciary — Sec 10: high-risk assets must have a DPO assigned.
+// checkSec10DataFiduciary — Sec 10: Significant Data Fiduciaries must have a DPO assigned.
 func (s *DPDPAObligationService) checkSec10DataFiduciary(ctx context.Context, report *ComplianceGapReport) error {
 	const query = `
-		SELECT a.id, a.name, a.risk_score,
+		SELECT a.id, a.name,
 			COALESCE(a.dpo_assigned, a.file_metadata->>'dpo_assigned') AS dpo_assigned
 		FROM assets a
-		WHERE a.risk_score >= 60
+		JOIN tenants t ON t.id = a.tenant_id
+		WHERE t.is_significant_data_fiduciary = TRUE
 	`
 	rows, err := s.pgRepo.GetDB().QueryContext(ctx, query)
 	if err != nil {
@@ -329,16 +336,15 @@ func (s *DPDPAObligationService) checkSec10DataFiduciary(ctx context.Context, re
 	for rows.Next() {
 		var assetID uuid.UUID
 		var assetName string
-		var riskScore int
 		var dpoAssigned *string
-		if err := rows.Scan(&assetID, &assetName, &riskScore, &dpoAssigned); err != nil {
+		if err := rows.Scan(&assetID, &assetName, &dpoAssigned); err != nil {
 			continue
 		}
 		status := StatusPass
-		detail := fmt.Sprintf("DPO assigned for high-risk asset (score %d)", riskScore)
+		detail := "DPO assigned for Significant Data Fiduciary asset"
 		if dpoAssigned == nil || *dpoAssigned == "" {
 			status = StatusFail
-			detail = fmt.Sprintf("High-risk asset (score %d) has no DPO assigned (DPDPA Sec 10)", riskScore)
+			detail = "Significant Data Fiduciary asset has no DPO assigned (DPDPA Sec 10)"
 		}
 		gaps = append(gaps, ObligationGap{
 			AssetID:    assetID,
@@ -349,6 +355,111 @@ func (s *DPDPAObligationService) checkSec10DataFiduciary(ctx context.Context, re
 		})
 	}
 	report.GapsBySection[ObligationSec10DataFiduciary] = gaps
+	return rows.Err()
+}
+
+// checkSec7DataPrincipalRights — Sec 7: no data principal requests pending > 30 days.
+func (s *DPDPAObligationService) checkSec7DataPrincipalRights(ctx context.Context, report *ComplianceGapReport) error {
+	const query = `
+		SELECT t.id, t.name, COUNT(dpr.id) AS overdue_count
+		FROM tenants t
+		JOIN data_principal_requests dpr ON dpr.tenant_id = t.id
+		WHERE dpr.status = 'PENDING' AND dpr.created_at < NOW() - INTERVAL '30 days'
+		GROUP BY t.id, t.name
+	`
+	rows, err := s.pgRepo.GetDB().QueryContext(ctx, query)
+	if err != nil {
+		// Table may not exist in older deployments — degrade gracefully
+		report.GapsBySection[ObligationSec7DataPrincipalRights] = nil
+		return nil
+	}
+	defer rows.Close()
+
+	var gaps []ObligationGap
+	for rows.Next() {
+		var tenantID uuid.UUID
+		var tenantName string
+		var overdueCount int
+		if err := rows.Scan(&tenantID, &tenantName, &overdueCount); err != nil {
+			continue
+		}
+		gaps = append(gaps, ObligationGap{
+			AssetID:    tenantID,
+			AssetName:  tenantName + " [Tenant]",
+			Obligation: ObligationSec7DataPrincipalRights,
+			Status:     StatusFail,
+			Detail:     fmt.Sprintf("%d data principal request(s) pending > 30 days violates DPDPA Sec 7 response timeline", overdueCount),
+		})
+	}
+	report.GapsBySection[ObligationSec7DataPrincipalRights] = gaps
+	return rows.Err()
+}
+
+// checkSec11GRO — Sec 11: Grievance Redressal Officer must be configured for each tenant.
+func (s *DPDPAObligationService) checkSec11GRO(ctx context.Context, report *ComplianceGapReport) error {
+	const query = `
+		SELECT id, name FROM tenants
+		WHERE gro_email IS NULL OR gro_email = ''
+	`
+	rows, err := s.pgRepo.GetDB().QueryContext(ctx, query)
+	if err != nil {
+		// Column may not exist in older deployments — degrade gracefully
+		report.GapsBySection[ObligationSec11GRO] = nil
+		return nil
+	}
+	defer rows.Close()
+
+	var gaps []ObligationGap
+	for rows.Next() {
+		var tenantID uuid.UUID
+		var tenantName string
+		if err := rows.Scan(&tenantID, &tenantName); err != nil {
+			continue
+		}
+		gaps = append(gaps, ObligationGap{
+			AssetID:    tenantID,
+			AssetName:  tenantName + " [Tenant]",
+			Obligation: ObligationSec11GRO,
+			Status:     StatusFail,
+			Detail:     "Grievance Redressal Officer email not configured — required by DPDPA Sec 11",
+		})
+	}
+	report.GapsBySection[ObligationSec11GRO] = gaps
+	return rows.Err()
+}
+
+// checkSec12CrossBorder — Sec 12: assets stored outside India require cross-border transfer compliance.
+func (s *DPDPAObligationService) checkSec12CrossBorder(ctx context.Context, report *ComplianceGapReport) error {
+	const query = `
+		SELECT a.id, a.name, a.data_residency_country
+		FROM assets a
+		WHERE a.data_residency_country IS NOT NULL
+		  AND a.data_residency_country NOT IN ('IN')
+	`
+	rows, err := s.pgRepo.GetDB().QueryContext(ctx, query)
+	if err != nil {
+		// Column may not exist in older deployments — degrade gracefully
+		report.GapsBySection[ObligationSec12CrossBorder] = nil
+		return nil
+	}
+	defer rows.Close()
+
+	var gaps []ObligationGap
+	for rows.Next() {
+		var assetID uuid.UUID
+		var assetName, country string
+		if err := rows.Scan(&assetID, &assetName, &country); err != nil {
+			continue
+		}
+		gaps = append(gaps, ObligationGap{
+			AssetID:    assetID,
+			AssetName:  assetName,
+			Obligation: ObligationSec12CrossBorder,
+			Status:     StatusFail,
+			Detail:     fmt.Sprintf("Asset stored in %q (outside India) requires cross-border transfer compliance documentation (DPDPA Sec 12)", country),
+		})
+	}
+	report.GapsBySection[ObligationSec12CrossBorder] = gaps
 	return rows.Err()
 }
 
