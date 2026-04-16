@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// VerifiedFinding represents SDK-validated finding from Python scanner
-// Mirrors: apps/scanner/sdk/schema.py
+// VerifiedFinding represents SDK-validated finding from the Go scanner.
+// Schema aligns with the Go scanner ingest API (apps/goScanner).
 type VerifiedFinding struct {
 	PIIType          string                 `json:"pii_type"`
 	ValueHash        string                 `json:"value_hash"`
@@ -28,8 +28,8 @@ type VerifiedFinding struct {
 	Metadata         map[string]any `json:"metadata,omitempty"`
 }
 
-// SourceLocation represents source information from Python scanner
-// Mirrors: apps/scanner/sdk/schema.py SourceInfo
+// SourceLocation represents source information from the Go scanner.
+// Corresponds to the SourceInfo struct in the Go scanner API (apps/goScanner).
 type SourceLocation struct {
 	Path       string `json:"path"`
 	Line       int    `json:"line,omitempty"`

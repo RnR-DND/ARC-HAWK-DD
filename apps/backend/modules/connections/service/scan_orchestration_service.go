@@ -1,15 +1,28 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"os/exec"
+	"io"
+	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/google/uuid"
 )
+
+// scannerHTTPClient is a shared HTTP client with connection pooling for Go scanner calls.
+var scannerHTTPClient = &http.Client{
+	Timeout: 5 * time.Minute,
+	Transport: &http.Transport{
+		MaxIdleConns:    10,
+		IdleConnTimeout: 90 * time.Second,
+	},
+}
 
 // ScanOrchestrationService manages scan jobs across all assets
 type ScanOrchestrationService struct {
@@ -125,7 +138,7 @@ func (s *ScanOrchestrationService) ScanAllAssets(ctx context.Context) (*ScanAllS
 	return status, nil
 }
 
-// processJobs executes the REAL Python Scanner
+// processJobs dispatches a scan-all request to the Go scanner via HTTP.
 func (s *ScanOrchestrationService) processJobs() {
 	s.mu.Lock()
 	// Set all jobs to running
@@ -135,59 +148,75 @@ func (s *ScanOrchestrationService) processJobs() {
 	}
 	s.mu.Unlock()
 
-	fmt.Println("🦅 Launching Hawk Scanner SDK...")
+	fmt.Println("🦅 Dispatching scan-all to Go scanner...")
 
-	// Resolve python binary: prefer python3, fall back to python
-	pythonBin := "python3"
-	if _, err := exec.LookPath("python3"); err != nil {
-		if _, err2 := exec.LookPath("python"); err2 == nil {
-			pythonBin = "python"
-		}
+	scannerURL := os.Getenv("SCANNER_URL")
+	if scannerURL == "" {
+		scannerURL = "http://go-scanner:8001"
 	}
-	// Construct command to run scanner
-	// NOTE: Removed --json to allow auto-ingest to run (--json causes early exit)
-	cmd := exec.Command(pythonBin, "hawk_scanner/main.py", "all",
-		"--connection", "config/connection.yml",
-		"--fingerprint", "../../fingerprint.yml",
-		"--ingest-url", "http://localhost:8080/api/v1/scans/ingest-verified",
-		"--quiet") // Use --quiet to suppress table output
+	url := fmt.Sprintf("%s/scan", scannerURL)
 
-	// Set working directory to apps/scanner (relative to apps/backend)
-	cmd.Dir = "../scanner"
-
-	// Start scanner asynchronously (non-blocking)
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("❌ Failed to start scanner: %v\n", err)
+	payload := map[string]any{
+		"connection_id": "",
+		"tenant_id":    "",
+		"scan_config":  map[string]any{"scope": "all"},
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Printf("❌ Failed to serialize scanner payload: %v\n", err)
 		s.mu.Lock()
 		for _, job := range s.jobs {
 			job.Status = "failed"
-			job.Error = "Failed to start scanner process"
+			job.Error = "Failed to serialize scanner payload"
 			job.CompletedAt = time.Now()
 		}
 		s.mu.Unlock()
 		return
 	}
 
-	fmt.Printf("✅ Scanner process started (PID: %d)\n", cmd.Process.Pid)
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		fmt.Printf("❌ Failed to create scanner request: %v\n", err)
+		s.mu.Lock()
+		for _, job := range s.jobs {
+			job.Status = "failed"
+			job.Error = "Failed to create scanner HTTP request"
+			job.CompletedAt = time.Now()
+		}
+		s.mu.Unlock()
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-	// Wait for scanner to complete in background
-	err := cmd.Wait()
+	resp, err := scannerHTTPClient.Do(req)
+	if err != nil {
+		fmt.Printf("❌ Scanner unreachable at %s: %v\n", url, err)
+		s.mu.Lock()
+		for _, job := range s.jobs {
+			job.Status = "failed"
+			job.Error = "Scanner service unreachable"
+			job.CompletedAt = time.Now()
+		}
+		s.mu.Unlock()
+		return
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if err != nil {
-		fmt.Printf("❌ Scanner execution failed: %v\n", err)
-		// Mark all as failed
+	if resp.StatusCode >= 400 {
+		fmt.Printf("❌ Scanner rejected request (%d): %s\n", resp.StatusCode, string(body))
 		for _, job := range s.jobs {
 			job.Status = "failed"
-			job.Error = "Scanner execution failed. Check backend logs."
+			job.Error = fmt.Sprintf("Scanner rejected request (HTTP %d)", resp.StatusCode)
 			job.CompletedAt = time.Now()
 		}
 		return
 	}
 
-	fmt.Println("✅ Scanner completed successfully!")
+	fmt.Println("✅ Scanner dispatched successfully!")
 
 	// Mark all as completed
 	for _, job := range s.jobs {
@@ -252,7 +281,7 @@ func (s *ScanOrchestrationService) GetScanStatus(ctx context.Context) *ScanAllSt
 		status.ProgressPercent = (status.CompletedJobs * 100) / status.TotalJobs
 	}
 
-	// If we are running (Python scan active) but haven't finished, fake some progress
+	// If we are running (scan active) but haven't finished, show indicative progress
 	if status.RunningJobs > 0 && status.ProgressPercent < 90 {
 		// Just a visual indicator that it's not stuck
 		status.ProgressPercent = 50

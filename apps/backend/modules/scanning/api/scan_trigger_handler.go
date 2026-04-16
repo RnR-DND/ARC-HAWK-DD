@@ -238,10 +238,10 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		return
 	}
 
-	// Use SCANNER_URL from environment directly — no guessing
+	// Use SCANNER_URL from environment, defaulting to Go scanner
 	scannerURL := os.Getenv("SCANNER_URL")
 	if scannerURL == "" {
-		scannerURL = "http://scanner:5002"
+		scannerURL = "http://go-scanner:8001"
 	}
 	url := fmt.Sprintf("%s/scan", scannerURL)
 

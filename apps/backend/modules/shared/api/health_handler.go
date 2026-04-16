@@ -149,7 +149,7 @@ func (h *HealthHandler) checkScanner(ctx context.Context) ComponentHealth {
 	// First check if the scanner HTTP endpoint is reachable
 	scannerURL := os.Getenv("SCANNER_URL")
 	if scannerURL == "" {
-		scannerURL = "http://scanner:5002"
+		scannerURL = "http://go-scanner:8001"
 	}
 
 	client := &http.Client{Timeout: 3 * time.Second}
