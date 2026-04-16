@@ -3,11 +3,6 @@ set -e
 
 echo "🚀 Setting up ARC Hawk Development Environment..."
 
-# Setup Scanner
-echo "📦 Installing Scanner dependencies..."
-cd ../../apps/scanner
-pip3 install -r requirements.txt
-
 # Setup Backend
 echo "📦 Downloading Backend dependencies..."
 cd ../backend

@@ -1,3 +1,0 @@
-{"id":"name_tp_001","raw_value":"Rajesh Kumar","column_name":"full_name","context":"common Indian full name","expected_layer":"ml","expected_category":"Contact Information","expected_confidence_band":"medium"}
-{"id":"name_tp_002","raw_value":"Priya Sharma","column_name":"customer_name","context":"Indian female name","expected_layer":"ml","expected_category":"Contact Information","expected_confidence_band":"medium"}
-{"id":"name_tp_003","raw_value":"Mohammed Ali Khan","column_name":"name","context":"Indian Muslim name","expected_layer":"ml","expected_category":"Contact Information","expected_confidence_band":"medium"}

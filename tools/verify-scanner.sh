@@ -84,36 +84,18 @@ else
     echo "   Response: $BODY"
 fi
 
-# Determine script directory
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PROJECT_ROOT="$( dirname "$SCRIPT_DIR" )"
-SCANNER_DIR="$PROJECT_ROOT/apps/scanner"
-
-# Test 4: Verify scanner Python environment
+# Test 4: Verify Go scanner health
 echo ""
-echo "🔄 Step 4: Verify scanner Python environment..."
+echo "🔄 Step 4: Verify Go scanner health..."
 
-if [ -d "$SCANNER_DIR" ]; then
-    echo "   Scanner directory found: $SCANNER_DIR"
+GO_SCANNER_URL="http://localhost:8001"
+SCANNER_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$GO_SCANNER_URL/health" 2>&1 || echo "000")
 
-    if [ -f "$SCANNER_DIR/requirements.txt" ]; then
-        echo "   Requirements file found"
-
-        # Check if hawk_scanner module is available
-        if command -v python3 &> /dev/null; then
-            PYTHON_CHECK=$(cd "$SCANNER_DIR" && python3 -c "import hawk_scanner; print('Scanner module available')" 2>&1 || echo "Module not found")
-            if echo "$PYTHON_CHECK" | grep -q "Scanner module available"; then
-                echo "✅ Python scanner module accessible"
-            else
-                echo "⚠️  Python scanner module not accessible in current environment"
-                echo "   Activate virtual environment or install with: cd apps/scanner && pip install -r requirements.txt"
-            fi
-        else
-            echo "⚠️  Python3 not found"
-        fi
-    fi
+if [ "$SCANNER_HEALTH" = "200" ]; then
+    echo "✅ Go scanner is healthy"
 else
-    echo "❌ Scanner directory not found at $SCANNER_DIR"
+    echo "⚠️  Go scanner not reachable at $GO_SCANNER_URL (HTTP $SCANNER_HEALTH)"
+    echo "   Start with: docker-compose up -d go-scanner"
 fi
 
 echo ""
@@ -124,10 +106,9 @@ echo ""
 echo "📋 Summary:"
 echo "   Backend: $([ "$HEALTH_RESPONSE" = "200" ] && echo "✅ Running" || echo "❌ Not running")"
 echo "   Ingestion: $([ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] && echo "✅ Working" || echo "⚠️ Check response")"
-echo "   Scanner Module: $(command -v python3 &> /dev/null && echo "✅ Available" || echo "⚠️ Not installed")"
+echo "   Go Scanner: $([ "$SCANNER_HEALTH" = "200" ] && echo "✅ Running" || echo "⚠️ Not running")"
 echo ""
 echo "🔧 To run a full scanner test:"
 echo "   1. Ensure Docker is running: docker-compose up -d"
 echo "   2. Start backend: cd apps/backend && go run cmd/server/main.go"
-echo "   3. Install scanner: cd apps/scanner && pip install -r requirements.txt"
-echo "   4. Run scan: python -m hawk_scanner.main fs --connection config/connection.yml --json output.json"
+echo "   3. Start scanner: docker-compose up -d go-scanner"

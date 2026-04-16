@@ -1,3 +1,0 @@
-{"id":"phone_tp_001","raw_value":"9876543210","column_name":"mobile","context":"Indian mobile 10-digit","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}
-{"id":"phone_tp_002","raw_value":"+919876543210","column_name":"phone_number","context":"India country code + 10-digit","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}
-{"id":"phone_tp_003","raw_value":"09876543210","column_name":"contact","context":"Leading 0 Indian mobile","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}

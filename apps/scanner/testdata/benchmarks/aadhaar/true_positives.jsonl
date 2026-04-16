@@ -1,3 +1,0 @@
-{"id":"aadhaar_tp_001","raw_value":"2345 6789 0123","column_name":"aadhaar_number","context":"customer KYC record","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
-{"id":"aadhaar_tp_002","raw_value":"234567890123","column_name":"uid","context":"employee onboarding form","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
-{"id":"aadhaar_tp_003","raw_value":"8765 4321 0987","column_name":"aadhar_no","context":"bank account KYC","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}

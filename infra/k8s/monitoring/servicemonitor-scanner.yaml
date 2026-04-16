@@ -26,7 +26,7 @@ spec:
           regex: "hawk_.*"
           action: keep
         - sourceLabels: [__name__]
-          regex: "python_.*"
+          regex: "go_.*"
           action: keep
         - sourceLabels: [__name__]
           regex: "http_.*"

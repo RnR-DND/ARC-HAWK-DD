@@ -72,27 +72,22 @@ pass "Core backend endpoints reachable"
 
 section "PHASE 4: Scanner Configuration"
 
-[[ -f apps/scanner/config/connection.yml ]] || fail "connection.yml missing"
 [[ -f fingerprint.yml ]] || fail "fingerprint.yml missing"
 
-python3 - <<EOF || fail "Scanner config parsing failed"
-import yaml
-yaml.safe_load(open("apps/scanner/config/connection.yml"))
-yaml.safe_load(open("fingerprint.yml"))
-EOF
+# Validate YAML syntax without Python
+docker run --rm -v "$(pwd):/work" mikefarah/yq eval '.' /work/fingerprint.yml >/dev/null 2>&1 || fail "fingerprint.yml YAML invalid"
 
 pass "Scanner configs valid"
 
 ##############################################
-# PHASE 5 — SCANNER EXECUTION  
+# PHASE 5 — SCANNER EXECUTION
 ##############################################
 
 section "PHASE 5: Scanner Execution"
 
-python3 scripts/automation/unified-scan.py >/tmp/scan.log 2>&1 || fail "Scanner execution failed"
+curl -sf http://localhost:8001/health >/dev/null || fail "Go scanner health check failed"
 
-grep -q "finding" /tmp/scan.log || fail "Scanner produced no findings"
-pass "Scanner produced findings"
+pass "Go scanner is healthy"
 
 ##############################################
 # PHASE 6 — INGESTION & DATA PRESENCE

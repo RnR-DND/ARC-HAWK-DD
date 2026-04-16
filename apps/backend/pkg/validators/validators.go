@@ -43,7 +43,7 @@ func Validate(piiType, value string) bool {
 	}
 }
 
-// MapPatternToPIIType converts hawk_scanner pattern names to canonical PII type strings.
+// MapPatternToPIIType converts scanner pattern names to canonical PII type strings.
 // Returns empty string for unrecognized patterns (caller should keep the finding).
 func MapPatternToPIIType(patternName string) string {
 	name := strings.ToLower(patternName)

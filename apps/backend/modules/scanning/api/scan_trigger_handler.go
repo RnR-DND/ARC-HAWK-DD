@@ -216,7 +216,7 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		}
 	}
 
-	// Build the HTTP payload expected by the python scanner API
+	// Build the HTTP payload expected by the Go scanner API
 	payload := map[string]any{
 		"scan_id":            scanID.String(),
 		"scan_name":          req.Name,
