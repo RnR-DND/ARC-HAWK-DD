@@ -16,7 +16,7 @@ export interface CustomPattern {
 export const patternsApi = {
     getPatterns: async (): Promise<CustomPattern[]> => {
         try {
-            const response = await get<any>('/patterns');
+            const response = await get<{ data: CustomPattern[] }>('/patterns');
             return response?.data ?? [];
         } catch {
             return [];
@@ -24,16 +24,16 @@ export const patternsApi = {
     },
 
     createPattern: async (pattern: Omit<CustomPattern, 'id' | 'created_at'>): Promise<CustomPattern> => {
-        const response = await post<any>('/patterns', pattern);
+        const response = await post<{ data: CustomPattern }>('/patterns', pattern);
         return response?.data ?? response;
     },
 
     updatePattern: async (id: string, pattern: Partial<CustomPattern>): Promise<CustomPattern> => {
-        const response = await put<any>(`/patterns/${id}`, pattern);
+        const response = await put<{ data: CustomPattern }>(`/patterns/${id}`, pattern);
         return response?.data ?? response;
     },
 
     deletePattern: async (id: string): Promise<void> => {
-        await del<any>(`/patterns/${id}`);
+        await del<void>(`/patterns/${id}`);
     },
 };

@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 
 // Standard API Response wrapper
 export interface ApiResponse<T> {
@@ -22,29 +22,13 @@ export const apiClient: AxiosInstance = axios.create({
         'Content-Type': 'application/json',
     },
     timeout: 10000, // 10s timeout
+    withCredentials: true, // send httpOnly session cookies automatically
 });
-
-// Request Interceptor
-apiClient.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('arc_hawk_token');
-            if (token) {
-                config.headers = config.headers || {};
-                config.headers.Authorization = `Bearer ${token}`;
-            }
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
 
 // Response Interceptor
 apiClient.interceptors.response.use(
     (response: AxiosResponse) => response,
     async (error: AxiosError) => {
-        const originalRequest = error.config;
-
         // Log Error
         console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
             status: error.response?.status,
@@ -52,11 +36,12 @@ apiClient.interceptors.response.use(
             message: error.message
         });
 
-        // Simple Retry Logic (optional, for idempotency)
-        // if (error.code === 'ECONNABORTED' && !originalRequest._retry) {
-        //     originalRequest._retry = true;
-        //     return apiClient(originalRequest);
-        // }
+        // Redirect to login on auth failure
+        if (error.response?.status === 401 || error.response?.status === 403) {
+            if (typeof window !== 'undefined') {
+                window.location.href = '/login';
+            }
+        }
 
         return Promise.reject(error);
     }

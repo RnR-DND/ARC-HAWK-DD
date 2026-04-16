@@ -1,5 +1,7 @@
 import { get } from '@/utils/api-client';
 
+type AuditLogResponse = AuditLogEntry[] | { data?: AuditLogEntry[]; logs?: AuditLogEntry[] };
+
 export interface AuditLogEntry {
     id: string;
     user_id: string;
@@ -35,7 +37,7 @@ export const auditApi = {
             if (filters?.offset)        params.set('offset', String(filters.offset));
 
             const query = params.toString() ? `?${params}` : '';
-            const res = await get<any>(`/audit/logs${query}`);
+            const res = await get<AuditLogResponse>(`/audit/logs${query}`);
             return Array.isArray(res) ? res : (res?.data ?? res?.logs ?? []);
         } catch {
             return [];
@@ -44,7 +46,7 @@ export const auditApi = {
 
     getRecentActivity: async (limit = 20): Promise<AuditLogEntry[]> => {
         try {
-            const res = await get<any>(`/audit/recent?limit=${limit}`);
+            const res = await get<AuditLogResponse>(`/audit/recent?limit=${limit}`);
             return Array.isArray(res) ? res : (res?.data ?? res?.logs ?? []);
         } catch {
             return [];
@@ -53,7 +55,7 @@ export const auditApi = {
 
     getUserActivity: async (userId: string): Promise<AuditLogEntry[]> => {
         try {
-            const res = await get<any>(`/audit/user/${userId}`);
+            const res = await get<AuditLogResponse>(`/audit/user/${userId}`);
             return Array.isArray(res) ? res : (res?.data ?? res?.logs ?? []);
         } catch {
             return [];
@@ -62,7 +64,7 @@ export const auditApi = {
 
     getResourceHistory: async (resourceType: string, resourceId: string): Promise<AuditLogEntry[]> => {
         try {
-            const res = await get<any>(`/audit/resource/${resourceType}/${resourceId}`);
+            const res = await get<AuditLogResponse>(`/audit/resource/${resourceType}/${resourceId}`);
             return Array.isArray(res) ? res : (res?.data ?? res?.logs ?? []);
         } catch {
             return [];
