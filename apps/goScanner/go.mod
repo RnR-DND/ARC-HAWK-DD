@@ -1,6 +1,6 @@
 module github.com/arc-platform/go-scanner
 
-go 1.22
+go 1.25.0
 
 require (
 	cloud.google.com/go/bigquery v1.61.0
@@ -27,7 +27,7 @@ require (
 	github.com/xuri/excelize/v2 v2.8.1
 	go.mongodb.org/mongo-driver v1.15.0
 	golang.org/x/net v0.26.0
-	golang.org/x/sync v0.10.0
+	golang.org/x/sync v0.20.0
 	google.golang.org/api v0.175.0
 	modernc.org/sqlite v1.29.9
 )
