@@ -76,20 +76,6 @@ class PANValidator:
         if clean[3] not in cls.VALID_ENTITY_TYPES:
             return False
         
-        # === STRICT ANTI-FAKE CHECKS ===
-        
-        # 1. Reject obvious test patterns - first 3 letters the same
-        if len(set(clean[:3])) == 1:  # All same letter (AAA, BBB, etc.)
-            return False
-
-        #2. Reject sequential alphabet patterns
-        if clean[:3] in {s[:3] for s in cls._INVALID_PREFIXES}:
-            return False
-        
-        # 3. Reject repeated digit sequences (all 4 same)
-        if len(set(clean[5:9])) == 1:  # All same digit (e.g., 1111, 9999)
-            return False
-        
         # 4. Context-based rejection: if found in code files, likely test data
         if context:
             code_indicators = [
