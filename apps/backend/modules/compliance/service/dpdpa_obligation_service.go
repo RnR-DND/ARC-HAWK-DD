@@ -7,6 +7,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // DPDPAObligation identifies a specific DPDPA 2023 section.
@@ -110,17 +111,21 @@ func (s *DPDPAObligationService) BuildGapReport(ctx context.Context) (*Complianc
 	return report, nil
 }
 
-// checkSec4LawfulProcessing — Sec 4: is consent tag present on assets with PII?
+// checkSec4LawfulProcessing — Sec 4: assets with PII requiring consent must have an active consent record.
 func (s *DPDPAObligationService) checkSec4LawfulProcessing(ctx context.Context, report *ComplianceGapReport) error {
+	// Only returns rows where consent IS required (HAVING) AND no active consent record exists.
+	// Every row returned is therefore a FAIL.
 	const query = `
-		SELECT DISTINCT a.id, a.name,
-			BOOL_OR(cl.requires_consent) AS requires_consent,
-			ARRAY_AGG(f.id ORDER BY f.id) FILTER (WHERE cl.requires_consent) AS evidence_ids
+		SELECT
+			a.id,
+			a.name,
+			COALESCE(ARRAY_AGG(DISTINCT f.id::text) FILTER (WHERE cl.requires_consent = TRUE), ARRAY[]::text[]) AS evidence_ids
 		FROM assets a
 		JOIN findings f ON f.asset_id = a.id
 		JOIN classifications cl ON cl.finding_id = f.id
+		LEFT JOIN consent_records cr ON cr.asset_id = a.id AND cr.is_active = TRUE
 		GROUP BY a.id, a.name
-		HAVING COUNT(f.id) > 0
+		HAVING BOOL_OR(cl.requires_consent) = TRUE AND COUNT(cr.id) = 0
 	`
 	rows, err := s.pgRepo.GetDB().QueryContext(ctx, query)
 	if err != nil {
@@ -132,24 +137,23 @@ func (s *DPDPAObligationService) checkSec4LawfulProcessing(ctx context.Context, 
 	for rows.Next() {
 		var assetID uuid.UUID
 		var assetName string
-		var requiresConsent bool
 		var evidenceIDStrs []string
-		if err := rows.Scan(&assetID, &assetName, &requiresConsent, &evidenceIDStrs); err != nil {
+		if err := rows.Scan(&assetID, &assetName, pq.Array(&evidenceIDStrs)); err != nil {
 			continue
 		}
-		status := StatusPass
-		detail := "Consent tag present or not required"
-		if requiresConsent {
-			status = StatusFail
-			detail = "Asset contains PII requiring consent but no consent record linked"
-		}
-		gaps = append(gaps, ObligationGap{
+		gap := ObligationGap{
 			AssetID:    assetID,
 			AssetName:  assetName,
 			Obligation: ObligationSec4LawfulProcessing,
-			Status:     status,
-			Detail:     detail,
-		})
+			Status:     StatusFail,
+			Detail:     "Asset contains PII requiring consent but no active consent record found (DPDPA Sec 4)",
+		}
+		for _, eidStr := range evidenceIDStrs {
+			if id, err := uuid.Parse(eidStr); err == nil {
+				gap.EvidenceIDs = append(gap.EvidenceIDs, id)
+			}
+		}
+		gaps = append(gaps, gap)
 	}
 	report.GapsBySection[ObligationSec4LawfulProcessing] = gaps
 	return rows.Err()
@@ -197,23 +201,43 @@ func (s *DPDPAObligationService) checkSec5PurposeLimitation(ctx context.Context,
 	return rows.Err()
 }
 
-// checkSec6Consent — Sec 6: consent record linked to data asset?
-// Delegates to Sec 4 result (same signal). Separate obligation entry for report granularity.
+// checkSec6Consent — Sec 6: independently verify consent record health for each asset.
+// Queries consent_status_view for expired or withdrawn consents.
 func (s *DPDPAObligationService) checkSec6Consent(ctx context.Context, report *ComplianceGapReport) error {
-	sec4gaps := report.GapsBySection[ObligationSec4LawfulProcessing]
+	const query = `
+		SELECT csv.asset_id, a.name, COUNT(*) AS invalid_count
+		FROM consent_status_view csv
+		JOIN assets a ON a.id = csv.asset_id
+		WHERE csv.status IN ('WITHDRAWN', 'EXPIRED')
+		  AND csv.asset_id IS NOT NULL
+		GROUP BY csv.asset_id, a.name
+	`
+	rows, err := s.pgRepo.GetDB().QueryContext(ctx, query)
+	if err != nil {
+		// consent_status_view may not exist in older deployments — skip gracefully.
+		report.GapsBySection[ObligationSec6Consent] = nil
+		return nil
+	}
+	defer rows.Close()
+
 	var gaps []ObligationGap
-	for _, g := range sec4gaps {
-		newGap := g
-		newGap.Obligation = ObligationSec6Consent
-		if g.Status == StatusFail {
-			newGap.Detail = "No consent record linked to asset (DPDPA Sec 6)"
-		} else {
-			newGap.Detail = "Consent record present or data does not require consent"
+	for rows.Next() {
+		var assetID uuid.UUID
+		var assetName string
+		var invalidCount int
+		if err := rows.Scan(&assetID, &assetName, &invalidCount); err != nil {
+			continue
 		}
-		gaps = append(gaps, newGap)
+		gaps = append(gaps, ObligationGap{
+			AssetID:    assetID,
+			AssetName:  assetName,
+			Obligation: ObligationSec6Consent,
+			Status:     StatusFail,
+			Detail:     fmt.Sprintf("Asset has %d expired or withdrawn consent record(s) — re-obtain consent (DPDPA Sec 6)", invalidCount),
+		})
 	}
 	report.GapsBySection[ObligationSec6Consent] = gaps
-	return nil
+	return rows.Err()
 }
 
 // checkSec8DataAccuracy — Sec 8: flag assets not re-scanned within 90 days (stale data).
@@ -231,7 +255,10 @@ func (s *DPDPAObligationService) checkSec8DataAccuracy(ctx context.Context, repo
 	}
 	defer rows.Close()
 
-	threshold := time.Now().AddDate(0, 0, -90)
+	// Try to get tenant-specific threshold, fall back to 90 days.
+	// TODO: Query tenant settings for data_accuracy_rescan_days when available.
+	rescanDays := 90
+	threshold := time.Now().AddDate(0, 0, -rescanDays)
 	var gaps []ObligationGap
 	for rows.Next() {
 		var assetID uuid.UUID
@@ -241,10 +268,10 @@ func (s *DPDPAObligationService) checkSec8DataAccuracy(ctx context.Context, repo
 			continue
 		}
 		status := StatusPass
-		detail := "Data scanned within 90 days"
+		detail := fmt.Sprintf("Data scanned within %d days", rescanDays)
 		if lastScan == nil || lastScan.Before(threshold) {
 			status = StatusFail
-			detail = "Asset data not re-scanned within 90 days — accuracy cannot be confirmed (DPDPA Sec 8)"
+			detail = fmt.Sprintf("Asset data not re-scanned within %d days — accuracy cannot be confirmed. Configure tenant-specific rescan interval via tenant settings. (DPDPA Sec 8)", rescanDays)
 		}
 		gaps = append(gaps, ObligationGap{
 			AssetID:    assetID,
@@ -307,6 +334,28 @@ func (s *DPDPAObligationService) checkSec9ChildrensData(ctx context.Context, rep
 			EvidenceIDs: info.findIDs,
 		})
 	}
+
+	// If no assets with age-indicator patterns were found, determine whether this is
+	// because there is genuinely no children's data, or because no assets have been
+	// scanned at all (NOT_ASSESSED).
+	if len(assetFindings) == 0 {
+		var totalAssetsScanned int
+		_ = s.pgRepo.GetDB().QueryRowContext(ctx, `
+			SELECT COUNT(DISTINCT a.id) FROM assets a
+			WHERE EXISTS (SELECT 1 FROM findings f WHERE f.asset_id = a.id)
+		`).Scan(&totalAssetsScanned)
+
+		if totalAssetsScanned == 0 {
+			gaps = append(gaps, ObligationGap{
+				AssetID:    uuid.Nil,
+				AssetName:  "",
+				Obligation: ObligationSec9ChildrensData,
+				Status:     StatusUnknown,
+				Detail:     "No assets have been scanned for children's data indicators (AGE_INDICATOR pattern). Configure scanner to detect age-related PII and rescan all assets.",
+			})
+		}
+	}
+
 	report.GapsBySection[ObligationSec9ChildrensData] = gaps
 	return nil
 }

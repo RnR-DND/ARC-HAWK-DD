@@ -34,6 +34,17 @@ func (h *AnalyticsHandler) GetPIIHeatmap(c *gin.Context) {
 	c.JSON(http.StatusOK, heatmap)
 }
 
+// GetRiskDistribution returns the count of findings per severity level.
+// GET /api/v1/analytics/risk-distribution
+func (h *AnalyticsHandler) GetRiskDistribution(c *gin.Context) {
+	result, err := h.service.GetRiskDistribution(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 // GetRiskTrend returns risk trends over time
 // GET /api/v1/analytics/trends?days=30
 func (h *AnalyticsHandler) GetRiskTrend(c *gin.Context) {

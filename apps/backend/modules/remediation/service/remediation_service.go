@@ -261,10 +261,7 @@ func (s *RemediationService) GenerateRemediationPreview(ctx context.Context, fin
 	// Generate request ID
 	requestID := uuid.New().String()
 
-	// Store preview in cache/database for later execution
-	// TODO: Implement preview storage
-
-	return &RemediationPreview{
+	preview := &RemediationPreview{
 		RequestID:  requestID,
 		FindingIDs: findingIDs,
 		ActionType: actionType,
@@ -277,14 +274,73 @@ func (s *RemediationService) GenerateRemediationPreview(ctx context.Context, fin
 		},
 		Findings:             findings,
 		RequiresConfirmation: true,
-	}, nil
+	}
+
+	// Persist preview for single-use execution via ExecuteRemediationRequest.
+	previewJSON, err := json.Marshal(preview)
+	if err == nil {
+		_, storeErr := s.db.ExecContext(ctx, `
+			INSERT INTO remediation_previews (id, preview_data, expires_at)
+			VALUES ($1, $2, NOW() + INTERVAL '1 hour')
+		`, requestID, previewJSON)
+		if storeErr != nil {
+			log.Printf("WARNING: Failed to store remediation preview %s: %v", requestID, storeErr)
+		}
+	}
+
+	return preview, nil
 }
 
-// ExecuteRemediationRequest executes a previously previewed remediation request
+// ExecuteRemediationRequest executes a previously previewed remediation request.
+// The preview is single-use — it is deleted after successful execution.
 func (s *RemediationService) ExecuteRemediationRequest(ctx context.Context, requestID string, userID string) (*RemediationResult, error) {
-	// TODO: Retrieve preview from cache/database
-	// For now, return error indicating this needs implementation
-	return nil, fmt.Errorf("remediation request execution not yet implemented - preview storage required")
+	// 1. Retrieve and validate the stored preview.
+	var previewJSON []byte
+	var expiresAt time.Time
+	err := s.db.QueryRowContext(ctx, `
+		SELECT preview_data, expires_at FROM remediation_previews WHERE id = $1
+	`, requestID).Scan(&previewJSON, &expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("remediation preview not found (id=%s): %w", requestID, err)
+	}
+
+	if time.Now().After(expiresAt) {
+		// Clean up expired preview.
+		_, _ = s.db.ExecContext(ctx, `DELETE FROM remediation_previews WHERE id = $1`, requestID)
+		return nil, fmt.Errorf("remediation preview %s has expired", requestID)
+	}
+
+	var preview RemediationPreview
+	if err := json.Unmarshal(previewJSON, &preview); err != nil {
+		return nil, fmt.Errorf("failed to decode remediation preview: %w", err)
+	}
+
+	// 2. Execute remediation for each finding in the preview.
+	result := &RemediationResult{
+		RequestID:  requestID,
+		ExecutedBy: userID,
+		ExecutedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	for _, findingID := range preview.FindingIDs {
+		actionID, err := s.ExecuteRemediation(ctx, findingID, preview.ActionType, userID)
+		if err != nil {
+			result.FailureCount++
+			result.FailedFindingIDs = append(result.FailedFindingIDs, findingID)
+			log.Printf("WARNING: Remediation failed for finding %s: %v", findingID, err)
+		} else {
+			result.SuccessCount++
+			result.ActionID = actionID // last successful action ID for reference
+		}
+	}
+	result.Status = "COMPLETED"
+
+	// 3. Delete the preview — single-use only.
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM remediation_previews WHERE id = $1`, requestID); err != nil {
+		log.Printf("WARNING: Failed to delete remediation preview %s after execution: %v", requestID, err)
+	}
+
+	return result, nil
 }
 
 // Helper function to generate sample after value

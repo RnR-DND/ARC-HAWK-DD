@@ -167,6 +167,39 @@ func (s *AnalyticsService) GetPIIHeatmap(ctx context.Context) (*PIIHeatmap, erro
 	return heatmap, nil
 }
 
+// RiskDistribution contains the count of findings per severity level.
+type RiskDistribution struct {
+	Distribution map[string]int `json:"distribution"`
+	Total        int            `json:"total"`
+}
+
+// GetRiskDistribution returns a count of findings grouped by severity.
+func (s *AnalyticsService) GetRiskDistribution(ctx context.Context) (*RiskDistribution, error) {
+	rows, err := s.pgRepo.GetDB().QueryContext(ctx, `
+		SELECT COALESCE(severity, 'Low'), COUNT(*)
+		FROM findings
+		GROUP BY severity
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query risk distribution: %w", err)
+	}
+	defer rows.Close()
+
+	dist := &RiskDistribution{
+		Distribution: make(map[string]int),
+	}
+	for rows.Next() {
+		var severity string
+		var count int
+		if err := rows.Scan(&severity, &count); err != nil {
+			continue
+		}
+		dist.Distribution[severity] = count
+		dist.Total += count
+	}
+	return dist, rows.Err()
+}
+
 // GetRiskTrend returns risk trends over time
 func (s *AnalyticsService) GetRiskTrend(ctx context.Context, days int) (*RiskTrend, error) {
 	if days <= 0 {
