@@ -455,13 +455,16 @@ function RetentionSection() {
 
 // Maps DPDPA section keys to human-readable titles and descriptions.
 const DPDPA_SECTIONS: Record<string, { title: string; description: string }> = {
-    Sec4:  { title: 'Sec 4 — Lawful Processing',     description: 'Personal data processed only for lawful purposes with valid consent or legitimate use.' },
-    Sec5:  { title: 'Sec 5 — Purpose Limitation',    description: 'Data collected for a specified purpose; not used beyond declared scope.' },
-    Sec6:  { title: 'Sec 6 — Consent',               description: 'Consent obtained, recorded, and linked to each data asset.' },
-    Sec8:  { title: 'Sec 8 — Data Accuracy',         description: 'Data assets scanned within the last 90 days (stale = gap).' },
-    Sec9:  { title: "Sec 9 — Children's Data",       description: 'Age-indicator fields handled under heightened protection.' },
-    Sec10: { title: 'Sec 10 — Data Fiduciary',       description: 'High-risk assets (score > 60) must have a DPO assigned.' },
-    Sec17: { title: 'Sec 17 — Retention',            description: 'No findings violating their declared retention period.' },
+    Sec4:  { title: 'Sec 4 — Lawful Processing',          description: 'Personal data processed only for lawful purposes with valid consent or legitimate use.' },
+    Sec5:  { title: 'Sec 5 — Purpose Limitation',         description: 'Data collected for a specified purpose; not used beyond declared scope.' },
+    Sec6:  { title: 'Sec 6 — Consent',                    description: 'Consent obtained, recorded, and linked to each data asset.' },
+    Sec7:  { title: 'Sec 7 — Data Principal Rights',      description: 'Right to access, correct, erase, and nominate data principal rights.' },
+    Sec8:  { title: 'Sec 8 — Data Accuracy',              description: 'Data assets scanned within the last 90 days (stale = gap).' },
+    Sec9:  { title: "Sec 9 — Children's Data",            description: 'Age-indicator fields handled under heightened protection.' },
+    Sec10: { title: 'Sec 10 — Data Fiduciary',            description: 'High-risk assets (score > 60) must have a DPO assigned.' },
+    Sec11: { title: 'Sec 11 — Grievance Redressal Officer', description: 'Appointment and contact details of Grievance Redressal Officer.' },
+    Sec12: { title: 'Sec 12 — Cross-Border Data Transfer', description: 'Data transfer outside India must comply with government-approved countries list.' },
+    Sec17: { title: 'Sec 17 — Retention',                 description: 'No findings violating their declared retention period.' },
 };
 
 function DPDPAObligationChecklist() {
@@ -622,13 +625,26 @@ function DPDPAObligationChecklist() {
                                                                 fontSize: '11px',
                                                                 padding: '2px 8px',
                                                                 borderRadius: '4px',
-                                                                backgroundColor: gap.status === 'pass' ? `${theme.colors.risk.low}20` : `${theme.colors.risk.high}20`,
-                                                                color: gap.status === 'pass' ? theme.colors.risk.low : theme.colors.risk.high,
+                                                                backgroundColor: gap.status === 'pass'
+                                                                    ? `${theme.colors.risk.low}20`
+                                                                    : gap.status === 'NOT_ASSESSED'
+                                                                        ? `${theme.colors.risk.medium}20`
+                                                                        : `${theme.colors.risk.high}20`,
+                                                                color: gap.status === 'pass'
+                                                                    ? theme.colors.risk.low
+                                                                    : gap.status === 'NOT_ASSESSED'
+                                                                        ? theme.colors.risk.medium
+                                                                        : theme.colors.risk.high,
                                                                 fontWeight: 600,
                                                                 textTransform: 'uppercase',
                                                             }}>
-                                                                {gap.status}
+                                                                {gap.status === 'NOT_ASSESSED' ? '⚠ Not Assessed' : gap.status}
                                                             </span>
+                                                            {gap.status === 'NOT_ASSESSED' && section.section === 'Sec9' && (
+                                                                <div style={{ fontSize: '11px', color: theme.colors.risk.medium, marginTop: '4px' }}>
+                                                                    Enable AGE_INDICATOR scanning
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td style={{ padding: '10px 16px', color: theme.colors.text.secondary }}>
                                                             {gap.evidence}
@@ -642,6 +658,14 @@ function DPDPAObligationChecklist() {
                                 {isOpen && gapItems.length === 0 && (
                                     <div style={{ padding: '12px 16px', borderTop: `1px solid ${theme.colors.border.default}`, fontSize: '13px', color: theme.colors.text.secondary }}>
                                         All assets compliant for this section.
+                                    </div>
+                                )}
+                                {isOpen && section.section === 'Sec7' && (
+                                    <div style={{ borderTop: `1px solid ${theme.colors.border.default}`, padding: '10px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <a href="/compliance/dpr" style={{ color: theme.colors.primary.DEFAULT, fontWeight: 600, textDecoration: 'none' }}>
+                                            Manage requests →
+                                        </a>
+                                        <span style={{ fontSize: '12px', color: theme.colors.text.muted }}>Data Principal Rights intake</span>
                                     </div>
                                 )}
                             </div>
