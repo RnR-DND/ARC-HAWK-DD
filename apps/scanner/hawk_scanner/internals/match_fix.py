@@ -42,6 +42,7 @@ def match_strings(args, content, source='text'):
     PRIORITY = {
         "IN_AADHAAR": 6,
         "CREDIT_CARD": 5,
+        "IN_VOTER_ID": 5,
         "IN_PAN": 4,
         "IN_PASSPORT": 4,
         "IN_DRIVING_LICENSE": 3,
@@ -95,7 +96,21 @@ def match_strings(args, content, source='text'):
                         keep = False
                         break
                 else:
-                    continue
+                    if r.entity_type == "IN_PHONE" and f.entity_type == "IN_UPI":
+                        keep = False
+                        break
+
+                    if r.entity_type == "IN_UPI" and f.entity_type == "IN_PHONE":
+                        to_remove.append(i)
+                        continue
+                continue
+
+                if r.entity_type == "IN_PASSPORT":
+                    full_text = content[max(0, r.start-3):r.end]
+
+                if re.search(r'[A-Z]{2}\s[A-Z][0-9]{7}', full_text):
+                    keep = False
+                    break
 
         if keep:
             for idx in reversed(to_remove):
@@ -182,6 +197,9 @@ def match_strings(args, content, source='text'):
 
             if len(clean) != 12:
                 continue
+
+        if r.entity_type == "IN_VOTER_ID":
+            normalized_text = normalized_text.replace(" ", "")
 
         # -------------------------------
         # VALIDATION
