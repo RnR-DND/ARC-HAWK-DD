@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -26,7 +27,7 @@ func NewConfig() *Config {
 		User:     getEnv("DB_USER", "postgres"),
 		Password: getEnv("DB_PASSWORD", ""),
 		DBName:   getEnv("DB_NAME", "arc_platform"),
-		SSLMode:  getEnv("DB_SSLMODE", "disable"),
+		SSLMode:  getEnv("DB_SSLMODE", "require"),
 	}
 }
 
@@ -48,8 +49,10 @@ func Connect(config *Config) (*sql.DB, error) {
 	}
 
 	// Set connection pool settings
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(30 * time.Minute)
+	db.SetConnMaxIdleTime(10 * time.Minute)
 
 	return db, nil
 }

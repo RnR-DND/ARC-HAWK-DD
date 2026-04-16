@@ -20,6 +20,7 @@ var (
 	ErrInvalidPassword   = errors.New("invalid password")
 	ErrUserInactive      = errors.New("user account is inactive")
 	ErrEmailExists       = errors.New("email already registered")
+	ErrAccountLocked     = errors.New("account locked due to too many failed login attempts")
 )
 
 type UserService struct {
@@ -79,9 +80,28 @@ func (s *UserService) Authenticate(ctx context.Context, email, password, tenantI
 		return nil, "", "", ErrUserNotFound
 	}
 
+	// B-08: Check account lockout
+	db := s.repo.GetDB()
+	var failedAttempts int
+	var lockedUntil sql.NullTime
+	_ = db.QueryRowContext(ctx, `SELECT failed_login_attempts, locked_until FROM users WHERE id = $1`, user.ID).Scan(&failedAttempts, &lockedUntil)
+	if lockedUntil.Valid && time.Now().Before(lockedUntil.Time) {
+		return nil, "", "", ErrAccountLocked
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		newAttempts := failedAttempts + 1
+		if newAttempts >= 10 {
+			lockUntil := time.Now().Add(15 * time.Minute)
+			_, _ = db.ExecContext(ctx, `UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3`, newAttempts, lockUntil, user.ID)
+		} else {
+			_, _ = db.ExecContext(ctx, `UPDATE users SET failed_login_attempts = $1 WHERE id = $2`, newAttempts, user.ID)
+		}
 		return nil, "", "", ErrInvalidPassword
 	}
+
+	// Reset on successful login
+	_, _ = db.ExecContext(ctx, `UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1`, user.ID)
 
 	sessionID := uuid.New()
 	token, refreshToken, err := s.jwtService.GenerateToken(user, sessionID)

@@ -123,7 +123,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 		if authHeader == "" {
 			// In dev mode (AUTH_REQUIRED != "true"), allow anonymous access
 			// This mirrors the global authMiddleware behavior in main.go
-			if os.Getenv("AUTH_REQUIRED") != "true" {
+			if os.Getenv("AUTH_REQUIRED") == "false" {
 				// Set anonymous defaults so handlers don't crash
 				c.Set("user_id", uuid.Nil)
 				c.Set("user_email", "anonymous@dev.local")

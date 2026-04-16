@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"regexp"
 	"strings"
 )
@@ -88,93 +89,45 @@ func ScrubPII(input string, config *ScrubConfig) string {
 	return result
 }
 
-func ScrubJSONLog(jsonStr string) string {
-	var result strings.Builder
-	inString := false
-	escapeNext := false
-	currentKey := ""
-
-	for i := 0; i < len(jsonStr); i++ {
-		ch := jsonStr[i]
-
-		if escapeNext {
-			result.WriteByte(ch)
-			escapeNext = false
-			continue
-		}
-
-		if ch == '\\' {
-			result.WriteByte(ch)
-			escapeNext = true
-			continue
-		}
-
-		if ch == '"' {
-			if !inString {
-				inString = true
-				currentKey = ""
-			} else {
-				currentKey = result.String()
-				keyEnd := strings.LastIndex(result.String(), "\"")
-				if keyEnd > 0 {
-					currentKey = result.String()[keyEnd+1:]
-				}
-				inString = false
-			}
-			result.WriteByte(ch)
-			continue
-		}
-
-		if inString {
-			result.WriteByte(ch)
-			continue
-		}
-
-		if ch == ':' {
-			trimmedKey := strings.TrimSpace(currentKey)
-			if shouldScrubKey(trimmedKey) {
-				result.WriteString(": [REDACTED]")
-				i++
-				for i < len(jsonStr) && (jsonStr[i] == ' ' || jsonStr[i] == '\t') {
-					i++
-				}
-				if i < len(jsonStr) && jsonStr[i] == '"' {
-					inString = true
-					for i < len(jsonStr) && jsonStr[i] != '"' {
-						i++
-					}
-					if i < len(jsonStr) {
-						i--
-					}
-				} else if i < len(jsonStr) && (jsonStr[i] == '{' || jsonStr[i] == '[') {
-					i--
-				}
-			} else {
-				result.WriteByte(ch)
-			}
-			continue
-		}
-
-		result.WriteByte(ch)
-	}
-
-	return result.String()
+var sensitiveKeys = map[string]bool{
+	"password": true, "token": true, "secret": true, "key": true,
+	"credential": true, "api_key": true, "aadhaar": true, "pan": true,
+	"normalized_match": true, "authorization": true, "jwt": true,
+	"refresh_token": true, "access_token": true, "encryption_key": true,
 }
 
-func shouldScrubKey(key string) bool {
-	lowerKey := strings.ToLower(key)
-	sensitiveKeys := []string{
-		"password", "passwd", "pwd", "secret", "token", "apikey", "api_key",
-		"access_key", "accesskey", "private_key", "privatekey", "credential",
-		"config", "connection_string", "connection_string", "db_password",
-		"db_pass", "encryption_key", "jwt_secret", "admin_password",
+func ScrubJSONLog(jsonStr string) string {
+	var obj interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &obj); err != nil {
+		return "[invalid json]"
 	}
-	for _, sk := range sensitiveKeys {
-		if strings.Contains(lowerKey, sk) {
-			return true
+	scrubbed := scrubValue(obj)
+	out, err := json.Marshal(scrubbed)
+	if err != nil {
+		return "[marshal error]"
+	}
+	return string(out)
+}
+
+func scrubValue(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		for k := range val {
+			if sensitiveKeys[strings.ToLower(k)] {
+				val[k] = "[REDACTED]"
+			} else {
+				val[k] = scrubValue(val[k])
+			}
 		}
+		return val
+	case []interface{}:
+		for i, item := range val {
+			val[i] = scrubValue(item)
+		}
+		return val
+	default:
+		return v
 	}
-	return false
 }
 
 // SanitizeForLog is the single call-site for safe logging of values that may

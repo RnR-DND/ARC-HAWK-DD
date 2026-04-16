@@ -15,7 +15,7 @@ import (
 	"github.com/arc-platform/backend/modules/analytics"
 	"github.com/arc-platform/backend/modules/assets"
 	"github.com/arc-platform/backend/modules/auth"
-	"github.com/arc-platform/backend/modules/auth/service"
+	authmiddleware "github.com/arc-platform/backend/modules/auth/middleware"
 	"github.com/arc-platform/backend/modules/compliance"
 	"github.com/arc-platform/backend/modules/connections"
 	"github.com/arc-platform/backend/modules/discovery"
@@ -277,72 +277,11 @@ func main() {
 	router.Use(middleware.SecurityHeaders())
 	log.Println("🔒 Security Headers enabled (HSTS, CSP, X-Frame-Options)")
 
-	// Initialize JWT service
-	jwtService := service.NewJWTService(db)
-
-	// Public paths that do not require authentication
-	publicPaths := map[string]bool{
-		"/api/v1/auth/login":    true,
-		"/api/v1/auth/register": true,
-		"/api/v1/auth/refresh":  true,
-		"/api/v1/health":        true,
-	}
-
-	authMiddleware := func(c *gin.Context) {
-		path := c.Request.URL.Path
-
-		if publicPaths[path] {
-			c.Next()
-			return
-		}
-
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			if getEnv("AUTH_REQUIRED", "true") != "false" {
-				c.JSON(401, gin.H{"error": "Authorization required", "message": "Please provide a valid Bearer token"})
-				c.Abort()
-				return
-			}
-			// Dev-only: use dedicated system tenant UUID (never uuid.Nil — C-1)
-			devTenant := persistence.DevSystemTenantID
-			ctx := context.WithValue(c.Request.Context(), persistence.TenantIDKey, devTenant)
-			c.Request = c.Request.WithContext(ctx)
-			c.Set("tenant_id", devTenant.String())
-			c.Next()
-			return
-		}
-
-		// Extract Bearer token
-		if len(authHeader) < 8 || authHeader[:7] != "Bearer " {
-			c.JSON(401, gin.H{"error": "Invalid authorization header"})
-			c.Abort()
-			return
-		}
-
-		token := authHeader[7:]
-		claims, err := jwtService.ValidateToken(token)
-		if err != nil {
-			c.JSON(401, gin.H{"error": "Invalid or expired token"})
-			c.Abort()
-			return
-		}
-
-		// Set user context for downstream handlers
-		c.Set("user_id", claims.UserID)
-		c.Set("user_email", claims.Email)
-		c.Set("user_role", claims.Role)
-		c.Set("tenant_id", claims.TenantID)
-		c.Set("authenticated", true)
-
-		// Inject tenant ID into request context using typed key (H-1)
-		ctx := context.WithValue(c.Request.Context(), persistence.TenantIDKey, claims.TenantID)
-		c.Request = c.Request.WithContext(ctx)
-
-		c.Next()
-	}
+	// Initialize struct-based auth middleware (B-05)
+	authMW := authmiddleware.NewAuthMiddleware(auditRepo, db)
 
 	// Prometheus Metrics endpoint (behind auth middleware)
-	router.GET("/metrics", authMiddleware, func(c *gin.Context) {
+	router.GET("/metrics", authMW.Authenticate(), authMW.RequireRole("admin"), func(c *gin.Context) {
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
 
@@ -390,7 +329,7 @@ func main() {
 	log.Println("\n🛣️  Registering Module Routes...")
 	log.Println(strings.Repeat("=", 70))
 
-	apiV1 := router.Group("/api/v1", authMiddleware, middleware.PolicyMiddleware(db))
+	apiV1 := router.Group("/api/v1", authMW.Authenticate(), middleware.PolicyMiddleware(db))
 	for _, module := range registry.GetAll() {
 		module.RegisterRoutes(apiV1)
 	}
@@ -434,6 +373,10 @@ func main() {
 	if temporalWorker != nil {
 		log.Println("⏰ Stopping Temporal Worker...")
 		temporalWorker.Stop()
+	}
+
+	if rateLimiter != nil {
+		rateLimiter.Stop()
 	}
 
 	if err := registry.ShutdownAll(); err != nil {
@@ -480,5 +423,21 @@ func validateRequiredEnvVars() {
 	}
 	if strings.Contains(os.Getenv("POSTGRES_PASSWORD"), "CHANGE_ME") {
 		log.Println("⚠️  WARNING: POSTGRES_PASSWORD is a placeholder — set a strong password for production")
+	}
+
+	// B-12: Enforce strong secrets in release mode
+	ginMode := os.Getenv("GIN_MODE")
+	encKey := os.Getenv("ENCRYPTION_KEY")
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if ginMode == "release" {
+		if len(encKey) < 32 {
+			log.Fatal("FATAL: ENCRYPTION_KEY must be at least 32 characters in release mode")
+		}
+		if len(jwtSecret) < 32 {
+			log.Fatal("FATAL: JWT_SECRET must be at least 32 characters in release mode")
+		}
+		if os.Getenv("DB_SSLMODE") == "disable" {
+			log.Fatal("FATAL: DB_SSLMODE=disable is not allowed in release mode")
+		}
 	}
 }

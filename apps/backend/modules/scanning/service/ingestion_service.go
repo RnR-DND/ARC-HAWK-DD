@@ -16,6 +16,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/arc-platform/backend/modules/shared/scoring"
+	"github.com/arc-platform/backend/modules/shared/utils"
 	"github.com/arc-platform/backend/pkg/normalization"
 	"github.com/arc-platform/backend/pkg/validators"
 	"github.com/google/uuid"
@@ -314,7 +315,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		piiType := validators.MapPatternToPIIType(hawkeyeFinding.PatternName)
 		if piiType != "" && !validators.Validate(piiType, normalizedMatch) {
 			log.Printf("DEBUG: Format validation rejected %s (%s): %q",
-				hawkeyeFinding.PatternName, piiType, normalizedMatch)
+				hawkeyeFinding.PatternName, piiType, utils.SanitizeForLog(normalizedMatch))
 			continue
 		}
 

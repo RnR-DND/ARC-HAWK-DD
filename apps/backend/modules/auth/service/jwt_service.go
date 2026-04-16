@@ -37,6 +37,7 @@ type JWTService struct {
 	tokenExpiry   time.Duration
 	refreshExpiry time.Duration
 	db            *sql.DB // C-2: persistent blacklist storage
+	stop          chan struct{}
 }
 
 // NewJWTService creates a JWT service. Pass db for persistent token blacklist (C-2).
@@ -61,6 +62,7 @@ func NewJWTService(db *sql.DB) *JWTService {
 		tokenExpiry:   24 * time.Hour,
 		refreshExpiry: 7 * 24 * time.Hour,
 		db:            db,
+		stop:          make(chan struct{}),
 	}
 
 	// Start background cleanup of expired blacklist entries
@@ -148,6 +150,10 @@ func (s *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
 }
 
 func (s *JWTService) ValidateRefreshToken(refreshTokenString string) (*JWTClaims, error) {
+	if s.isTokenBlacklisted(refreshTokenString) {
+		return nil, ErrInvalidToken
+	}
+
 	token, err := jwt.ParseWithClaims(refreshTokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
@@ -252,12 +258,22 @@ func (s *JWTService) isTokenBlacklisted(tokenString string) bool {
 func (s *JWTService) cleanupExpiredTokens() {
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
-	for range ticker.C {
-		if s.db != nil {
-			if _, err := s.db.ExecContext(context.Background(),
-				`DELETE FROM token_blacklist WHERE expires_at < NOW()`); err != nil {
-				log.Printf("WARN: token_blacklist cleanup failed: %v", err)
+	for {
+		select {
+		case <-ticker.C:
+			if s.db != nil {
+				if _, err := s.db.ExecContext(context.Background(),
+					`DELETE FROM token_blacklist WHERE expires_at < NOW()`); err != nil {
+					log.Printf("WARN: token_blacklist cleanup failed: %v", err)
+				}
 			}
+		case <-s.stop:
+			return
 		}
 	}
+}
+
+// StopCleanup shuts down the background cleanup goroutine.
+func (s *JWTService) StopCleanup() {
+	close(s.stop)
 }

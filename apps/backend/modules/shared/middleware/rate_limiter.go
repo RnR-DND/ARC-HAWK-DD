@@ -16,6 +16,7 @@ type RateLimiter struct {
 	requestsRate int           // requests per window
 	window       time.Duration // time window
 	cleanupTick  time.Duration
+	stop         chan struct{}
 }
 
 type clientState struct {
@@ -50,6 +51,7 @@ func NewRateLimiter(config RateLimiterConfig) *RateLimiter {
 		requestsRate: config.RequestsPerMinute,
 		window:       time.Minute,
 		cleanupTick:  5 * time.Minute,
+		stop:         make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -124,16 +126,26 @@ func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(rl.cleanupTick)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mu.Lock()
-		now := time.Now()
-		for ip, state := range rl.clients {
-			if now.Sub(state.lastReset) > 2*rl.window {
-				delete(rl.clients, ip)
+	for {
+		select {
+		case <-ticker.C:
+			rl.mu.Lock()
+			now := time.Now()
+			for ip, state := range rl.clients {
+				if now.Sub(state.lastReset) > 2*rl.window {
+					delete(rl.clients, ip)
+				}
 			}
+			rl.mu.Unlock()
+		case <-rl.stop:
+			return
 		}
-		rl.mu.Unlock()
 	}
+}
+
+// Stop shuts down the cleanup goroutine.
+func (rl *RateLimiter) Stop() {
+	close(rl.stop)
 }
 
 // StrictRateLimiter returns a stricter rate limiter for sensitive endpoints

@@ -365,8 +365,8 @@ func (r *PostgresRepository) GetFeedbackForDataset(ctx context.Context) ([]entit
 		FROM finding_feedback fb
 		JOIN findings f ON fb.finding_id = f.id
 		WHERE fb.feedback_type IN ('CONFIRMED', 'FALSE_POSITIVE')
-		LIMIT 1000
-		ORDER BY fb.created_at DESC`
+		ORDER BY fb.created_at DESC
+		LIMIT 1000`
 
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {

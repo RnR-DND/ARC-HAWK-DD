@@ -236,6 +236,8 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
+	h.jwtService.InvalidateToken(req.RefreshToken)
+
 	accessToken, refreshToken, err := h.jwtService.GenerateToken(user, uuid.New())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
