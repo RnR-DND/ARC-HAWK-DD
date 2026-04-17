@@ -81,6 +81,16 @@ export interface DriftEvent {
     detected_at: string;
 }
 
+export interface GlossaryTerm {
+    id: string;
+    name: string;
+    description: string;
+    regulation_refs: string[];
+    risk_level: string;
+    examples?: string[];
+    dpdpa_section?: string;
+}
+
 export interface Report {
     id: string;
     tenant_id: string;
@@ -122,12 +132,14 @@ export const discoveryApi = {
     listInventory: (params?: {
         classification?: string;
         source_id?: string;
+        search?: string;
         limit?: number;
         offset?: number;
     }) => {
         const q = new URLSearchParams();
         if (params?.classification) q.set('classification', params.classification);
         if (params?.source_id) q.set('source_id', params.source_id);
+        if (params?.search) q.set('search', params.search);
         if (params?.limit) q.set('limit', String(params.limit));
         if (params?.offset) q.set('offset', String(params.offset));
         const qs = q.toString();
@@ -181,5 +193,10 @@ export const discoveryApi = {
     listReports: (limit = 50, offset = 0) =>
         jsonFetch<{ items: Report[]; count: number }>(
             `${API_BASE}/reports?limit=${limit}&offset=${offset}`
+        ),
+
+    getGlossary: () =>
+        jsonFetch<{ terms: GlossaryTerm[]; count: number }>(
+            `${API_BASE}/glossary`
         ),
 };
