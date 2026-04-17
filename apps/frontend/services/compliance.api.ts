@@ -47,8 +47,8 @@ export interface RetentionPolicy {
 }
 
 export const complianceApi = {
-    getOverview: async (): Promise<ComplianceOverview> => {
-        const res = await get<ComplianceOverview>('/compliance/overview');
+    getOverview: async (): Promise<any> => {
+        const res = await get<any>('/compliance/overview');
         return res;
     },
 
