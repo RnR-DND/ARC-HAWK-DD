@@ -33,11 +33,13 @@ export interface LineageResponse {
 
 export async function fetchLineage(
     systemFilter?: string,
-    riskFilter?: string
+    riskFilter?: string,
+    assetId?: string
 ): Promise<LineageResponse> {
     const params: Record<string, string> = {};
     if (systemFilter) params.system = systemFilter;
     if (riskFilter) params.risk = riskFilter;
+    if (assetId) params.asset_id = assetId;
 
     const response = await apiClient.get('/lineage', { params });
     return response.data.data; // Backend wraps in { status: "success", data: {...} }
@@ -78,9 +80,15 @@ export async function fetchLineageStats(): Promise<LineageResponse['aggregations
     return response.data.stats;
 }
 
+export async function syncLineage(): Promise<{ status: string; message?: string }> {
+    const response = await apiClient.post('/lineage/sync');
+    return response.data;
+}
+
 // Export as lineageApi for backward compatibility
 export const lineageApi = {
     fetchLineage,
     fetchLineageStats,
     getLineage,
+    syncLineage,
 };

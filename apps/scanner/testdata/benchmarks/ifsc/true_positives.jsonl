@@ -1,3 +1,0 @@
-{"id":"ifsc_tp_001","raw_value":"SBIN0001234","column_name":"ifsc_code","context":"SBI branch IFSC","expected_layer":"rule_based","expected_category":"Financial ID","expected_confidence_band":"high"}
-{"id":"ifsc_tp_002","raw_value":"HDFC0001234","column_name":"bank_ifsc","context":"HDFC branch IFSC","expected_layer":"rule_based","expected_category":"Financial ID","expected_confidence_band":"high"}
-{"id":"ifsc_tp_003","raw_value":"ICIC0000123","column_name":"ifsc","context":"ICICI branch IFSC","expected_layer":"rule_based","expected_category":"Financial ID","expected_confidence_band":"high"}

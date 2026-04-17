@@ -203,7 +203,7 @@ var SOPRegistry = map[IssueType]*SOP{
 		EscalateAfter: 0, // escalate immediately
 		EscalateAfterHR: "immediate",
 		Steps: []SOPStep{
-			{1, "engineer", "Run python manage.py verify-audit-chain to identify break point", "Break index and entry ID identified"},
+			{1, "engineer", "Run audit chain verification tool to identify break point", "Break index and entry ID identified"},
 			{2, "dpo", "Preserve broken chain as forensic evidence — do not delete entries", "Snapshot exported to cold storage"},
 			{3, "engineer", "Investigate who modified audit_logs table directly", "DB access logs reviewed; source identified"},
 			{4, "dpo", "Report to CERT-In under DPDPA incident notification rules if PII was accessed", "Incident report filed"},

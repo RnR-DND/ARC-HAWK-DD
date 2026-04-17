@@ -4,10 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import FindingsTable from '@/components/FindingsTable';
 import LoadingState from '@/components/LoadingState';
+import MaskingButton from '@/components/MaskingButton';
 import { assetsApi } from '@/services/assets.api';
 import { findingsApi } from '@/services/findings.api';
+import { maskingApi, MaskingAuditEntry } from '@/services/masking.api';
 import { Asset, FindingsResponse } from '@/types';
-import { ArrowLeft, Database, User, FolderOpen, Shield, Activity, Share2, FileJson, Server } from 'lucide-react';
+import { ArrowLeft, Database, User, FolderOpen, Shield, Activity, Share2, FileJson, Server, Lock } from 'lucide-react';
 
 export default function AssetDetailPage() {
     const params = useParams();
@@ -20,11 +22,23 @@ export default function AssetDetailPage() {
     const [error, setError] = useState<string | null>(null);
 
     // Tab state
-    const [activeTab, setActiveTab] = useState<'findings' | 'lineage' | 'metadata'>('findings');
+    const [activeTab, setActiveTab] = useState<'findings' | 'lineage' | 'metadata' | 'masking'>('findings');
+    const [maskingAudit, setMaskingAudit] = useState<MaskingAuditEntry[]>([]);
+    const [maskingAuditLoading, setMaskingAuditLoading] = useState(false);
 
     useEffect(() => {
         if (id) fetchData();
     }, [id]);
+
+    useEffect(() => {
+        if (activeTab === 'masking' && id) {
+            setMaskingAuditLoading(true);
+            maskingApi.getMaskingAuditLog(id)
+                .then(res => setMaskingAudit(res.audit_log || []))
+                .catch(err => console.error('Failed to load masking audit:', err))
+                .finally(() => setMaskingAuditLoading(false));
+        }
+    }, [activeTab, id]);
 
     const fetchData = async () => {
         try {
@@ -148,6 +162,12 @@ export default function AssetDetailPage() {
                         label="Metadata"
                         icon={<FileJson className="w-4 h-4" />}
                     />
+                    <TabButton
+                        active={activeTab === 'masking'}
+                        onClick={() => setActiveTab('masking')}
+                        label="Masking"
+                        icon={<Lock className="w-4 h-4" />}
+                    />
                 </div>
 
                 {/* Content Area */}
@@ -189,6 +209,71 @@ export default function AssetDetailPage() {
                                 <Activity className="w-4 h-4" />
                                 Open Lineage Graph
                             </button>
+                        </div>
+                    )}
+
+                    {activeTab === 'masking' && (
+                        <div className="p-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-1">
+                                        <Lock className="w-5 h-5 text-blue-600" />
+                                        Data Masking
+                                    </h3>
+                                    <p className="text-sm text-slate-500">
+                                        Apply irreversible PII masking to protect sensitive data in this asset.
+                                    </p>
+                                </div>
+                                <MaskingButton
+                                    assetId={id}
+                                    assetName={asset.name}
+                                    findingsCount={asset.total_findings}
+                                    onMaskingComplete={fetchData}
+                                />
+                            </div>
+
+                            <div className="border-t border-slate-100 pt-6">
+                                <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4">
+                                    Masking Audit Log
+                                </h4>
+                                {maskingAuditLoading ? (
+                                    <div className="text-slate-500 text-sm py-8 text-center">Loading audit log...</div>
+                                ) : maskingAudit.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                                        <Lock className="w-10 h-10 mb-3 opacity-20" />
+                                        <p className="text-sm">No masking operations recorded for this asset.</p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wider">
+                                                <tr>
+                                                    <th className="px-4 py-3 font-semibold">Strategy</th>
+                                                    <th className="px-4 py-3 font-semibold">Masked By</th>
+                                                    <th className="px-4 py-3 font-semibold">Findings Masked</th>
+                                                    <th className="px-4 py-3 font-semibold">Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {maskingAudit.map(entry => (
+                                                    <tr key={entry.id} className="hover:bg-slate-50">
+                                                        <td className="px-4 py-3">
+                                                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
+                                                                {entry.masking_strategy}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-700">{entry.masked_by}</td>
+                                                        <td className="px-4 py-3 font-mono text-slate-700">{entry.findings_count}</td>
+                                                        <td className="px-4 py-3 text-slate-500">
+                                                            {new Date(entry.masked_at).toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 

@@ -1,2 +1,0 @@
-{"id":"hr_ec_001","raw_value":"Patient is stable","column_name":"clinical_notes","context":"clinical column but non-specific value","expected_layer":"llm","expected_category":"Government ID","expected_confidence_band":"medium"}
-{"id":"hr_ec_002","raw_value":"Blood Group: O+","column_name":"bio_data","context":"blood group — health data but low sensitivity","expected_layer":"ml","expected_category":"Government ID","expected_confidence_band":"medium"}

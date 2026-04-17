@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import InfoPanel from '@/components/InfoPanel';
 import LineageCanvas from '@/modules/lineage/LineageCanvas';
 import LoadingState from '@/components/LoadingState';
-import { lineageApi, fetchLineage } from '@/services/lineage.api';
+import { lineageApi, fetchLineage, syncLineage } from '@/services/lineage.api';
 import { findingsApi } from '@/services/findings.api';
 import type { LineageGraphData } from '@/modules/lineage/lineage.types';
 import { theme } from '@/design-system/theme';
@@ -109,6 +109,8 @@ export default function LineagePage() {
     const [error, setError] = useState<string | null>(null);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [focusedAssetId, setFocusedAssetId] = useState<string | null>(null);
+    const [syncing, setSyncing] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'path' | 'graph'>('path');
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedSystems, setExpandedSystems] = useState<Set<string>>(new Set());
@@ -117,22 +119,22 @@ export default function LineagePage() {
     const [systemGroups, setSystemGroups] = useState<SystemGroup[]>([]);
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            const assetId = params.get('assetId');
-            if (assetId) setFocusedAssetId(assetId);
-        }
         fetchData();
     }, []);
 
     const fetchData = async () => {
+        const assetId = typeof window !== 'undefined'
+            ? (new URLSearchParams(window.location.search).get('assetId') ?? undefined)
+            : undefined;
+        if (assetId) setFocusedAssetId(assetId);
+
         try {
             setLoading(true);
             setError(null);
 
-            // Fetch lineage + findings in parallel
+            // Fetch lineage + findings in parallel; forward assetId filter when present
             const [fullLineage, findingsResult] = await Promise.all([
-                fetchLineage(),
+                fetchLineage(undefined, undefined, assetId),
                 findingsApi.getFindings({ page: 1, page_size: 200, sort_by: 'severity', sort_order: 'desc' }),
             ]);
 
@@ -233,6 +235,20 @@ export default function LineagePage() {
             setError(err.message || 'Failed to load lineage data.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSyncLineage = async () => {
+        setSyncing(true);
+        setSyncStatus(null);
+        try {
+            const result = await syncLineage();
+            setSyncStatus(result.message ?? 'Sync complete');
+            await fetchData();
+        } catch (err) {
+            setSyncStatus(err instanceof Error ? err.message : 'Sync failed');
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -346,6 +362,20 @@ export default function LineagePage() {
                         >
                             ↺ Refresh
                         </button>
+                        <button
+                            onClick={handleSyncLineage}
+                            disabled={syncing}
+                            style={{
+                                border: `1px solid ${theme.colors.border.default}`,
+                                borderRadius: '8px', padding: '8px 14px',
+                                fontSize: '13px', color: syncing ? theme.colors.text.muted : '#fff',
+                                background: syncing ? theme.colors.background.secondary : theme.colors.primary.DEFAULT,
+                                cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: 600,
+                                opacity: syncing ? 0.7 : 1,
+                            }}
+                        >
+                            {syncing ? '⏳ Syncing...' : '⚡ Sync Lineage'}
+                        </button>
                     </div>
                 </div>
 
@@ -356,6 +386,15 @@ export default function LineagePage() {
                         color: '#b91c1c', fontSize: '13px', display: 'flex', gap: '8px',
                     }}>
                         <span>⚠️</span><span>{error}</span>
+                    </div>
+                )}
+                {syncStatus && (
+                    <div style={{
+                        background: '#eff6ff', border: '1px solid #bfdbfe',
+                        borderRadius: '10px', padding: '12px 16px', marginBottom: '20px',
+                        color: '#1e40af', fontSize: '13px', display: 'flex', gap: '8px',
+                    }}>
+                        <span>ℹ️</span><span>{syncStatus}</span>
                     </div>
                 )}
 

@@ -97,8 +97,8 @@ test-frontend:
 
 # Run scanner tests
 test-scanner:
-	@echo "Running scanner tests..."
-	cd apps/scanner && python -m pytest tests/ -v --tb=short
+	@echo "Running Go scanner tests..."
+	cd apps/goScanner && go test ./... -v
 
 # Deploy to current environment
 deploy:

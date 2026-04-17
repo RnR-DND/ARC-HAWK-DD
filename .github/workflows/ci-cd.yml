@@ -67,27 +67,25 @@ jobs:
         run: npm run lint
         working-directory: apps/frontend
 
-  lint-scanner:
+  lint-go-scanner:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          python-version: '3.9'
-          cache: 'pip'
-          cache-dependency-path: apps/scanner/requirements.txt
+          go-version: '1.21'
+          cache: true
 
-      - name: Install dependencies
-        run: pip install -r apps/scanner/requirements.txt
-        working-directory: .
+      - name: Run Go Vet (scanner)
+        run: go vet ./...
+        working-directory: apps/goScanner
 
-      - name: Run Python Lint
-        run: |
-          pip install flake8
-          flake8 apps/scanner --max-line-length=100
+      - name: Run Go Tests (scanner)
+        run: go test ./... -short
+        working-directory: apps/goScanner
 
   # ==================== BUILD ====================
   build-backend:
@@ -130,8 +128,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  build-scanner:
-    needs: lint-scanner
+  build-go-scanner:
+    needs: lint-go-scanner
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -140,19 +138,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Scanner Docker Image
+      - name: Build Go Scanner Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./apps/scanner
+          context: ./apps/goScanner
           push: false
           load: true
-          tags: arc-hawk-scanner:test
+          tags: arc-hawk-go-scanner:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   # ==================== INTEGRATION TESTS ====================
   integration-tests:
-    needs: [build-backend, build-frontend, build-scanner]
+    needs: [build-backend, build-frontend, build-go-scanner]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -216,7 +214,7 @@ jobs:
 
   # ==================== DOCKER HUB PUSH ====================
   push-images:
-    needs: [build-backend, build-frontend, build-scanner, integration-tests]
+    needs: [build-backend, build-frontend, build-go-scanner, integration-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -270,22 +268,22 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Extract metadata for Scanner
-        id: meta-scanner
+      - name: Extract metadata for Go Scanner
+        id: meta-go-scanner
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/arc-hawk-scanner
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/arc-hawk-go-scanner
           tags: |
             type=ref,event=branch
             type=sha
 
-      - name: Push Scanner Image
+      - name: Push Go Scanner Image
         uses: docker/build-push-action@v5
         with:
-          context: ./apps/scanner
+          context: ./apps/goScanner
           push: true
-          tags: ${{ steps.meta-scanner.outputs.tags }}
-          labels: ${{ steps.meta-scanner.outputs.annotations }}
+          tags: ${{ steps.meta-go-scanner.outputs.tags }}
+          labels: ${{ steps.meta-go-scanner.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

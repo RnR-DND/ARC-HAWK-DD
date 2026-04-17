@@ -10,6 +10,7 @@ import { exportToCSV } from '@/utils/export';
 import { findingsApi } from '@/services/findings.api';
 import { assetsApi } from '@/services/assets.api';
 import { complianceApi } from '@/services/compliance.api';
+import { discoveryApi, Report } from '@/services/discoveryApi';
 import { ComplianceOverview } from '@/types/api';
 
 interface ReportMetrics {
@@ -23,6 +24,7 @@ interface ReportMetrics {
 export default function ReportsPage() {
     const [metrics, setMetrics] = useState<ReportMetrics | null>(null);
     const [complianceData, setComplianceData] = useState<ComplianceOverview | null>(null);
+    const [archivedReports, setArchivedReports] = useState<Report[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
 
@@ -33,15 +35,18 @@ export default function ReportsPage() {
     const fetchReportMetrics = async () => {
         try {
             // Get metrics from multiple APIs
-            const [findingsRes, assetsRes, complianceRes] = await Promise.all([
+            const [findingsRes, assetsRes, complianceRes, reportsRes] = await Promise.all([
                 findingsApi.getFindings({ page_size: 1000 }),
                 assetsApi.getAssets({ page_size: 1000 }),
-                complianceApi.getOverview().catch(() => null)
+                complianceApi.getOverview().catch(() => null),
+                discoveryApi.listReports(20).catch(() => null),
             ]);
 
             if (complianceRes) {
                 setComplianceData(complianceRes);
             }
+
+            setArchivedReports(reportsRes?.items ?? []);
 
             const totalFindings = findingsRes.total || 0;
             const criticalFindings = findingsRes.findings?.filter(f => f.severity === 'Critical').length || 0;
@@ -242,69 +247,84 @@ export default function ReportsPage() {
                             <CardDescription>Previously generated reports and scheduled exports</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-slate-50">
-                                        <tr>
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Report Name</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Generated</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Type</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Format</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Size</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Status</th>
-                                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border">
-                                        {[
-                                            { name: 'Compliance_Summary_Jan_2026', date: '2026-01-15', type: 'Executive', format: 'PDF', size: '2.4 MB', status: 'Ready' },
-                                            { name: 'Findings_Detailed_Report', date: '2026-01-14', type: 'Technical', format: 'CSV', size: '1.8 MB', status: 'Ready' },
-                                            { name: 'Asset_Risk_Assessment', date: '2026-01-13', type: 'Inventory', format: 'Excel', size: '3.1 MB', status: 'Ready' },
-                                            { name: 'Monthly_Trend_Analysis', date: '2026-01-10', type: 'Analytics', format: 'PDF', size: '4.2 MB', status: 'Processing' },
-                                        ].map((report, i) => (
-                                            <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="font-semibold text-slate-900">
-                                                        {report.name.replace(/_/g, ' ')}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                                    {new Date(report.date).toLocaleDateString()}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <Badge variant="secondary" className="font-semibold">
-                                                        {report.type}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <Badge className={`${getFormatBadgeColor(report.format)} text-white border-0`}>
-                                                        {report.format}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">
-                                                    {report.size}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <Badge variant="outline" className={`${report.status === 'Ready' ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-amber-600 bg-amber-50 border-amber-200'}`}>
-                                                        {report.status}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    {report.status === 'Ready' ? (
-                                                        <Button variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                                                            Download
-                                                        </Button>
-                                                    ) : (
-                                                        <span className="text-sm text-slate-400 italic">
-                                                            Processing...
-                                                        </span>
-                                                    )}
-                                                </td>
+                            {archivedReports === null ? (
+                                <div className="px-6 py-8 text-center text-slate-400 text-sm animate-pulse">
+                                    Loading archive...
+                                </div>
+                            ) : archivedReports.length === 0 ? (
+                                <div className="px-6 py-8 text-center text-slate-500 text-sm">
+                                    No archived reports yet — generate a report from the Discovery page.
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-slate-50">
+                                            <tr>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Report ID</th>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Generated</th>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Format</th>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Size</th>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Status</th>
+                                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-border">Actions</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                            {archivedReports.map((report) => (
+                                                <tr key={report.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="font-semibold text-slate-900 font-mono text-sm">
+                                                            {report.id.slice(0, 8)}…
+                                                        </div>
+                                                        {report.requested_by && (
+                                                            <div className="text-xs text-slate-400">{report.requested_by}</div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                                        {new Date(report.requested_at).toLocaleString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <Badge className={`${getFormatBadgeColor(report.format)} text-white border-0`}>
+                                                            {report.format.toUpperCase()}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono">
+                                                        {report.size_bytes
+                                                            ? `${(report.size_bytes / 1024).toFixed(0)} KB`
+                                                            : '—'}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <Badge variant="outline" className={
+                                                            report.status === 'completed'
+                                                                ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                                                                : report.status === 'failed'
+                                                                ? 'text-red-600 bg-red-50 border-red-200'
+                                                                : 'text-amber-600 bg-amber-50 border-amber-200'
+                                                        }>
+                                                            {report.status}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        {report.status === 'completed' ? (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                                onClick={() => window.open(discoveryApi.downloadReportUrl(report.id), '_blank')}
+                                                            >
+                                                                Download
+                                                            </Button>
+                                                        ) : (
+                                                            <span className="text-sm text-slate-400 italic">
+                                                                {report.status === 'failed' ? report.error ?? 'Failed' : 'Processing...'}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

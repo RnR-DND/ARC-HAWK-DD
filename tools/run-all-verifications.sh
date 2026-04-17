@@ -106,7 +106,6 @@ else
     echo "🔧 Next Steps:"
     echo "   1. Start Docker: docker-compose up -d"
     echo "   2. Start backend: cd apps/backend && go run cmd/server/main.go"
-    echo "   3. Install scanner: cd apps/scanner && pip install -r requirements.txt"
-    echo "   4. Re-run this script"
+    echo "   3. Re-run this script"
     exit 1
 fi

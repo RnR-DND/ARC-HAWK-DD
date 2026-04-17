@@ -1,4 +1,4 @@
-import { get, post } from '@/utils/api-client';
+import apiClient, { get, post, put } from '@/utils/api-client';
 import { unwrapResponse, unwrapArray } from '@/lib/api-utils';
 import { ComplianceOverview } from '@/types/api';
 
@@ -132,5 +132,82 @@ export const complianceApi = {
 
     getDPDPAReportUrl: (): string => {
         return '/api/v1/compliance/dpdpa/report';
+    },
+
+    // ── Data Principal Rights ──────────────────────────────────────────────────
+
+    submitDPR: async (data: {
+        request_type: string;
+        data_principal_id: string;
+        data_principal_email?: string;
+        request_details?: object;
+    }): Promise<any> => {
+        return await post<any>('/compliance/dpr', data);
+    },
+
+    listDPRs: async (params?: { status?: string; page?: number; page_size?: number }): Promise<any[]> => {
+        try {
+            const res = await get<any>('/compliance/dpr', params);
+            return Array.isArray(res) ? res : (res?.data ?? res?.requests ?? []);
+        } catch {
+            return [];
+        }
+    },
+
+    updateDPRStatus: async (id: string, status: string, response_details?: object): Promise<void> => {
+        await apiClient.patch(`/compliance/dpr/${id}/status`, { status, response_details });
+    },
+
+    getDPRStats: async (): Promise<any> => {
+        try {
+            const res = await get<any>('/compliance/dpr/stats');
+            return unwrapResponse<any>(res, null);
+        } catch {
+            return null;
+        }
+    },
+
+    // ── GRO Settings ──────────────────────────────────────────────────────────
+
+    getGROSettings: async (): Promise<any> => {
+        try {
+            const res = await get<any>('/compliance/gro-settings');
+            return unwrapResponse<any>(res, null);
+        } catch {
+            return null;
+        }
+    },
+
+    updateGROSettings: async (settings: {
+        gro_name?: string;
+        gro_email?: string;
+        gro_phone?: string;
+        is_significant_data_fiduciary?: boolean;
+    }): Promise<void> => {
+        await put<any>('/compliance/gro-settings', settings);
+    },
+
+    // ── Consent Records ───────────────────────────────────────────────────────
+
+    listConsentRecords: async (params?: { status?: string }): Promise<any[]> => {
+        try {
+            const res = await get<any>('/compliance/consent', params);
+            return Array.isArray(res) ? res : (res?.data ?? res?.records ?? []);
+        } catch {
+            return [];
+        }
+    },
+
+    createConsentRecord: async (data: {
+        asset_id: string;
+        data_subject_id: string;
+        consent_type: string;
+        purpose: string;
+    }): Promise<any> => {
+        return await post<any>('/compliance/consent', data);
+    },
+
+    withdrawConsent: async (id: string): Promise<void> => {
+        await apiClient.delete(`/compliance/consent/${id}`);
     },
 };

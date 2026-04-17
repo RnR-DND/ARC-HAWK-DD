@@ -1,3 +1,0 @@
-{"id":"email_tp_001","raw_value":"user@example.com","column_name":"email_address","context":"standard email","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}
-{"id":"email_tp_002","raw_value":"firstname.lastname@company.in","column_name":"work_email","context":"Indian corporate email","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}
-{"id":"email_tp_003","raw_value":"user+tag@gmail.com","column_name":"email","context":"email with plus-alias","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}

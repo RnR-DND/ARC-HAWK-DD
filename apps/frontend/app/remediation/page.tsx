@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, CheckCircle, Clock, Play, Pause, RotateCcw, History } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, Clock, Play, RotateCcw, History, BookOpen, ChevronDown, ChevronRight, Search, Siren, X } from 'lucide-react';
 import Link from 'next/link';
 import { theme } from '@/design-system/theme';
-import { remediationApi } from '@/services/remediation.api';
+import { remediationApi, SOP, EscalationPreview } from '@/services/remediation.api';
 
 interface RemediationTask {
     id: string;
@@ -40,9 +40,68 @@ export default function RemediationPage() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'COMPLETED' | 'FAILED'>('ALL');
 
+    // Tab state
+    const [activeTab, setActiveTab] = useState<'tasks' | 'sops' | 'escalation'>('tasks');
+
+    // SOPs state
+    const [sops, setSOPs] = useState<SOP[]>([]);
+    const [sopsLoading, setSOPsLoading] = useState(false);
+    const [sopSearch, setSOPSearch] = useState('');
+    const [expandedSOP, setExpandedSOP] = useState<string | null>(null);
+
+    // Escalation state
+    const [escalationPreview, setEscalationPreview] = useState<EscalationPreview | null>(null);
+    const [escalationLoading, setEscalationLoading] = useState(false);
+    const [escalationRunning, setEscalationRunning] = useState(false);
+    const [showEscalationModal, setShowEscalationModal] = useState(false);
+    const [escalationToast, setEscalationToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
     useEffect(() => {
         fetchRemediationData();
     }, []);
+
+    useEffect(() => {
+        if (activeTab === 'sops' && sops.length === 0) {
+            setSOPsLoading(true);
+            remediationApi.getSOPs()
+                .then(res => setSOPs(res.sops || []))
+                .catch(err => console.error('Failed to load SOPs:', err))
+                .finally(() => setSOPsLoading(false));
+        }
+    }, [activeTab]);
+
+    const handlePreviewEscalation = async () => {
+        setEscalationLoading(true);
+        try {
+            const preview = await remediationApi.previewEscalation();
+            setEscalationPreview(preview);
+            setShowEscalationModal(true);
+        } catch (err) {
+            console.error('Failed to preview escalation:', err);
+        } finally {
+            setEscalationLoading(false);
+        }
+    };
+
+    const handleRunEscalation = async () => {
+        setEscalationRunning(true);
+        try {
+            const result = await remediationApi.runEscalation();
+            setShowEscalationModal(false);
+            setEscalationToast({ msg: result.message || `Escalated ${result.escalated} finding(s)`, ok: true });
+        } catch (err) {
+            setEscalationToast({ msg: 'Escalation failed. Please try again.', ok: false });
+        } finally {
+            setEscalationRunning(false);
+            setTimeout(() => setEscalationToast(null), 4000);
+        }
+    };
+
+    const filteredSOPs = sops.filter(s =>
+        sopSearch === '' ||
+        s.issue_type.toLowerCase().includes(sopSearch.toLowerCase()) ||
+        s.title.toLowerCase().includes(sopSearch.toLowerCase())
+    );
 
     const fetchRemediationData = async () => {
         try {
@@ -113,8 +172,7 @@ export default function RemediationPage() {
 
     const handleRetryTask = async (taskId: string) => {
         try {
-            // In a real app we would call a retry endpoint
-            // For now we just refresh the list which might show updated status
+            await remediationApi.rollback(taskId);
             await fetchRemediationData();
         } catch (error) {
             console.error('Failed to retry task:', error);
@@ -255,8 +313,33 @@ export default function RemediationPage() {
                     />
                 </div>
 
-                {/* Tasks Table */}
-                <div style={{
+                {/* Tab Nav */}
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: `1px solid ${theme.colors.border.default}` }}>
+                    {([
+                        { id: 'tasks', label: 'Tasks', icon: <Shield style={{ width: '15px', height: '15px' }} /> },
+                        { id: 'sops', label: 'SOPs', icon: <BookOpen style={{ width: '15px', height: '15px' }} /> },
+                        { id: 'escalation', label: 'Escalation', icon: <Siren style={{ width: '15px', height: '15px' }} /> },
+                    ] as const).map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                                padding: '10px 20px', fontSize: '14px', fontWeight: 600,
+                                cursor: 'pointer', background: 'none', border: 'none',
+                                borderBottom: activeTab === tab.id ? `2px solid ${theme.colors.primary.DEFAULT}` : '2px solid transparent',
+                                color: activeTab === tab.id ? theme.colors.primary.DEFAULT : theme.colors.text.secondary,
+                                marginBottom: '-1px',
+                                transition: 'color 0.15s',
+                            }}
+                        >
+                            {tab.icon}{tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Tasks Tab */}
+                {activeTab === 'tasks' && <div style={{
                     backgroundColor: theme.colors.background.card,
                     borderRadius: '12px',
                     border: `1px solid ${theme.colors.border.default}`,
@@ -411,7 +494,202 @@ export default function RemediationPage() {
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </div>}
+
+                {/* SOPs Tab */}
+                {activeTab === 'sops' && (
+                    <div style={{ backgroundColor: theme.colors.background.card, borderRadius: '12px', border: `1px solid ${theme.colors.border.default}`, padding: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <h2 style={{ fontSize: '18px', fontWeight: 700, color: theme.colors.text.primary, margin: 0 }}>
+                                Standard Operating Procedures
+                            </h2>
+                            <div style={{ position: 'relative' }}>
+                                <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '14px', height: '14px', color: theme.colors.text.muted }} />
+                                <input
+                                    type="text"
+                                    placeholder="Search SOPs..."
+                                    value={sopSearch}
+                                    onChange={e => setSOPSearch(e.target.value)}
+                                    style={{
+                                        paddingLeft: '32px', paddingRight: '12px', paddingTop: '8px', paddingBottom: '8px',
+                                        borderRadius: '8px', border: `1px solid ${theme.colors.border.default}`,
+                                        fontSize: '13px', color: theme.colors.text.primary,
+                                        backgroundColor: theme.colors.background.primary, outline: 'none', width: '240px'
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        {sopsLoading ? (
+                            <div style={{ padding: '48px', textAlign: 'center', color: theme.colors.text.secondary }}>Loading SOPs...</div>
+                        ) : filteredSOPs.length === 0 ? (
+                            <div style={{ padding: '48px', textAlign: 'center', color: theme.colors.text.secondary }}>
+                                {sopSearch ? 'No SOPs match your search.' : 'No SOPs available.'}
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {filteredSOPs.map(sop => (
+                                    <div key={sop.issue_type} style={{ border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', overflow: 'hidden' }}>
+                                        <button
+                                            onClick={() => setExpandedSOP(expandedSOP === sop.issue_type ? null : sop.issue_type)}
+                                            style={{
+                                                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer',
+                                                backgroundColor: expandedSOP === sop.issue_type ? `${theme.colors.primary.DEFAULT}08` : 'transparent',
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+                                                <span style={{
+                                                    padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700,
+                                                    backgroundColor: `${theme.colors.primary.DEFAULT}15`, color: theme.colors.primary.DEFAULT, fontFamily: 'monospace'
+                                                }}>
+                                                    {sop.issue_type}
+                                                </span>
+                                                <span style={{ fontSize: '14px', fontWeight: 600, color: theme.colors.text.primary }}>{sop.title}</span>
+                                                <span style={{ fontSize: '12px', color: theme.colors.text.muted }}>{sop.steps.length} steps</span>
+                                            </div>
+                                            {expandedSOP === sop.issue_type
+                                                ? <ChevronDown style={{ width: '16px', height: '16px', color: theme.colors.text.muted }} />
+                                                : <ChevronRight style={{ width: '16px', height: '16px', color: theme.colors.text.muted }} />}
+                                        </button>
+                                        {expandedSOP === sop.issue_type && (
+                                            <div style={{ padding: '16px', borderTop: `1px solid ${theme.colors.border.subtle}`, backgroundColor: theme.colors.background.primary }}>
+                                                <ol style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {sop.steps.map((step, i) => (
+                                                        <li key={i} style={{ fontSize: '14px', color: theme.colors.text.secondary, lineHeight: '1.6' }}>{step}</li>
+                                                    ))}
+                                                </ol>
+                                                {sop.references && sop.references.length > 0 && (
+                                                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: `1px solid ${theme.colors.border.subtle}` }}>
+                                                        <span style={{ fontSize: '12px', fontWeight: 600, color: theme.colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>References: </span>
+                                                        {sop.references.map((ref, i) => (
+                                                            <span key={i} style={{ fontSize: '12px', color: theme.colors.primary.DEFAULT, marginRight: '8px' }}>{ref}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Escalation Tab */}
+                {activeTab === 'escalation' && (
+                    <div style={{ backgroundColor: theme.colors.background.card, borderRadius: '12px', border: `1px solid ${theme.colors.border.default}`, padding: '32px' }}>
+                        {escalationToast && (
+                            <div style={{
+                                position: 'fixed', top: '20px', right: '20px', zIndex: 3000,
+                                padding: '12px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 500, color: '#fff',
+                                backgroundColor: escalationToast.ok ? '#16a34a' : '#dc2626',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                            }}>
+                                {escalationToast.msg}
+                            </div>
+                        )}
+                        <div style={{ maxWidth: '640px' }}>
+                            <h2 style={{ fontSize: '24px', fontWeight: 800, color: theme.colors.text.primary, marginBottom: '8px' }}>
+                                Escalation Management
+                            </h2>
+                            <p style={{ color: theme.colors.text.secondary, fontSize: '15px', marginBottom: '32px', lineHeight: '1.6' }}>
+                                Preview overdue or unresolved findings that qualify for escalation, then trigger the escalation workflow to notify stakeholders.
+                            </p>
+                            <button
+                                onClick={handlePreviewEscalation}
+                                disabled={escalationLoading}
+                                style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                                    padding: '12px 24px', borderRadius: '8px', fontWeight: 700, fontSize: '15px',
+                                    border: `1px solid ${theme.colors.primary.DEFAULT}`, backgroundColor: theme.colors.primary.DEFAULT,
+                                    color: '#fff', cursor: escalationLoading ? 'wait' : 'pointer',
+                                    opacity: escalationLoading ? 0.7 : 1
+                                }}
+                            >
+                                <Siren style={{ width: '16px', height: '16px' }} />
+                                {escalationLoading ? 'Loading Preview...' : 'Preview Escalation'}
+                            </button>
+                        </div>
+
+                        {/* Escalation Modal */}
+                        {showEscalationModal && escalationPreview && (
+                            <div style={{
+                                position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.4)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000,
+                                backdropFilter: 'blur(4px)'
+                            }}>
+                                <div style={{
+                                    backgroundColor: '#fff', borderRadius: '12px', width: '90%', maxWidth: '640px',
+                                    maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+                                    boxShadow: '0 20px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
+                                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
+                                            Escalation Preview — {escalationPreview.total} finding(s)
+                                        </h3>
+                                        <button onClick={() => setShowEscalationModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '22px' }}>
+                                            <X style={{ width: '20px', height: '20px' }} />
+                                        </button>
+                                    </div>
+                                    <div style={{ overflowY: 'auto', flex: 1, padding: '16px 24px' }}>
+                                        {escalationPreview.findings.length === 0 ? (
+                                            <div style={{ padding: '32px', textAlign: 'center', color: '#64748b' }}>No findings qualify for escalation.</div>
+                                        ) : (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                                <thead>
+                                                    <tr style={{ backgroundColor: '#f8fafc' }}>
+                                                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>Asset</th>
+                                                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>PII Type</th>
+                                                        <th style={{ padding: '10px 12px', textAlign: 'left', color: '#64748b', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>Risk</th>
+                                                        <th style={{ padding: '10px 12px', textAlign: 'right', color: '#64748b', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>Days Open</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {escalationPreview.findings.map(f => (
+                                                        <tr key={f.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                            <td style={{ padding: '10px 12px', color: '#0f172a', fontWeight: 500 }}>{f.asset_name || '—'}</td>
+                                                            <td style={{ padding: '10px 12px', color: '#475569' }}>{f.pii_type || '—'}</td>
+                                                            <td style={{ padding: '10px 12px' }}>
+                                                                <span style={{ padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 700, backgroundColor: getRiskColor(f.risk_level || '') + '20', color: getRiskColor(f.risk_level || '') }}>
+                                                                    {f.risk_level || '—'}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'monospace', color: '#475569' }}>{f.days_open ?? '—'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', padding: '16px 24px', borderTop: '1px solid #e2e8f0' }}>
+                                        <button
+                                            onClick={() => setShowEscalationModal(false)}
+                                            disabled={escalationRunning}
+                                            style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleRunEscalation}
+                                            disabled={escalationRunning || escalationPreview.total === 0}
+                                            style={{
+                                                padding: '10px 20px', borderRadius: '8px', fontWeight: 700, fontSize: '14px',
+                                                border: 'none', backgroundColor: '#dc2626', color: '#fff',
+                                                cursor: (escalationRunning || escalationPreview.total === 0) ? 'not-allowed' : 'pointer',
+                                                opacity: (escalationRunning || escalationPreview.total === 0) ? 0.6 : 1,
+                                                display: 'flex', alignItems: 'center', gap: '8px'
+                                            }}
+                                        >
+                                            <Siren style={{ width: '14px', height: '14px' }} />
+                                            {escalationRunning ? 'Running...' : 'Run Escalation'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
             </div>
         </div>
     );

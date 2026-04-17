@@ -1,3 +1,0 @@
-{"id":"upi_tp_001","raw_value":"user@oksbi","column_name":"upi_id","context":"SBI UPI handle","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}
-{"id":"upi_tp_002","raw_value":"9876543210@paytm","column_name":"payment_id","context":"Paytm UPI with phone","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}
-{"id":"upi_tp_003","raw_value":"name.surname@ybl","column_name":"upi_handle","context":"PhonePe UPI handle","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"high"}

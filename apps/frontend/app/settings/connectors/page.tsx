@@ -15,7 +15,7 @@ import {
     type ConnectionConfig,
     type AvailableSourceType,
 } from '@/services/connections.api';
-import { put } from '@/utils/api-client';
+import { put, post } from '@/utils/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -537,7 +537,7 @@ export default function ConnectorsSettingsPage() {
     const handleTest = async (c: ConnectorRow) => {
         setTestingId(c.id);
         try {
-            await testConnection({ source_type: c.source_type, profile_name: c.profile_name, config: {} } as ConnectionConfig);
+            await post<unknown>(`/connections/${c.id}/test`, {});
             setTestResults(prev => ({ ...prev, [c.id]: { ok: true, message: 'Connection successful.' } }));
         } catch (e: any) {
             const msg = e?.response?.data?.error ?? e?.message ?? 'Connection failed.';

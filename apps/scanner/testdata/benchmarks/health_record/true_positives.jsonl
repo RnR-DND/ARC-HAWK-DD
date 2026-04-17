@@ -1,3 +1,0 @@
-{"id":"hr_tp_001","raw_value":"Patient diagnosed with Type 2 Diabetes","column_name":"diagnosis_notes","context":"clinical diagnosis in notes field","expected_layer":"llm","expected_category":"Government ID","expected_confidence_band":"medium"}
-{"id":"hr_tp_002","raw_value":"ABHA-1234-5678-9012","column_name":"health_id","context":"Ayushman Bharat Health Account ID","expected_layer":"rule_based","expected_category":"Government ID","expected_confidence_band":"high"}
-{"id":"hr_tp_003","raw_value":"HIV Positive","column_name":"test_result","context":"sensitive medical test result","expected_layer":"llm","expected_category":"Government ID","expected_confidence_band":"high"}

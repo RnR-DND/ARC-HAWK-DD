@@ -1,9 +1,9 @@
 // Discovery module API client.
 //
 // Wraps the /api/v1/discovery/* endpoints. All methods return parsed JSON or throw.
-// Auth headers are handled by the global fetch interceptor (same as other modules).
+// Auth is handled by the shared api-client (axios with withCredentials: true).
 
-const API_BASE = '/api/v1/discovery';
+import { get, post } from '@/utils/api-client';
 
 export interface InventoryRow {
     id: string;
@@ -81,6 +81,16 @@ export interface DriftEvent {
     detected_at: string;
 }
 
+export interface GlossaryTerm {
+    id: string;
+    name: string;
+    description: string;
+    regulation_refs: string[];
+    risk_level: string;
+    examples?: string[];
+    dpdpa_section?: string;
+}
+
 export interface Report {
     id: string;
     tenant_id: string;
@@ -95,91 +105,72 @@ export interface Report {
     size_bytes?: number;
 }
 
-async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(url, {
-        ...init,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(init?.headers || {}),
-        },
-        credentials: 'include',
-    });
-    if (!res.ok) {
-        let body = '';
-        try {
-            body = await res.text();
-        } catch {
-            // ignore
-        }
-        throw new Error(`Discovery API ${res.status}: ${body || res.statusText}`);
-    }
-    return res.json() as Promise<T>;
-}
-
 export const discoveryApi = {
-    getOverview: () => jsonFetch<OverviewSummary>(`${API_BASE}/overview`),
+    getOverview: () =>
+        get<OverviewSummary>('/discovery/overview'),
 
     listInventory: (params?: {
         classification?: string;
         source_id?: string;
+        search?: string;
         limit?: number;
         offset?: number;
     }) => {
         const q = new URLSearchParams();
         if (params?.classification) q.set('classification', params.classification);
         if (params?.source_id) q.set('source_id', params.source_id);
+        if (params?.search) q.set('search', params.search);
         if (params?.limit) q.set('limit', String(params.limit));
         if (params?.offset) q.set('offset', String(params.offset));
         const qs = q.toString();
-        return jsonFetch<{ items: InventoryRow[]; count: number; limit: number; offset: number }>(
-            `${API_BASE}/inventory${qs ? `?${qs}` : ''}`
+        return get<{ items: InventoryRow[]; count: number; limit: number; offset: number }>(
+            `/discovery/inventory${qs ? `?${qs}` : ''}`
         );
     },
 
     listSnapshots: (limit = 50, offset = 0) =>
-        jsonFetch<{ items: Snapshot[]; count: number }>(
-            `${API_BASE}/snapshots?limit=${limit}&offset=${offset}`
+        get<{ items: Snapshot[]; count: number }>(
+            `/discovery/snapshots?limit=${limit}&offset=${offset}`
         ),
 
     getSnapshot: (id: string) =>
-        jsonFetch<{ snapshot: Snapshot; facts: unknown[] }>(`${API_BASE}/snapshots/${id}`),
+        get<{ snapshot: Snapshot; facts: unknown[] }>(`/discovery/snapshots/${id}`),
 
     triggerSnapshot: () =>
-        jsonFetch<{ snapshot_id: string; status: string; asset_count: number; duration_ms: number }>(
-            `${API_BASE}/snapshots/trigger`,
-            { method: 'POST' }
+        post<{ snapshot_id: string; status: string; asset_count: number; duration_ms: number }>(
+            '/discovery/snapshots/trigger', {}
         ),
 
     getRiskOverview: () =>
-        jsonFetch<{ hotspots: RiskHotspot[]; weights: Record<string, number> }>(
-            `${API_BASE}/risk/overview`
+        get<{ hotspots: RiskHotspot[]; weights: Record<string, number> }>(
+            '/discovery/risk/overview'
         ),
 
     getRiskHotspots: (limit = 10) =>
-        jsonFetch<{ hotspots: RiskHotspot[]; count: number }>(
-            `${API_BASE}/risk/hotspots?limit=${limit}`
+        get<{ hotspots: RiskHotspot[]; count: number }>(
+            `/discovery/risk/hotspots?limit=${limit}`
         ),
 
     getDriftTimeline: (limit = 100) =>
-        jsonFetch<{ snapshot_id: string; events: DriftEvent[]; count: number }>(
-            `${API_BASE}/drift/timeline?limit=${limit}`
+        get<{ snapshot_id: string; events: DriftEvent[]; count: number }>(
+            `/discovery/drift/timeline?limit=${limit}`
         ),
 
     generateReport: (format: 'html' | 'pdf' | 'csv' | 'json' = 'html', snapshotId?: string) =>
-        jsonFetch<{ report_id: string; status: string; format: string }>(
-            `${API_BASE}/reports/generate`,
-            {
-                method: 'POST',
-                body: JSON.stringify({ format, snapshot_id: snapshotId ?? null }),
-            }
+        post<{ report_id: string; status: string; format: string }>(
+            '/discovery/reports/generate',
+            { format, snapshot_id: snapshotId ?? null }
         ),
 
-    getReport: (id: string) => jsonFetch<Report>(`${API_BASE}/reports/${id}`),
+    getReport: (id: string) => get<Report>(`/discovery/reports/${id}`),
 
-    downloadReportUrl: (id: string) => `${API_BASE}/reports/${id}/download`,
+    downloadReportUrl: (id: string) => `/api/v1/discovery/reports/${id}/download`,
 
     listReports: (limit = 50, offset = 0) =>
-        jsonFetch<{ items: Report[]; count: number }>(
-            `${API_BASE}/reports?limit=${limit}&offset=${offset}`
+        get<{ items: Report[]; count: number }>(
+            `/discovery/reports?limit=${limit}&offset=${offset}`
         ),
+
+    getGlossary: () =>
+        get<{ terms: GlossaryTerm[]; count: number }>('/discovery/glossary'),
 };

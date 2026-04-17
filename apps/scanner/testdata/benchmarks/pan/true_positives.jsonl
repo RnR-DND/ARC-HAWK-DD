@@ -1,2 +1,0 @@
-{"id":"pan_tp_001","raw_value":"ABCDE1234F","column_name":"pan_number","context":"income tax filing","expected_layer":"rule_based","expected_category":"Financial ID","expected_confidence_band":"high"}
-{"id":"pan_tp_002","raw_value":"XYZAB5678G","column_name":"tax_id","context":"employee payroll","expected_layer":"rule_based","expected_category":"Financial ID","expected_confidence_band":"high"}

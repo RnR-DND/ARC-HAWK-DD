@@ -38,9 +38,41 @@ export interface RemediationHistoryResponse {
     total: number;
 }
 
+export interface SOP {
+    issue_type: string;
+    title: string;
+    steps: string[];
+    severity?: string;
+    references?: string[];
+}
+
+export interface SOPListResponse {
+    sops: SOP[];
+}
+
+export interface EscalationPreview {
+    findings: Array<{
+        id: string;
+        asset_name?: string;
+        pii_type?: string;
+        risk_level?: string;
+        days_open?: number;
+    }>;
+    total: number;
+}
+
+export interface EscalationRunResponse {
+    escalated: number;
+    message: string;
+}
+
 export const remediationApi = {
     executeRemediation: async (data: ExecuteRemediationRequest): Promise<ExecuteRemediationResponse> => {
         return await post<ExecuteRemediationResponse>('/remediation/execute', data);
+    },
+
+    rollback: async (id: string): Promise<void> => {
+        await post<void>(`/remediation/rollback/${id}`, {});
     },
 
     getRemediationHistory: async (params?: {
@@ -60,7 +92,26 @@ export const remediationApi = {
             `/remediation/history${query ? `?${query}` : ''}`
         );
         return unwrapResponse<RemediationHistoryResponse>(response, { history: [], total: 0 });
-    }
+    },
+
+    getSOPs: async (): Promise<SOPListResponse> => {
+        const response = await get<any>('/remediation/sops');
+        return unwrapResponse<SOPListResponse>(response, { sops: [] });
+    },
+
+    getSOPByType: async (issueType: string): Promise<SOP | null> => {
+        const response = await get<any>(`/remediation/sops/${encodeURIComponent(issueType)}`);
+        return response;
+    },
+
+    previewEscalation: async (): Promise<EscalationPreview> => {
+        const response = await get<any>('/remediation/escalation/preview');
+        return unwrapResponse<EscalationPreview>(response, { findings: [], total: 0 });
+    },
+
+    runEscalation: async (): Promise<EscalationRunResponse> => {
+        return await post<EscalationRunResponse>('/remediation/escalation/run', {});
+    },
 };
 
 export default remediationApi;

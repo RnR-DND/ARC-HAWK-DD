@@ -1,2 +1,0 @@
-{"id":"phone_ec_001","raw_value":"98-7654-3210","column_name":"mobile_no","context":"hyphen-formatted Indian mobile","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"medium"}
-{"id":"phone_ec_002","raw_value":"(+91) 98765 43210","column_name":"contact","context":"formatted with parentheses and spaces","expected_layer":"rule_based","expected_category":"Contact Information","expected_confidence_band":"medium"}
