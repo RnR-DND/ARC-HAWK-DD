@@ -43,12 +43,18 @@ export default function AuditPage() {
     const [search, setSearch] = useState('');
     const [actionFilter, setActionFilter] = useState('');
     const [resourceFilter, setResourceFilter] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
-    const loadLogs = useCallback(async () => {
+    const loadLogs = useCallback(async (start?: string, end?: string) => {
         try {
             setLoading(true);
             setError(null);
-            const data = await auditApi.getLogs({ limit: 200 });
+            const data = await auditApi.getLogs({
+                limit: 200,
+                start_time: start ? new Date(start).toISOString() : undefined,
+                end_time: end ? new Date(end + 'T23:59:59').toISOString() : undefined,
+            });
             setLogs(data);
         } catch (err) {
             console.error('Failed to load audit logs:', err);
@@ -59,8 +65,8 @@ export default function AuditPage() {
     }, []);
 
     useEffect(() => {
-        loadLogs();
-    }, [loadLogs]);
+        loadLogs(startDate || undefined, endDate || undefined);
+    }, [loadLogs, startDate, endDate]);
 
     const filtered = logs.filter(log => {
         const searchLower = search.toLowerCase();
@@ -91,7 +97,7 @@ export default function AuditPage() {
                     </p>
                 </div>
                 <button
-                    onClick={loadLogs}
+                    onClick={() => loadLogs(startDate || undefined, endDate || undefined)}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
                 >
                     <RefreshCw className="w-4 h-4" />
@@ -133,6 +139,32 @@ export default function AuditPage() {
                             <option key={r} value={r}>{r}</option>
                         ))}
                     </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                    <label className="text-sm text-slate-500">From</label>
+                    <input
+                        type="date"
+                        value={startDate}
+                        onChange={e => setStartDate(e.target.value)}
+                        className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+                    />
+                    <label className="text-sm text-slate-500">To</label>
+                    <input
+                        type="date"
+                        value={endDate}
+                        onChange={e => setEndDate(e.target.value)}
+                        min={startDate || undefined}
+                        className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
+                    />
+                    {(startDate || endDate) && (
+                        <button
+                            onClick={() => { setStartDate(''); setEndDate(''); }}
+                            className="text-xs text-slate-400 hover:text-slate-600 underline"
+                        >
+                            Clear
+                        </button>
+                    )}
                 </div>
             </div>
 

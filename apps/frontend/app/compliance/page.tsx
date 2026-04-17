@@ -140,6 +140,15 @@ export default function CompliancePage() {
                 {/* Retention Policy Violations */}
                 <RetentionSection />
 
+                {/* Consent Records */}
+                <ConsentSection />
+
+                {/* Data Principal Rights */}
+                <DPRSection />
+
+                {/* GRO Settings */}
+                <GROSettingsSection />
+
                 {/* Main Content Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
                     {/* Remediation Queue */}
@@ -673,6 +682,475 @@ function DPDPAObligationChecklist() {
                     })}
                 </div>
             )}
+        </div>
+    );
+}
+
+// ─── Status color helpers ─────────────────────────────────────────────────────
+const DPR_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+    PENDING:     { bg: '#fef9c3', text: '#854d0e' },
+    IN_PROGRESS: { bg: '#dbeafe', text: '#1e40af' },
+    COMPLETED:   { bg: '#dcfce7', text: '#166534' },
+    REJECTED:    { bg: '#fee2e2', text: '#991b1b' },
+};
+
+function StatusBadge({ status }: { status: string }) {
+    const c = DPR_STATUS_COLORS[status] ?? { bg: theme.colors.background.tertiary, text: theme.colors.text.secondary };
+    return (
+        <span style={{
+            display: 'inline-block',
+            padding: '2px 10px',
+            borderRadius: '999px',
+            fontSize: '11px',
+            fontWeight: 700,
+            backgroundColor: c.bg,
+            color: c.text,
+            textTransform: 'uppercase',
+        }}>
+            {status.replace('_', ' ')}
+        </span>
+    );
+}
+
+// ─── Consent Records Section ──────────────────────────────────────────────────
+function ConsentSection() {
+    const [records, setRecords] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState({ asset_id: '', data_subject_id: '', consent_type: 'EXPLICIT', purpose: '' });
+    const [saving, setSaving] = useState(false);
+    const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+
+    useEffect(() => { load(); }, []);
+
+    const load = async () => {
+        setLoading(true);
+        const data = await complianceApi.listConsentRecords();
+        setRecords(data);
+        setLoading(false);
+    };
+
+    const handleCreate = async () => {
+        setSaving(true);
+        try {
+            await complianceApi.createConsentRecord(form);
+            setShowForm(false);
+            setForm({ asset_id: '', data_subject_id: '', consent_type: 'EXPLICIT', purpose: '' });
+            await load();
+        } catch (e) {
+            console.error('Failed to create consent record', e);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleWithdraw = async (id: string) => {
+        setWithdrawingId(id);
+        try {
+            await complianceApi.withdrawConsent(id);
+            await load();
+        } catch (e) {
+            console.error('Failed to withdraw consent', e);
+        } finally {
+            setWithdrawingId(null);
+        }
+    };
+
+    const getStatusColor = (status: string) => {
+        if (status === 'active') return { bg: '#dcfce7', text: '#166534' };
+        if (status === 'withdrawn') return { bg: '#fee2e2', text: '#991b1b' };
+        return { bg: '#fef9c3', text: '#854d0e' }; // expired
+    };
+
+    return (
+        <div style={{ backgroundColor: theme.colors.background.card, borderRadius: '12px', border: `1px solid ${theme.colors.border.default}`, overflow: 'hidden', marginBottom: '24px' }}>
+            <div style={{ padding: '24px', borderBottom: `1px solid ${theme.colors.border.default}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: theme.colors.text.primary, margin: 0 }}>Consent Records</h3>
+                    <p style={{ fontSize: '13px', color: theme.colors.text.secondary, marginTop: '6px' }}>
+                        DPDPA Sec 6 — Consent ledger for personal data assets.
+                    </p>
+                </div>
+                <button
+                    onClick={() => setShowForm(!showForm)}
+                    style={{ padding: '8px 16px', backgroundColor: theme.colors.primary.DEFAULT, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                    + New Consent Record
+                </button>
+            </div>
+
+            {showForm && (
+                <div style={{ padding: '20px 24px', borderBottom: `1px solid ${theme.colors.border.default}`, backgroundColor: `${theme.colors.primary.DEFAULT}06` }}>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                        {[
+                            { label: 'Asset ID', key: 'asset_id', placeholder: 'asset-uuid' },
+                            { label: 'Data Subject ID', key: 'data_subject_id', placeholder: 'subject-id' },
+                            { label: 'Purpose', key: 'purpose', placeholder: 'e.g. Marketing, Analytics' },
+                        ].map(({ label, key, placeholder }) => (
+                            <div key={key}>
+                                <label style={{ fontSize: '11px', color: theme.colors.text.secondary, display: 'block', marginBottom: '4px' }}>{label}</label>
+                                <input
+                                    type="text"
+                                    placeholder={placeholder}
+                                    value={(form as any)[key]}
+                                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                                    style={{ padding: '6px 10px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '6px', fontSize: '13px', width: '180px' }}
+                                />
+                            </div>
+                        ))}
+                        <div>
+                            <label style={{ fontSize: '11px', color: theme.colors.text.secondary, display: 'block', marginBottom: '4px' }}>Consent Type</label>
+                            <select value={form.consent_type} onChange={e => setForm(f => ({ ...f, consent_type: e.target.value }))}
+                                style={{ padding: '6px 10px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '6px', fontSize: '13px' }}>
+                                {['EXPLICIT', 'IMPLICIT', 'LEGITIMATE_INTEREST'].map(t => <option key={t}>{t}</option>)}
+                            </select>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={handleCreate} disabled={saving || !form.asset_id || !form.data_subject_id}
+                                style={{ padding: '7px 16px', backgroundColor: theme.colors.primary.DEFAULT, color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                                {saving ? 'Saving…' : 'Save'}
+                            </button>
+                            <button onClick={() => setShowForm(false)}
+                                style={{ padding: '7px 16px', backgroundColor: 'transparent', color: theme.colors.text.secondary, border: `1px solid ${theme.colors.border.default}`, borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {loading ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: theme.colors.text.secondary }}>Loading consent records…</div>
+            ) : records.length === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: theme.colors.text.secondary }}>No consent records found.</div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead style={{ backgroundColor: theme.colors.background.tertiary }}>
+                            <tr>
+                                {['ID', 'Asset ID', 'Subject ID', 'Type', 'Purpose', 'Status', 'Action'].map(h => (
+                                    <th key={h} style={{ padding: '12px 20px', textAlign: 'left', fontSize: '11px', color: theme.colors.text.secondary, textTransform: 'uppercase' }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {records.map((r: any) => {
+                                const sc = getStatusColor(r.status);
+                                return (
+                                    <tr key={r.id} style={{ borderBottom: `1px solid ${theme.colors.border.default}` }}>
+                                        <td style={{ padding: '12px 20px', fontFamily: 'monospace', fontSize: '12px', color: theme.colors.text.muted }}>{(r.id || '').slice(0, 8)}…</td>
+                                        <td style={{ padding: '12px 20px', fontSize: '13px', color: theme.colors.text.secondary, fontFamily: 'monospace' }}>{(r.asset_id || '').slice(0, 12)}…</td>
+                                        <td style={{ padding: '12px 20px', fontSize: '13px', color: theme.colors.text.secondary }}>{r.data_subject_id || '—'}</td>
+                                        <td style={{ padding: '12px 20px' }}>
+                                            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', backgroundColor: theme.colors.background.tertiary, color: theme.colors.text.secondary }}>{r.consent_type}</span>
+                                        </td>
+                                        <td style={{ padding: '12px 20px', fontSize: '13px', color: theme.colors.text.secondary }}>{r.purpose || '—'}</td>
+                                        <td style={{ padding: '12px 20px' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 10px', borderRadius: '999px', backgroundColor: sc.bg, color: sc.text, textTransform: 'uppercase' }}>
+                                                {r.status}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px 20px' }}>
+                                            {r.status === 'active' && (
+                                                <button
+                                                    onClick={() => handleWithdraw(r.id)}
+                                                    disabled={withdrawingId === r.id}
+                                                    style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 600, color: '#991b1b', backgroundColor: 'transparent', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer' }}>
+                                                    {withdrawingId === r.id ? 'Withdrawing…' : 'Withdraw'}
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── DPR Management Section ───────────────────────────────────────────────────
+function DPRSection() {
+    const [stats, setStats] = useState<any>(null);
+    const [dprs, setDPRs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showModal, setShowModal] = useState(false);
+    const [submitForm, setSubmitForm] = useState({ request_type: 'ACCESS', data_principal_id: '', data_principal_email: '', request_details: '' });
+    const [submitting, setSubmitting] = useState(false);
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+    useEffect(() => { loadData(); }, []);
+
+    const loadData = async () => {
+        setLoading(true);
+        const [statsData, dprsData] = await Promise.all([
+            complianceApi.getDPRStats(),
+            complianceApi.listDPRs(),
+        ]);
+        setStats(statsData);
+        setDPRs(dprsData);
+        setLoading(false);
+    };
+
+    const handleSubmit = async () => {
+        setSubmitting(true);
+        try {
+            await complianceApi.submitDPR({
+                request_type: submitForm.request_type,
+                data_principal_id: submitForm.data_principal_id,
+                data_principal_email: submitForm.data_principal_email || undefined,
+                request_details: submitForm.request_details ? { notes: submitForm.request_details } : undefined,
+            });
+            setShowModal(false);
+            setSubmitForm({ request_type: 'ACCESS', data_principal_id: '', data_principal_email: '', request_details: '' });
+            await loadData();
+        } catch (e) {
+            console.error('Failed to submit DPR', e);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleUpdateStatus = async (id: string, status: string) => {
+        setUpdatingId(id);
+        try {
+            await complianceApi.updateDPRStatus(id, status);
+            await loadData();
+        } catch (e) {
+            console.error('Failed to update DPR status', e);
+        } finally {
+            setUpdatingId(null);
+        }
+    };
+
+    const overdueCount = dprs.filter(d => {
+        if (d.status !== 'PENDING') return false;
+        return (Date.now() - new Date(d.created_at).getTime()) > 30 * 24 * 60 * 60 * 1000;
+    }).length;
+
+    return (
+        <div style={{ backgroundColor: theme.colors.background.card, borderRadius: '12px', border: `1px solid ${theme.colors.border.default}`, overflow: 'hidden', marginBottom: '24px' }}>
+            <div style={{ padding: '24px', borderBottom: `1px solid ${theme.colors.border.default}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: theme.colors.text.primary, margin: 0 }}>Data Principal Rights (DPR)</h3>
+                    <p style={{ fontSize: '13px', color: theme.colors.text.secondary, marginTop: '6px' }}>
+                        DPDPA Sec 7 — Manage access, correction, erasure, nomination, and grievance requests.
+                    </p>
+                </div>
+                <button
+                    onClick={() => setShowModal(true)}
+                    style={{ padding: '8px 16px', backgroundColor: theme.colors.primary.DEFAULT, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                    + Submit New Request
+                </button>
+            </div>
+
+            {/* Overdue banner */}
+            {overdueCount > 0 && (
+                <div style={{ margin: '16px 24px 0', padding: '12px 16px', backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', color: '#991b1b', fontSize: '13px', fontWeight: 600 }}>
+                    ⚠ {overdueCount} pending request{overdueCount > 1 ? 's' : ''} exceeded the 30-day response deadline — action required.
+                </div>
+            )}
+
+            {/* Stats Cards */}
+            {stats && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', padding: '20px 24px' }}>
+                    {[
+                        { label: 'Total Requests', value: stats.total ?? dprs.length, color: theme.colors.text.primary },
+                        { label: 'Pending', value: stats.pending ?? dprs.filter((d: any) => d.status === 'PENDING').length, color: '#854d0e' },
+                        { label: 'In Progress', value: stats.in_progress ?? dprs.filter((d: any) => d.status === 'IN_PROGRESS').length, color: '#1e40af' },
+                        { label: 'Completed', value: stats.completed ?? dprs.filter((d: any) => d.status === 'COMPLETED').length, color: '#166534' },
+                    ].map(({ label, value, color }) => (
+                        <div key={label} style={{ padding: '16px', backgroundColor: theme.colors.background.tertiary, borderRadius: '8px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '24px', fontWeight: 800, color }}>{value ?? '—'}</div>
+                            <div style={{ fontSize: '12px', color: theme.colors.text.secondary, marginTop: '4px' }}>{label}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {loading ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: theme.colors.text.secondary }}>Loading requests…</div>
+            ) : dprs.length === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: theme.colors.text.secondary }}>No DPR requests found.</div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead style={{ backgroundColor: theme.colors.background.tertiary }}>
+                            <tr>
+                                {['ID', 'Type', 'Status', 'Principal ID', 'Due Date', 'Created', 'Action'].map(h => (
+                                    <th key={h} style={{ padding: '12px 20px', textAlign: 'left', fontSize: '11px', color: theme.colors.text.secondary, textTransform: 'uppercase' }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {dprs.map((d: any) => (
+                                <tr key={d.id} style={{ borderBottom: `1px solid ${theme.colors.border.default}` }}>
+                                    <td style={{ padding: '12px 20px', fontFamily: 'monospace', fontSize: '12px', color: theme.colors.text.muted }}>{(d.id || '').slice(0, 8)}…</td>
+                                    <td style={{ padding: '12px 20px' }}>
+                                        <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', backgroundColor: theme.colors.background.tertiary, color: theme.colors.text.secondary, fontWeight: 600 }}>{d.request_type}</span>
+                                    </td>
+                                    <td style={{ padding: '12px 20px' }}><StatusBadge status={d.status} /></td>
+                                    <td style={{ padding: '12px 20px', fontSize: '13px', color: theme.colors.text.secondary }}>{d.data_principal_id || '—'}</td>
+                                    <td style={{ padding: '12px 20px', fontSize: '13px', color: d.due_date && new Date(d.due_date) < new Date() ? '#991b1b' : theme.colors.text.secondary }}>
+                                        {d.due_date ? new Date(d.due_date).toLocaleDateString() : '—'}
+                                    </td>
+                                    <td style={{ padding: '12px 20px', fontSize: '12px', color: theme.colors.text.muted }}>{d.created_at ? new Date(d.created_at).toLocaleDateString() : '—'}</td>
+                                    <td style={{ padding: '12px 20px' }}>
+                                        {(d.status === 'PENDING' || d.status === 'IN_PROGRESS') && (
+                                            <select
+                                                disabled={updatingId === d.id}
+                                                defaultValue=""
+                                                onChange={e => { if (e.target.value) handleUpdateStatus(d.id, e.target.value); }}
+                                                style={{ padding: '4px 8px', fontSize: '12px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '6px', cursor: 'pointer', backgroundColor: theme.colors.background.card, color: theme.colors.text.primary }}>
+                                                <option value="" disabled>Update status</option>
+                                                <option value="IN_PROGRESS">In Progress</option>
+                                                <option value="COMPLETED">Completed</option>
+                                                <option value="REJECTED">Rejected</option>
+                                            </select>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {/* Submit Modal */}
+            {showModal && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div style={{ backgroundColor: theme.colors.background.card, borderRadius: '12px', padding: '32px', width: '480px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: 700, color: theme.colors.text.primary, marginBottom: '24px' }}>Submit DPR Request</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ fontSize: '12px', color: theme.colors.text.secondary, display: 'block', marginBottom: '6px', fontWeight: 600 }}>Request Type</label>
+                                <select value={submitForm.request_type} onChange={e => setSubmitForm(f => ({ ...f, request_type: e.target.value }))}
+                                    style={{ width: '100%', padding: '8px 12px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', fontSize: '13px', backgroundColor: theme.colors.background.card, color: theme.colors.text.primary }}>
+                                    {['ACCESS', 'CORRECTION', 'ERASURE', 'NOMINATION', 'GRIEVANCE'].map(t => <option key={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: theme.colors.text.secondary, display: 'block', marginBottom: '6px', fontWeight: 600 }}>Data Principal ID <span style={{ color: '#ef4444' }}>*</span></label>
+                                <input type="text" value={submitForm.data_principal_id} onChange={e => setSubmitForm(f => ({ ...f, data_principal_id: e.target.value }))}
+                                    placeholder="user-id or identifier"
+                                    style={{ width: '100%', padding: '8px 12px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: theme.colors.text.secondary, display: 'block', marginBottom: '6px', fontWeight: 600 }}>Email (optional)</label>
+                                <input type="email" value={submitForm.data_principal_email} onChange={e => setSubmitForm(f => ({ ...f, data_principal_email: e.target.value }))}
+                                    placeholder="principal@example.com"
+                                    style={{ width: '100%', padding: '8px 12px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: theme.colors.text.secondary, display: 'block', marginBottom: '6px', fontWeight: 600 }}>Details (optional)</label>
+                                <textarea value={submitForm.request_details} onChange={e => setSubmitForm(f => ({ ...f, request_details: e.target.value }))}
+                                    rows={3} placeholder="Additional context or notes…"
+                                    style={{ width: '100%', padding: '8px 12px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', fontSize: '13px', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowModal(false)}
+                                style={{ padding: '8px 20px', backgroundColor: 'transparent', color: theme.colors.text.secondary, border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                            <button onClick={handleSubmit} disabled={submitting || !submitForm.data_principal_id}
+                                style={{ padding: '8px 20px', backgroundColor: theme.colors.primary.DEFAULT, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting || !submitForm.data_principal_id ? 0.7 : 1 }}>
+                                {submitting ? 'Submitting…' : 'Submit Request'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── GRO Settings Section ─────────────────────────────────────────────────────
+function GROSettingsSection() {
+    const [form, setForm] = useState({ gro_name: '', gro_email: '', gro_phone: '', is_significant_data_fiduciary: false });
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        complianceApi.getGROSettings().then(data => {
+            if (data) {
+                setForm({
+                    gro_name: data.gro_name ?? '',
+                    gro_email: data.gro_email ?? '',
+                    gro_phone: data.gro_phone ?? '',
+                    is_significant_data_fiduciary: data.is_significant_data_fiduciary ?? false,
+                });
+            }
+            setLoading(false);
+        });
+    }, []);
+
+    const handleSave = async () => {
+        setSaving(true);
+        setSaved(false);
+        try {
+            await complianceApi.updateGROSettings(form);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (e) {
+            console.error('Failed to save GRO settings', e);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div style={{ backgroundColor: theme.colors.background.card, borderRadius: '12px', border: `1px solid ${theme.colors.border.default}`, overflow: 'hidden', marginBottom: '24px' }}>
+            <div style={{ padding: '24px', borderBottom: `1px solid ${theme.colors.border.default}` }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: theme.colors.text.primary, margin: 0 }}>Grievance Redressal Officer (GRO) Settings</h3>
+                <p style={{ fontSize: '13px', color: theme.colors.text.secondary, marginTop: '6px' }}>
+                    DPDPA Sec 11 — Contact details for the appointed Grievance Redressal Officer.
+                </p>
+            </div>
+
+            <div style={{ padding: '24px' }}>
+                {loading ? (
+                    <div style={{ color: theme.colors.text.secondary, fontSize: '13px' }}>Loading GRO settings…</div>
+                ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', maxWidth: '640px' }}>
+                        <div>
+                            <label style={{ fontSize: '12px', color: theme.colors.text.secondary, display: 'block', marginBottom: '6px', fontWeight: 600 }}>GRO Name</label>
+                            <input type="text" value={form.gro_name} onChange={e => setForm(f => ({ ...f, gro_name: e.target.value }))}
+                                placeholder="Full name"
+                                style={{ width: '100%', padding: '8px 12px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '12px', color: theme.colors.text.secondary, display: 'block', marginBottom: '6px', fontWeight: 600 }}>GRO Email</label>
+                            <input type="email" value={form.gro_email} onChange={e => setForm(f => ({ ...f, gro_email: e.target.value }))}
+                                placeholder="gro@company.com"
+                                style={{ width: '100%', padding: '8px 12px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '12px', color: theme.colors.text.secondary, display: 'block', marginBottom: '6px', fontWeight: 600 }}>GRO Phone</label>
+                            <input type="tel" value={form.gro_phone} onChange={e => setForm(f => ({ ...f, gro_phone: e.target.value }))}
+                                placeholder="+91-XXXXXXXXXX"
+                                style={{ width: '100%', padding: '8px 12px', border: `1px solid ${theme.colors.border.default}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '22px' }}>
+                            <input type="checkbox" id="sdf-checkbox" checked={form.is_significant_data_fiduciary}
+                                onChange={e => setForm(f => ({ ...f, is_significant_data_fiduciary: e.target.checked }))}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                            <label htmlFor="sdf-checkbox" style={{ fontSize: '13px', color: theme.colors.text.primary, cursor: 'pointer' }}>
+                                Significant Data Fiduciary
+                            </label>
+                        </div>
+                        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '12px', alignItems: 'center', marginTop: '4px' }}>
+                            <button onClick={handleSave} disabled={saving}
+                                style={{ padding: '8px 24px', backgroundColor: theme.colors.primary.DEFAULT, color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                                {saving ? 'Saving…' : 'Save Settings'}
+                            </button>
+                            {saved && <span style={{ fontSize: '13px', color: '#166534', fontWeight: 600 }}>✓ Saved successfully</span>}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
