@@ -4,13 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Play, Zap, Clock, Trash2, Plus, Brain, Search, Regex } from 'lucide-react';
 import { scansApi } from '@/services/scans.api';
+import type { TriggerScanRequest } from '@/types/api';
 import { connectionsApi, type Connection } from '@/services/connections.api';
 import { patternsApi, type CustomPattern } from '@/services/patterns.api';
 
 interface ScanConfigModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onRunScan?: (config: ScanConfig) => void;
+    onRunScan?: (config: TriggerScanRequest) => void;
 }
 
 interface ScanConfig {
@@ -201,8 +202,9 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
             setSelectedCustomPatterns(prev => [...prev, created.id!]);
             setNewPattern({ name: '', display_name: '', regex: '', category: 'Custom', description: '', context_keywords: [], negative_keywords: [] });
             setShowAddPattern(false);
-        } catch (err: any) {
-            setPatternError(err?.response?.data?.error || 'Failed to save pattern.');
+        } catch (err: unknown) {
+            const apiError = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+            setPatternError(apiError || 'Failed to save pattern.');
         } finally {
             setSavingPattern(false);
         }
@@ -241,18 +243,17 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
                 .filter(p => selectedCustomPatterns.includes(p.id!))
                 .map(p => ({ name: p.name, display_name: p.display_name, regex: p.regex, category: p.category }));
 
-            const config: any = {
+            const config: TriggerScanRequest = {
                 name: scanName || `Scan_${new Date().toISOString().split('T')[0]}`,
                 sources: selectedSources,
                 pii_types: selectedPiiTypes,
                 execution_mode: executionMode,
                 classification_mode: classificationMode,
                 custom_patterns: activeCustomPatterns,
+                ...(perSourcePiiEnabled && Object.keys(piiTypesPerSource).length > 0
+                    ? { pii_types_per_source: piiTypesPerSource }
+                    : {}),
             };
-
-            if (perSourcePiiEnabled && Object.keys(piiTypesPerSource).length > 0) {
-                config.pii_types_per_source = piiTypesPerSource;
-            }
 
             const response = await scansApi.triggerScan(config);
             onRunScan?.(config);

@@ -8,15 +8,24 @@ import (
 	"github.com/arc-platform/go-scanner/internal/connectors"
 )
 
-// ClassifiedFinding is the output of the classification engine.
+// ClassifiedFinding is the output of the classification engine. Fields are
+// named to line up with the backend's VerifiedFinding schema so the ingest
+// layer is a straight serialization pass.
 type ClassifiedFinding struct {
 	PIIType        string
 	ValueHash      string
 	Score          int
 	DetectorType   string
 	SourcePath     string
+	FieldName      string
 	ContextExcerpt string
 	PatternName    string
+
+	// Populated by the orchestrator after Classify — Engine itself only
+	// knows about the record, not the source/host.
+	DataSource string
+	Host       string
+	Table      string
 }
 
 // Engine classifies FieldRecords against PII patterns.
@@ -29,12 +38,32 @@ func NewEngine() *Engine {
 	return &Engine{patterns: AllPatterns()}
 }
 
-// Classify runs all patterns against a FieldRecord and returns deduplicated findings.
-func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern) []ClassifiedFinding {
+// Classify runs patterns against a FieldRecord and returns deduplicated findings.
+//
+// Filtering semantics:
+//   - `allowedPatterns == nil` — run every built-in pattern (the caller didn't
+//     pass a pii_types filter at all).
+//   - `allowedPatterns` is a non-nil but empty set — run NO built-in patterns
+//     (the caller selected pii_types but none of them map to a built-in
+//     pattern; this strictly honors the user's selection).
+//   - `allowedPatterns` is non-empty — run only patterns whose Pattern.Name is
+//     in the set.
+//
+// Custom patterns always run regardless of the allowlist — they are
+// user-defined and explicit.
+func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern, allowedPatterns map[string]struct{}) []ClassifiedFinding {
 	var findings []ClassifiedFinding
 
-	// Built-in patterns
+	runBuiltins := allowedPatterns == nil || len(allowedPatterns) > 0
 	for _, pat := range e.patterns {
+		if !runBuiltins {
+			break
+		}
+		if len(allowedPatterns) > 0 {
+			if _, ok := allowedPatterns[pat.Name]; !ok {
+				continue
+			}
+		}
 		matches := pat.Regex.FindAllString(record.Value, -1)
 		for _, m := range matches {
 			score, detType := Score(m, pat.PIIType, record, nil, nil)
@@ -45,6 +74,7 @@ func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern)
 					Score:          score,
 					DetectorType:   detType,
 					SourcePath:     record.SourcePath,
+					FieldName:      record.FieldName,
 					ContextExcerpt: excerpt(record.Value, m),
 					PatternName:    pat.Name,
 				})
@@ -52,7 +82,6 @@ func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern)
 		}
 	}
 
-	// Custom patterns
 	for _, cp := range custom {
 		if cp.Regex == nil {
 			continue
@@ -67,6 +96,7 @@ func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern)
 					Score:          score,
 					DetectorType:   detType,
 					SourcePath:     record.SourcePath,
+					FieldName:      record.FieldName,
 					ContextExcerpt: excerpt(record.Value, m),
 					PatternName:    cp.Name,
 				})
@@ -90,13 +120,7 @@ func excerpt(text, match string) string {
 		}
 		return text
 	}
-	start := idx - 50
-	if start < 0 {
-		start = 0
-	}
-	end := idx + len(match) + 50
-	if end > len(text) {
-		end = len(text)
-	}
+	start := max(idx-50, 0)
+	end := min(idx+len(match)+50, len(text))
 	return text[start:end]
 }

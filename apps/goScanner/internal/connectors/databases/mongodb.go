@@ -16,16 +16,16 @@ type MongoDBConnector struct{ client *mongo.Client }
 func (c *MongoDBConnector) SourceType() string { return "mongodb" }
 
 func (c *MongoDBConnector) Connect(ctx context.Context, config map[string]any) error {
-	uri := fmt.Sprintf("%v", config["uri"])
-	if uri == "" || uri == "<nil>" {
-		host := fmt.Sprintf("%v", config["host"])
-		port := fmt.Sprintf("%v", config["port"])
-		if port == "<nil>" || port == "" {
+	uri := cfgString(config, "uri", "connection_string")
+	if uri == "" {
+		host := cfgString(config, "host")
+		port := cfgString(config, "port")
+		if port == "" {
 			port = "27017"
 		}
-		user := fmt.Sprintf("%v", config["user"])
-		pass := fmt.Sprintf("%v", config["password"])
-		if user != "" && user != "<nil>" {
+		user := cfgString(config, "user", "username")
+		pass := cfgString(config, "password")
+		if user != "" {
 			uri = fmt.Sprintf("mongodb://%s:%s@%s:%s", user, pass, host, port)
 		} else {
 			uri = fmt.Sprintf("mongodb://%s:%s", host, port)

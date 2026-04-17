@@ -122,7 +122,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                 </div>
 
                 <div className="h-64">
-                    <ResponsiveContainer width="100%" height={256}>
+                    <ResponsiveContainer width="100%" height={256} minWidth={0}>
                         <PieChart>
                             <Pie
                                 data={piiTypeData}
@@ -183,7 +183,7 @@ export default function RiskChart({ byPiiType, byAsset, byConfidence, loading = 
                 </div>
 
                 <div className="h-64">
-                    <ResponsiveContainer width="100%" height={256}>
+                    <ResponsiveContainer width="100%" height={256} minWidth={0}>
                         <BarChart data={assetData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                             <XAxis
                                 dataKey="name"

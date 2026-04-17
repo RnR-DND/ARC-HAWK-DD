@@ -260,9 +260,9 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 	}
 
 	// Track created assets and patterns
-	assetMap := make(map[string]uuid.UUID)                // stableID -> UUID
-	patternMap := make(map[string]uuid.UUID)              // pattern name -> UUID (for getOrCreatePattern cache)
-	assetPIIMap := make(map[uuid.UUID]map[string]int)    // C4/C5: assetID -> piiType -> count for Neo4j PII_Category sync
+	assetMap := make(map[string]uuid.UUID)            // stableID -> UUID
+	patternMap := make(map[string]uuid.UUID)          // pattern name -> UUID (for getOrCreatePattern cache)
+	assetPIIMap := make(map[uuid.UUID]map[string]int) // C4/C5: assetID -> piiType -> count for Neo4j PII_Category sync
 	assetsCreated := 0
 	uniquePatternCount := 0
 	seenPatterns := make(map[string]bool)
@@ -688,7 +688,6 @@ func (s *IngestionService) getOrCreatePattern(ctx context.Context, finding *Hawk
 	patternMap[finding.PatternName] = pattern.ID
 	return pattern.ID, nil
 }
-
 
 // generateStableID creates a stable identifier from asset identifier
 // getFileName extracts filename from path

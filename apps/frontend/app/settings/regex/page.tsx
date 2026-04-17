@@ -166,7 +166,7 @@ function StatsChart({ patternId, onClose }: { patternId: string; onClose: () => 
                     <div className="h-40 flex items-center justify-center text-slate-400">No scan history available.</div>
                 ) : (
                     <>
-                        <ResponsiveContainer width="100%" height={200}>
+                        <ResponsiveContainer width="100%" height={200} minWidth={0}>
                             <BarChart data={stats.scan_history}>
                                 <XAxis dataKey="scan_label" tick={{ fontSize: 11 }} />
                                 <YAxis tick={{ fontSize: 11 }} />

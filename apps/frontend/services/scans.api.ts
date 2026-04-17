@@ -1,6 +1,7 @@
 import { post, get, del } from '@/utils/api-client';
 import { IngestResult } from '@/types';
 import { unwrapResponse, unwrapArray } from '@/lib/api-utils';
+import type { TriggerScanRequest } from '@/types/api';
 
 export const scansApi = {
     /**
@@ -14,8 +15,8 @@ export const scansApi = {
         return await post<IngestResult>('/scans/ingest-verified', scanData);
     },
 
-    triggerScan: async (config: any): Promise<any> => {
-        return await post<any>('/scans/trigger', config);
+    triggerScan: async (config: TriggerScanRequest): Promise<unknown> => {
+        return await post<unknown>('/scans/trigger', config);
     },
 
     /**

@@ -135,7 +135,8 @@ func scrubValue(v interface{}) interface{} {
 // so callers don't need to manage configuration.
 //
 // Usage:
-//   log.Printf("finding sample: %s", utils.SanitizeForLog(finding.SampleText))
+//
+//	log.Printf("finding sample: %s", utils.SanitizeForLog(finding.SampleText))
 func SanitizeForLog(s string) string {
 	return ScrubPII(s, &DefaultScrubConfig)
 }

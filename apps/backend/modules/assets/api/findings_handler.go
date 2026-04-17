@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/assets/service"
+	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -40,8 +40,8 @@ func (h *FindingsHandler) GetFindings(c *gin.Context) {
 		PatternName:  patternName,
 		DataSource:   c.Query("data_source"),
 		Search:       c.Query("search"),
-		AssetName:    c.Query("asset"),    // asset name filter from UI
-		ReviewStatus: c.Query("status"),   // "Active" | "Suppressed" | "Remediated"
+		AssetName:    c.Query("asset"),  // asset name filter from UI
+		ReviewStatus: c.Query("status"), // "Active" | "Suppressed" | "Remediated"
 		SortBy:       c.DefaultQuery("sort_by", "created_at"),
 		SortOrder:    c.DefaultQuery("sort_order", "desc"),
 	}

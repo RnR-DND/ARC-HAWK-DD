@@ -672,4 +672,3 @@ func (s *RemediationService) GetRemediationAction(ctx context.Context, actionID 
 
 	return &action, nil
 }
-

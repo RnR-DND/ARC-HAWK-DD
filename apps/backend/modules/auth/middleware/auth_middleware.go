@@ -62,11 +62,11 @@ func (m *AuthMiddleware) authenticateAPIKey(c *gin.Context) bool {
 	keyHash := hex.EncodeToString(h[:])
 
 	var (
-		keyID    uuid.UUID
-		tenantID uuid.UUID
-		scopes   []string
+		keyID     uuid.UUID
+		tenantID  uuid.UUID
+		scopes    []string
 		expiresAt sql.NullTime
-		revoked  bool
+		revoked   bool
 	)
 
 	err := m.postgresRepo.GetDB().QueryRowContext(c.Request.Context(), `
@@ -124,11 +124,21 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 			// In dev mode (AUTH_REQUIRED != "true"), allow anonymous access
 			// This mirrors the global authMiddleware behavior in main.go
 			if os.Getenv("AUTH_REQUIRED") == "false" {
-				// Set anonymous defaults so handlers don't crash
+				// Honor X-Tenant-ID when present (used by scanner→backend
+				// machine-to-machine calls in dev). Falls back to the
+				// dedicated DevSystemTenantID so EnsureTenantID is happy.
+				tenantID := persistence.DevSystemTenantID
+				if hdr := c.GetHeader("X-Tenant-ID"); hdr != "" {
+					if parsed, err := uuid.Parse(hdr); err == nil && parsed != uuid.Nil {
+						tenantID = parsed
+					}
+				}
+				ctx := context.WithValue(c.Request.Context(), "tenant_id", tenantID)
+				c.Request = c.Request.WithContext(ctx)
 				c.Set("user_id", uuid.Nil)
 				c.Set("user_email", "anonymous@dev.local")
 				c.Set("user_role", "admin")
-				c.Set("tenant_id", uuid.Nil)
+				c.Set("tenant_id", tenantID)
 				c.Set("authenticated", false)
 				c.Next()
 				return

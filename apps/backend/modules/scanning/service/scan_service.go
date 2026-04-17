@@ -59,20 +59,20 @@ func NewScanService(repo *persistence.PostgresRepository) *ScanService {
 
 // TriggerScanRequest represents a scan trigger request
 type TriggerScanRequest struct {
-	Name               string   `json:"name" binding:"required,min=1,max=100"`
-	Sources            []string `json:"sources" binding:"required,min=1,dive,required"`
-	PIITypes           []string `json:"pii_types" binding:"required,min=1,dive,required"`
-	ExecutionMode      string   `json:"execution_mode" binding:"required,oneof=sequential parallel"`
+	Name          string   `json:"name" binding:"required,min=1,max=100"`
+	Sources       []string `json:"sources" binding:"required,min=1,dive,required"`
+	PIITypes      []string `json:"pii_types" binding:"required,min=1,dive,required"`
+	ExecutionMode string   `json:"execution_mode" binding:"required,oneof=sequential parallel"`
 	// PIITypesPerSource maps profile_name → PII types for that source.
 	// When set, overrides the global PIITypes for the specified sources.
 	// Sources not listed here fall back to the global PIITypes.
-	PIITypesPerSource  map[string][]string `json:"pii_types_per_source,omitempty"`
+	PIITypesPerSource map[string][]string `json:"pii_types_per_source,omitempty"`
 	// ClassificationMode controls which detection engines the scanner uses.
 	// Options: "regex" (regex only), "ner" (regex+spaCy NER), "contextual" (regex+NER+contextual).
 	// Default (empty) = "contextual" (all engines enabled).
-	ClassificationMode string   `json:"classification_mode"`
+	ClassificationMode string `json:"classification_mode"`
 	// CustomPatterns are user-defined patterns appended to the scan; populated by backend at trigger time.
-	CustomPatterns     []map[string]any `json:"custom_patterns,omitempty"`
+	CustomPatterns []map[string]any `json:"custom_patterns,omitempty"`
 }
 
 // CreateScanRun creates a new scan run entity
@@ -177,13 +177,13 @@ func (s *ScanService) ListScanRuns(ctx context.Context, limit, offset int) ([]*e
 
 // ScanDelta holds findings added and removed between two consecutive scans.
 type ScanDelta struct {
-	ScanID     uuid.UUID   `json:"scan_id"`
-	PrevScanID uuid.UUID   `json:"prev_scan_id"`
-	NewFindings  int       `json:"new_findings"`
-	GoneFindings int       `json:"gone_findings"`
-	NetChange    int       `json:"net_change"`   // positive = more PII, negative = less PII
-	NewByType  map[string]int `json:"new_by_type"`
-	GoneByType map[string]int `json:"gone_by_type"`
+	ScanID       uuid.UUID      `json:"scan_id"`
+	PrevScanID   uuid.UUID      `json:"prev_scan_id"`
+	NewFindings  int            `json:"new_findings"`
+	GoneFindings int            `json:"gone_findings"`
+	NetChange    int            `json:"net_change"` // positive = more PII, negative = less PII
+	NewByType    map[string]int `json:"new_by_type"`
+	GoneByType   map[string]int `json:"gone_by_type"`
 }
 
 // GetScanDelta compares findings in scanID against the previous completed scan
@@ -248,28 +248,40 @@ func (s *ScanService) GetScanDelta(ctx context.Context, scanID uuid.UUID) (*Scan
 	newByType := map[string]int{}
 	goneByType := map[string]int{}
 	allTypes := map[string]bool{}
-	for t := range currMap { allTypes[t] = true }
-	for t := range prevMap { allTypes[t] = true }
+	for t := range currMap {
+		allTypes[t] = true
+	}
+	for t := range prevMap {
+		allTypes[t] = true
+	}
 
 	for t := range allTypes {
 		c, p := currMap[t], prevMap[t]
-		if c > p { newByType[t] = c - p }
-		if p > c { goneByType[t] = p - c }
+		if c > p {
+			newByType[t] = c - p
+		}
+		if p > c {
+			goneByType[t] = p - c
+		}
 	}
 
 	totalNew := 0
-	for _, v := range newByType { totalNew += v }
+	for _, v := range newByType {
+		totalNew += v
+	}
 	totalGone := 0
-	for _, v := range goneByType { totalGone += v }
+	for _, v := range goneByType {
+		totalGone += v
+	}
 
 	return &ScanDelta{
-		ScanID:     scanID,
-		PrevScanID: prevID,
+		ScanID:       scanID,
+		PrevScanID:   prevID,
 		NewFindings:  totalNew,
 		GoneFindings: totalGone,
 		NetChange:    totalNew - totalGone,
-		NewByType:  newByType,
-		GoneByType: goneByType,
+		NewByType:    newByType,
+		GoneByType:   goneByType,
 	}, nil
 }
 

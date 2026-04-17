@@ -45,10 +45,10 @@ func TestHealthHandler_ResponseBody(t *testing.T) {
 
 func TestScanHandler_MissingScanID_Returns400(t *testing.T) {
 	r := newTestRouter()
-	// ScanRequest with no ScanID
-	payload, _ := json.Marshal(ScanRequest{Sources: []SourceConfig{}})
+	payload := map[string]any{"sources": []string{}}
+	body, _ := json.Marshal(payload)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/scan", bytes.NewBuffer(payload))
+	req, _ := http.NewRequest(http.MethodPost, "/scan", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -69,12 +69,13 @@ func TestScanHandler_InvalidJSON_Returns400(t *testing.T) {
 
 func TestScanHandler_ValidRequest_Returns202(t *testing.T) {
 	r := newTestRouter()
-	payload, _ := json.Marshal(ScanRequest{
-		ScanID:  "integration-test-scan-001",
-		Sources: []SourceConfig{},
-	})
+	payload := map[string]any{
+		"scan_id": "integration-test-scan-001",
+		"sources": []string{},
+	}
+	body, _ := json.Marshal(payload)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/scan", bytes.NewBuffer(payload))
+	req, _ := http.NewRequest(http.MethodPost, "/scan", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusAccepted {
@@ -85,23 +86,24 @@ func TestScanHandler_ValidRequest_Returns202(t *testing.T) {
 func TestScanHandler_ValidRequest_ResponseBody(t *testing.T) {
 	r := newTestRouter()
 	scanID := "body-check-scan-001"
-	payload, _ := json.Marshal(ScanRequest{
-		ScanID:  scanID,
-		Sources: []SourceConfig{},
-	})
+	payload := map[string]any{
+		"scan_id": scanID,
+		"sources": []string{},
+	}
+	body, _ := json.Marshal(payload)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest(http.MethodPost, "/scan", bytes.NewBuffer(payload))
+	req, _ := http.NewRequest(http.MethodPost, "/scan", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 
-	var body map[string]any
-	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+	var respBody map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&respBody); err != nil {
 		t.Fatalf("failed to decode scan response: %v", err)
 	}
-	if body["scan_id"] != scanID {
-		t.Errorf("response scan_id = %q, want %q", body["scan_id"], scanID)
+	if respBody["scan_id"] != scanID {
+		t.Errorf("response scan_id = %q, want %q", respBody["scan_id"], scanID)
 	}
-	if body["status"] != "running" {
-		t.Errorf("response status = %q, want \"running\"", body["status"])
+	if respBody["status"] != "running" {
+		t.Errorf("response status = %q, want \"running\"", respBody["status"])
 	}
 }

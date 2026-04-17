@@ -16,29 +16,29 @@ import (
 
 // CustomPattern represents a user-defined PII detection pattern.
 type CustomPattern struct {
-	ID                  uuid.UUID  `json:"id"`
-	TenantID            uuid.UUID  `json:"tenant_id"`
-	Name                string     `json:"name"`
-	DisplayName         string     `json:"display_name"`
-	Regex               string     `json:"regex"`
-	Category            string     `json:"category"`
-	Description         string     `json:"description"`
-	IsActive            bool       `json:"is_active"`
-	CreatedBy           string     `json:"created_by"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	ID          uuid.UUID `json:"id"`
+	TenantID    uuid.UUID `json:"tenant_id"`
+	Name        string    `json:"name"`
+	DisplayName string    `json:"display_name"`
+	Regex       string    `json:"regex"`
+	Category    string    `json:"category"`
+	Description string    `json:"description"`
+	IsActive    bool      `json:"is_active"`
+	CreatedBy   string    `json:"created_by"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 	// Phase 2: regex engine hardening
-	ValidationStatus    string     `json:"validation_status"`    // pending | valid | invalid | risky
-	BacktrackSafe       bool       `json:"backtrack_safe"`
-	MatchCountLifetime  int64      `json:"match_count_lifetime"`
-	LastMatchedAt       *time.Time `json:"last_matched_at,omitempty"`
+	ValidationStatus   string     `json:"validation_status"` // pending | valid | invalid | risky
+	BacktrackSafe      bool       `json:"backtrack_safe"`
+	MatchCountLifetime int64      `json:"match_count_lifetime"`
+	LastMatchedAt      *time.Time `json:"last_matched_at,omitempty"`
 	// Phase 2: false-positive tracking (migration 000036)
-	FalsePositiveCount  int64      `json:"false_positive_count"`
-	FalsePositiveRate   float64    `json:"false_positive_rate"`
-	AutoDeactivated     bool       `json:"auto_deactivated"`
+	FalsePositiveCount int64   `json:"false_positive_count"`
+	FalsePositiveRate  float64 `json:"false_positive_rate"`
+	AutoDeactivated    bool    `json:"auto_deactivated"`
 	// WS4: context keyword boosting for custom patterns (migration 000038)
-	ContextKeywords     []string   `json:"context_keywords"`
-	NegativeKeywords    []string   `json:"negative_keywords"`
+	ContextKeywords  []string `json:"context_keywords"`
+	NegativeKeywords []string `json:"negative_keywords"`
 }
 
 // PatternStats is the response type for GET /patterns/:id/stats.
@@ -70,25 +70,25 @@ type TestCaseResult struct {
 
 // TestPatternResult is the aggregate response for POST /patterns/:id/test.
 type TestPatternResult struct {
-	PatternID  string           `json:"pattern_id"`
-	Regex      string           `json:"regex"`
-	Results    []TestCaseResult `json:"results"`
-	Passed     int              `json:"passed"`
-	Failed     int              `json:"failed"`
-	Total      int              `json:"total"`
-	PassRate   float64          `json:"pass_rate"`
+	PatternID string           `json:"pattern_id"`
+	Regex     string           `json:"regex"`
+	Results   []TestCaseResult `json:"results"`
+	Passed    int              `json:"passed"`
+	Failed    int              `json:"failed"`
+	Total     int              `json:"total"`
+	PassRate  float64          `json:"pass_rate"`
 }
 
 // validateRegexSafety checks for catastrophic backtracking using two complementary layers:
 //
-//  Layer 1 — Static analysis: detect known ReDoS structural patterns before attempting
-//            compilation. Catches nested quantifiers and unbounded alternation.
+//	Layer 1 — Static analysis: detect known ReDoS structural patterns before attempting
+//	          compilation. Catches nested quantifiers and unbounded alternation.
 //
-//  Layer 2 — Runtime timeout: compile the regex and run it against a worst-case input
-//            (30 × 'a' + 'b') inside a goroutine with a 2-second deadline. Go's regexp
-//            package uses RE2 semantics and should never backtrack exponentially, but this
-//            guard catches degenerate linear-complexity patterns and extremely long patterns
-//            that still cause unacceptable latency.
+//	Layer 2 — Runtime timeout: compile the regex and run it against a worst-case input
+//	          (30 × 'a' + 'b') inside a goroutine with a 2-second deadline. Go's regexp
+//	          package uses RE2 semantics and should never backtrack exponentially, but this
+//	          guard catches degenerate linear-complexity patterns and extremely long patterns
+//	          that still cause unacceptable latency.
 //
 // Returns an error if the pattern is unsafe; nil if it is safe to persist.
 func validateRegexSafety(pattern string) error {
@@ -275,9 +275,13 @@ func (s *PatternsService) DeletePattern(ctx context.Context, tenantID, id uuid.U
 }
 
 // GetActivePatterns returns active patterns for a tenant (used by scan trigger).
+// Returns context_keywords and negative_keywords so the scanner can both run
+// the regex locally with keyword-aware scoring and forward the pattern to
+// Presidio as an ad-hoc recognizer with context.
 func (s *PatternsService) GetActivePatterns(ctx context.Context, tenantID uuid.UUID) ([]*CustomPattern, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, display_name, regex, category, description
+		`SELECT id, name, display_name, regex, category, description,
+		        COALESCE(context_keywords, '{}'), COALESCE(negative_keywords, '{}')
 		   FROM custom_patterns
 		  WHERE tenant_id=$1 AND is_active=TRUE`, tenantID)
 	if err != nil {
@@ -288,7 +292,8 @@ func (s *PatternsService) GetActivePatterns(ctx context.Context, tenantID uuid.U
 	var out []*CustomPattern
 	for rows.Next() {
 		p := &CustomPattern{}
-		if err := rows.Scan(&p.ID, &p.Name, &p.DisplayName, &p.Regex, &p.Category, &p.Description); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.DisplayName, &p.Regex, &p.Category, &p.Description,
+			pq.Array(&p.ContextKeywords), pq.Array(&p.NegativeKeywords)); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

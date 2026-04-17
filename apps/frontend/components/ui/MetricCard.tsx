@@ -78,7 +78,7 @@ export function MetricCard({
       </div>
       {sparkData && sparkData.length > 0 && (
         <div className="mt-3 h-10">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={40} minWidth={0}>
             <AreaChart data={sparkData}>
               <defs>
                 <linearGradient id={`spark-${label}`} x1="0" y1="0" x2="0" y2="1">

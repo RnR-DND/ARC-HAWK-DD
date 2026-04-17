@@ -50,7 +50,7 @@ func (m *ConnectionsModule) Initialize(deps *interfaces.ModuleDependencies) erro
 	m.connectionSyncService = service.NewConnectionSyncService(pgRepo, encryptionService)
 
 	// Initialize test connection service
-	m.testConnectionService = service.NewTestConnectionService(pgRepo, encryptionService)
+	m.testConnectionService = service.NewTestConnectionService(pgRepo, encryptionService, deps.VaultClient)
 
 	// Initialize scan orchestration service
 	m.scanOrchestrationService = service.NewScanOrchestrationService(pgRepo)

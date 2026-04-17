@@ -12,8 +12,9 @@ import (
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
-	"github.com/google/uuid"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/vault"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -23,12 +24,16 @@ import (
 type TestConnectionService struct {
 	pgRepo     *persistence.PostgresRepository
 	encryption *encryption.EncryptionService
+	vault      *vault.Client
 }
 
-func NewTestConnectionService(pgRepo *persistence.PostgresRepository, enc *encryption.EncryptionService) *TestConnectionService {
+// NewTestConnectionService constructs the service.
+// vaultClient may be nil when Vault is not configured.
+func NewTestConnectionService(pgRepo *persistence.PostgresRepository, enc *encryption.EncryptionService, vaultClient *vault.Client) *TestConnectionService {
 	return &TestConnectionService{
 		pgRepo:     pgRepo,
 		encryption: enc,
+		vault:      vaultClient,
 	}
 }
 
@@ -54,8 +59,19 @@ func (s *TestConnectionService) TestConnection(ctx context.Context, connID strin
 	}
 
 	var config map[string]any
-	if err := s.encryption.Decrypt(conn.ConfigEncrypted, &config); err != nil {
-		return nil, fmt.Errorf("failed to decrypt config: %w", err)
+	if s.vault != nil && s.vault.IsEnabled() {
+		vaultCfg, vErr := s.vault.ReadConnectionSecret(conn.SourceType, conn.ProfileName)
+		if vErr != nil {
+			return nil, fmt.Errorf("vault read failed for %s/%s: %w", conn.SourceType, conn.ProfileName, vErr)
+		}
+		if vaultCfg == nil {
+			return nil, fmt.Errorf("credentials not found in Vault for %s/%s", conn.SourceType, conn.ProfileName)
+		}
+		config = vaultCfg
+	} else {
+		if err := s.encryption.Decrypt(conn.ConfigEncrypted, &config); err != nil {
+			return nil, fmt.Errorf("failed to decrypt config: %w", err)
+		}
 	}
 
 	startTime := time.Now()

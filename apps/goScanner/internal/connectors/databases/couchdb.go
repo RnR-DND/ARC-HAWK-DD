@@ -19,18 +19,18 @@ type CouchDBConnector struct {
 func (c *CouchDBConnector) SourceType() string { return "couchdb" }
 
 func (c *CouchDBConnector) Connect(_ context.Context, config map[string]any) error {
-	host := fmt.Sprintf("%v", config["host"])
-	port := fmt.Sprintf("%v", config["port"])
-	if port == "<nil>" || port == "" {
+	host := cfgString(config, "host")
+	port := cfgString(config, "port")
+	if port == "" {
 		port = "5984"
 	}
-	user := fmt.Sprintf("%v", config["user"])
-	pass := fmt.Sprintf("%v", config["password"])
+	user := cfgString(config, "user", "username")
+	pass := cfgString(config, "password")
 	proto := "http"
 	if tls, ok := config["tls"].(bool); ok && tls {
 		proto = "https"
 	}
-	if user != "" && user != "<nil>" {
+	if user != "" {
 		c.baseURL = fmt.Sprintf("%s://%s:%s@%s:%s", proto, user, pass, host, port)
 	} else {
 		c.baseURL = fmt.Sprintf("%s://%s:%s", proto, host, port)

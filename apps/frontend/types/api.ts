@@ -78,15 +78,51 @@ export interface DPDPObligation {
     last_checked: string;
 }
 
+export interface RemediationItem {
+    asset_id: string;
+    asset_name: string;
+    asset_path: string;
+    risk_level: string;
+    pii_types: string[];
+    priority: string;
+}
+
 export interface ComplianceOverview {
     compliance_score: number;
     compliant_assets: number;
     total_assets: number;
+    non_compliant_assets: number;
     total_findings: number;
     critical_findings: number;
     high_findings: number;
+    critical_exposure: {
+        total_assets: number;
+        critical_pii_types: string[];
+        total_findings: number;
+    };
+    consent_violations: {
+        total_assets: number;
+        requires_consent: number;
+        missing_consent: number;
+    };
+    remediation_queue: RemediationItem[];
     obligations: DPDPObligation[];
     last_updated: string;
+}
+
+export interface TriggerScanRequest {
+    name: string;
+    sources: string[];
+    pii_types: string[];
+    execution_mode: string;
+    classification_mode: string;
+    custom_patterns: Array<{
+        name: string;
+        display_name: string;
+        regex: string;
+        category: string;
+    }>;
+    pii_types_per_source?: Record<string, string[]>;
 }
 
 export interface RiskDistribution {

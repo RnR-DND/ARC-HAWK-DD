@@ -14,8 +14,14 @@ type RedisConnector struct{ client *redis.Client }
 func (c *RedisConnector) SourceType() string { return "redis" }
 
 func (c *RedisConnector) Connect(ctx context.Context, config map[string]any) error {
-	addr := fmt.Sprintf("%v:%v", config["host"], config["port"])
-	c.client = redis.NewClient(&redis.Options{Addr: addr})
+	host := cfgString(config, "host")
+	port := cfgString(config, "port")
+	if port == "" {
+		port = "6379"
+	}
+	addr := fmt.Sprintf("%s:%s", host, port)
+	pass := cfgString(config, "password")
+	c.client = redis.NewClient(&redis.Options{Addr: addr, Password: pass})
 	return c.client.Ping(ctx).Err()
 }
 

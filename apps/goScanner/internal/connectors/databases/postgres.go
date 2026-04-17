@@ -15,12 +15,12 @@ type PostgresConnector struct{ db *sql.DB }
 func (c *PostgresConnector) SourceType() string { return "postgresql" }
 
 func (c *PostgresConnector) Connect(ctx context.Context, config map[string]any) error {
-	host := fmt.Sprintf("%v", config["host"])
-	user := fmt.Sprintf("%v", config["user"])
-	pass := fmt.Sprintf("%v", config["password"])
-	dbname := fmt.Sprintf("%v", config["dbname"])
-	port := fmt.Sprintf("%v", config["port"])
-	if port == "<nil>" || port == "" {
+	host := cfgString(config, "host")
+	user := cfgString(config, "user", "username")
+	pass := cfgString(config, "password")
+	dbname := cfgString(config, "dbname", "database")
+	port := cfgString(config, "port")
+	if port == "" {
 		port = "5432"
 	}
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", host, user, pass, dbname, port)

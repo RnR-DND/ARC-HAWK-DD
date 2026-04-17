@@ -15,14 +15,14 @@ type MySQLConnector struct{ db *sql.DB }
 func (c *MySQLConnector) SourceType() string { return "mysql" }
 
 func (c *MySQLConnector) Connect(ctx context.Context, config map[string]any) error {
-	user := fmt.Sprintf("%v", config["user"])
-	pass := fmt.Sprintf("%v", config["password"])
-	host := fmt.Sprintf("%v", config["host"])
-	port := fmt.Sprintf("%v", config["port"])
-	if port == "<nil>" || port == "" {
+	user := cfgString(config, "user", "username")
+	pass := cfgString(config, "password")
+	host := cfgString(config, "host")
+	port := cfgString(config, "port")
+	if port == "" {
 		port = "3306"
 	}
-	dbname := fmt.Sprintf("%v", config["dbname"])
+	dbname := cfgString(config, "dbname", "database")
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", user, pass, host, port, dbname)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {

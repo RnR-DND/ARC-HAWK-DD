@@ -12,7 +12,7 @@ export default function ScanAllButton({ onScanComplete }: ScanAllButtonProps) {
     const [isScanning, setIsScanning] = useState(false);
     const [showProgress, setShowProgress] = useState(false);
     const [progress, setProgress] = useState(0);
-    const [status, setStatus] = useState<any>(null);
+    const [status, setStatus] = useState<{ overall_status: 'pending' | 'running' | 'completed' | 'failed'; completed_jobs: number; total_jobs: number } | null>(null);
 
     const startScan = async () => {
         try {
@@ -22,13 +22,14 @@ export default function ScanAllButton({ onScanComplete }: ScanAllButtonProps) {
 
             // Start scan - backend will handle everything
             // Get connections from context or use default
-            const response = await scansApi.triggerScan({
+            await scansApi.triggerScan({
                 name: 'Full System Scan',
                 sources: ['fs', 'postgresql', 'mysql', 'mongodb'],
                 pii_types: ['AADHAAR', 'PAN', 'PASSPORT', 'CREDIT_CARD', 'UPI_ID', 'IFSC', 'BANK_ACCOUNT', 'PHONE', 'EMAIL', 'VOTER_ID', 'DRIVING_LICENSE', 'GST'],
-                execution_mode: 'parallel'
+                execution_mode: 'parallel',
+                classification_mode: 'regex',
+                custom_patterns: [],
             });
-            const scanResult = response.data;
 
             // Simulate progress for demo
             setProgress(100);

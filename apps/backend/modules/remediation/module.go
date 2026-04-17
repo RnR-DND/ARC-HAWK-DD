@@ -6,8 +6,8 @@ import (
 
 	"github.com/arc-platform/backend/modules/auth/middleware"
 	"github.com/arc-platform/backend/modules/remediation/api"
-	remservice "github.com/arc-platform/backend/modules/remediation/service"
 	"github.com/arc-platform/backend/modules/remediation/service"
+	remservice "github.com/arc-platform/backend/modules/remediation/service"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/gin-gonic/gin"
@@ -15,11 +15,11 @@ import (
 
 // RemediationModule implements the Module interface
 type RemediationModule struct {
-	db                 *sql.DB
-	lineageSync        interfaces.LineageSync
-	service            *service.RemediationService
-	escalationService  *service.EscalationService
-	authMiddleware     *middleware.AuthMiddleware
+	db                *sql.DB
+	lineageSync       interfaces.LineageSync
+	service           *service.RemediationService
+	escalationService *service.EscalationService
+	authMiddleware    *middleware.AuthMiddleware
 }
 
 // NewRemediationModule creates a new remediation module

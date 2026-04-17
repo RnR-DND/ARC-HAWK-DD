@@ -145,7 +145,7 @@ func buildSQLFilter(policies *UserPolicies) *PolicyFilter {
 }
 
 // quoteList produces a comma-separated list of single-quoted, SQL-safe strings.
-// Each value has single quotes escaped ('' in SQL) to prevent injection.
+// Each value has single quotes escaped (” in SQL) to prevent injection.
 func quoteList(values []string) string {
 	quoted := make([]string, len(values))
 	for i, v := range values {

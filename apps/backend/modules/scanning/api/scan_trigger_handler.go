@@ -205,10 +205,12 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 		if patterns, pErr := h.patternsService.GetActivePatterns(ctx, tenantID); pErr == nil {
 			for _, p := range patterns {
 				customPatternsList = append(customPatternsList, map[string]any{
-					"name":         p.Name,
-					"display_name": p.DisplayName,
-					"regex":        p.Regex,
-					"category":     p.Category,
+					"name":              p.Name,
+					"display_name":      p.DisplayName,
+					"regex":             p.Regex,
+					"category":          p.Category,
+					"context_keywords":  p.ContextKeywords,
+					"negative_keywords": p.NegativeKeywords,
 				})
 			}
 		} else {
@@ -218,13 +220,14 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 
 	// Build the HTTP payload expected by the Go scanner API
 	payload := map[string]any{
-		"scan_id":            scanID.String(),
-		"scan_name":          req.Name,
-		"sources":            req.Sources,
-		"pii_types":          req.PIITypes,
-		"execution_mode":     req.ExecutionMode,
-		"connection_configs": connectionConfigs,
-		"custom_patterns":    customPatternsList,
+		"scan_id":             scanID.String(),
+		"scan_name":           req.Name,
+		"tenant_id":           tenantID.String(),
+		"sources":             req.Sources,
+		"pii_types":           req.PIITypes,
+		"execution_mode":      req.ExecutionMode,
+		"connection_configs":  connectionConfigs,
+		"custom_patterns":     customPatternsList,
 		"classification_mode": req.ClassificationMode,
 	}
 	if len(req.PIITypesPerSource) > 0 {
@@ -265,7 +268,7 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 			log.Printf("ERROR: %v (attempt %d/3)", lastErr, attempt)
 			if attempt < 3 {
 				jitter := time.Duration(rand.Intn(500)) * time.Millisecond
-			backoff := time.Duration(1<<uint(attempt))*time.Second + jitter
+				backoff := time.Duration(1<<uint(attempt))*time.Second + jitter
 				log.Printf("Retrying in %v...", backoff)
 				time.Sleep(backoff)
 			}

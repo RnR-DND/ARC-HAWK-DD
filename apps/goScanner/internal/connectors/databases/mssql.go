@@ -15,14 +15,14 @@ type MSSQLConnector struct{ db *sql.DB }
 func (c *MSSQLConnector) SourceType() string { return "mssql" }
 
 func (c *MSSQLConnector) Connect(ctx context.Context, config map[string]any) error {
-	host := fmt.Sprintf("%v", config["host"])
-	port := fmt.Sprintf("%v", config["port"])
-	if port == "<nil>" || port == "" {
+	host := cfgString(config, "host")
+	port := cfgString(config, "port")
+	if port == "" {
 		port = "1433"
 	}
-	user := fmt.Sprintf("%v", config["user"])
-	pass := fmt.Sprintf("%v", config["password"])
-	dbname := fmt.Sprintf("%v", config["dbname"])
+	user := cfgString(config, "user", "username")
+	pass := cfgString(config, "password")
+	dbname := cfgString(config, "dbname", "database")
 	dsn := fmt.Sprintf("sqlserver://%s:%s@%s:%s?database=%s", user, pass, host, port, dbname)
 	db, err := sql.Open("sqlserver", dsn)
 	if err != nil {

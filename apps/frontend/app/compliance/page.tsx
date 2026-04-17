@@ -4,33 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { theme, getRiskColor } from '@/design-system/theme';
 import Tooltip, { InfoIcon } from '@/components/Tooltip';
 import { complianceApi, type RetentionViolation, type DPDPAGapReport, type SectionSummary } from '@/services/compliance.api';
-
-interface ComplianceOverview {
-    compliance_score: number;
-    total_assets: number;
-    compliant_assets: number;
-    non_compliant_assets: number;
-    critical_exposure: {
-        total_assets: number;
-        critical_pii_types: string[];
-        total_findings: number;
-    };
-    consent_violations: {
-        total_assets: number;
-        requires_consent: number;
-        missing_consent: number;
-    };
-    remediation_queue: RemediationItem[];
-}
-
-interface RemediationItem {
-    asset_id: string;
-    asset_name: string;
-    asset_path: string;
-    risk_level: string;
-    pii_types: string[];
-    priority: string;
-}
+import type { ComplianceOverview } from '@/types/api';
 
 export default function CompliancePage() {
     const [data, setData] = useState<ComplianceOverview | null>(null);

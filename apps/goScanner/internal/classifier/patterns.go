@@ -10,11 +10,15 @@ type Pattern struct {
 }
 
 // CustomPattern is a user-defined pattern with context keyword scoring.
+// RawRegex preserves the original source expression so downstream components
+// (e.g. the Presidio ad-hoc-recognizer bridge) can forward the regex without
+// re-deriving it from the compiled *regexp.Regexp.
 type CustomPattern struct {
 	ID               string
 	Name             string
 	PIIType          string
 	Regex            *regexp.Regexp
+	RawRegex         string
 	ContextKeywords  []string
 	NegativeKeywords []string
 }
