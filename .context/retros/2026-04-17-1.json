@@ -1,0 +1,28 @@
+{
+  "date": "2026-04-17",
+  "window": "7d",
+  "metrics": {
+    "commits": 50,
+    "contributors": 2,
+    "insertions": 28754,
+    "deletions": 151,
+    "net_loc": 28603,
+    "active_days": 5,
+    "peak_hour": 16,
+    "feat_pct": 0.18,
+    "fix_pct": 0.60
+  },
+  "authors": {
+    "Bharat SIngh": {"commits": 44, "top_areas": ["apps/frontend", "apps/backend"]},
+    "Ansh": {"commits": 6}
+  },
+  "hotspots": [
+    "apps/frontend/services/compliance.api.ts",
+    "apps/frontend/app/lineage/page.tsx",
+    "apps/backend/modules/scanning/api/scan_trigger_handler.go",
+    "apps/scanner/scanner_api.py",
+    "apps/frontend/components/layout/Sidebar.tsx"
+  ],
+  "streak_days": 5,
+  "tweetable": "Week of Apr 11: 50 commits (2 devs), +28.6k net LOC, 60% fix ratio, peak: 4pm | Streak: 5d"
+}
