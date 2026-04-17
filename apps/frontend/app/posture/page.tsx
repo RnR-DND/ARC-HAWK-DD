@@ -36,11 +36,18 @@ export default function PosturePage() {
             setLoading(true);
             setError(null);
 
-            const latest = await scansApi.getLastScanRun();
+            const [latest, allScans] = await Promise.all([
+                scansApi.getLastScanRun(),
+                scansApi.getScans(),
+            ]);
+
             setLatestScan(latest);
 
-            // For now, show latest scan only
-            setScans(latest ? [latest] : []);
+            // Sort most recent first; fall back to latest-only if getScans returns nothing
+            const sorted = [...(allScans || [])].sort(
+                (a, b) => new Date(b.scan_started_at).getTime() - new Date(a.scan_started_at).getTime()
+            );
+            setScans(sorted.length > 0 ? sorted : (latest ? [latest] : []));
         } catch (err: any) {
             console.error('Error fetching scans:', err);
             setError(err.message || 'Failed to fetch scan data');

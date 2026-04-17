@@ -5,6 +5,7 @@ import { theme, getRiskColor } from '@/design-system/theme';
 import Tooltip, { InfoIcon } from '@/components/Tooltip';
 import ErrorBanner from '@/components/ErrorBanner';
 import { analyticsApi } from '@/services/analytics.api';
+import { RiskDistribution } from '@/types/api';
 
 interface PIIHeatmap {
     rows: HeatmapRow[];
@@ -37,6 +38,7 @@ interface RiskTrend {
 export default function AnalyticsPage() {
     const [heatmap, setHeatmap] = useState<PIIHeatmap | null>(null);
     const [trend, setTrend] = useState<RiskTrend | null>(null);
+    const [riskDist, setRiskDist] = useState<RiskDistribution | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -49,13 +51,15 @@ export default function AnalyticsPage() {
         setError(null);
 
         try {
-            const [heatmapData, trendData] = await Promise.all([
+            const [heatmapData, trendData, riskDistData] = await Promise.all([
                 analyticsApi.getHeatmap(),
                 analyticsApi.getTrends(30),
+                analyticsApi.getRiskDistribution(),
             ]);
 
             setHeatmap(heatmapData);
             setTrend(trendData);
+            setRiskDist(riskDistData);
         } catch (err: any) {
             console.error('Failed to load analytics', err);
             setError(err.message || 'Failed to load analytics data. Please try again.');
@@ -194,6 +198,58 @@ export default function AnalyticsPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Risk Distribution Section */}
+                {riskDist && (
+                    <div style={{ marginBottom: '40px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, color: theme.colors.text.primary, margin: 0 }}>
+                                Risk Distribution
+                            </h3>
+                            <Tooltip content="Breakdown of findings by severity tier across all scanned assets.">
+                                <InfoIcon size={16} />
+                            </Tooltip>
+                        </div>
+                        <div style={{
+                            backgroundColor: theme.colors.background.card,
+                            borderRadius: '12px',
+                            border: `1px solid ${theme.colors.border.default}`,
+                            padding: '24px',
+                        }}>
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', height: '160px', marginBottom: '16px' }}>
+                                {riskDist.distribution.map((tier) => {
+                                    const barColor = getRiskColor(tier.severity.toLowerCase());
+                                    const maxCount = Math.max(...riskDist.distribution.map(t => t.count), 1);
+                                    const barHeight = Math.max(8, Math.round((tier.count / maxCount) * 120));
+                                    return (
+                                        <div key={tier.severity} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 700, color: barColor }}>
+                                                {tier.count.toLocaleString()}
+                                            </div>
+                                            <div style={{
+                                                width: '100%',
+                                                height: `${barHeight}px`,
+                                                backgroundColor: barColor,
+                                                borderRadius: '4px 4px 0 0',
+                                                opacity: 0.85,
+                                                transition: 'height 0.3s ease',
+                                            }} title={`${tier.severity}: ${tier.count} findings (${tier.percentage}%)`} />
+                                            <div style={{ fontSize: '11px', fontWeight: 600, color: theme.colors.text.secondary, textTransform: 'uppercase' }}>
+                                                {tier.severity}
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: theme.colors.text.muted }}>
+                                                {tier.percentage}%
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ borderTop: `1px solid ${theme.colors.border.default}`, paddingTop: '12px', fontSize: '12px', color: theme.colors.text.muted, textAlign: 'right' }}>
+                                Total: {riskDist.total.toLocaleString()} findings
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Trends Section */}
                 <div>

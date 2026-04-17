@@ -113,8 +113,7 @@ export default function RemediationPage() {
 
     const handleRetryTask = async (taskId: string) => {
         try {
-            // In a real app we would call a retry endpoint
-            // For now we just refresh the list which might show updated status
+            await remediationApi.rollback(taskId);
             await fetchRemediationData();
         } catch (error) {
             console.error('Failed to retry task:', error);

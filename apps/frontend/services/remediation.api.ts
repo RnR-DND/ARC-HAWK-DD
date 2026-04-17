@@ -43,6 +43,10 @@ export const remediationApi = {
         return await post<ExecuteRemediationResponse>('/remediation/execute', data);
     },
 
+    rollback: async (id: string): Promise<void> => {
+        await post<void>(`/remediation/rollback/${id}`, {});
+    },
+
     getRemediationHistory: async (params?: {
         limit?: number;
         offset?: number;
