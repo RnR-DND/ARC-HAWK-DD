@@ -35,10 +35,11 @@ export default function FindingsPage() {
     // Selected finding for detail drawer (passed down to FindingsTable)
     const [selectedFinding, setSelectedFinding] = useState<FindingWithDetails | null>(null);
 
-    // Fetch facets once on mount
     useEffect(() => {
-        findingsApi.getFacets().then(setFacets).catch(() => {})
-    }, [])
+        findingsApi.getFacets()
+            .then(setFacets)
+            .catch((err) => console.error('Failed to load findings facets', err));
+    }, []);
 
     useEffect(() => {
         fetchFindings();

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const adminPasswordEnv = "ADMIN_PASSWORD"
 
 var (
 	ErrUserNotFound      = errors.New("user not found")
@@ -219,7 +222,36 @@ func GetEnv(key, defaultValue string) string {
 
 func (s *UserService) CreateDefaultAdmin(ctx context.Context, tenantID uuid.UUID) (*entity.User, error) {
 	email := GetEnv("ADMIN_EMAIL", "admin@arc-hawk.local")
-	password := GetEnv("ADMIN_PASSWORD", "ArcHawkAdmin2024!")
+	password := os.Getenv(adminPasswordEnv)
+	generated := false
+	if password == "" {
+		token, err := GenerateSecureToken(24)
+		if err != nil {
+			return nil, fmt.Errorf("generate admin password: %w", err)
+		}
+		password = token
+		generated = true
+	}
 
-	return s.CreateUser(ctx, tenantID, email, password, "Admin", "User", entity.RoleAdmin)
+	user, err := s.CreateUser(ctx, tenantID, email, password, "Admin", "User", entity.RoleAdmin)
+	if err != nil {
+		return nil, err
+	}
+
+	// Only announce the generated password after the account exists.
+	// Avoids leaking a never-used password into logs when CreateUser fails
+	// (e.g., ErrEmailExists during a re-run).
+	if generated {
+		log.Printf(
+			"\n==================================================================\n"+
+				"  INITIAL ADMIN ACCOUNT CREATED (set %s env to override)\n"+
+				"  email:    %s\n"+
+				"  password: %s\n"+
+				"  Save this now — it will not be shown again.\n"+
+				"==================================================================\n",
+			adminPasswordEnv, email, password,
+		)
+	}
+
+	return user, nil
 }
