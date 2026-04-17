@@ -172,7 +172,5 @@ export const discoveryApi = {
         ),
 
     getGlossary: () =>
-        jsonFetch<{ terms: GlossaryTerm[]; count: number }>(
-            `${API_BASE}/glossary`
-        ),
+        get<{ terms: GlossaryTerm[]; count: number }>('/discovery/glossary'),
 };
