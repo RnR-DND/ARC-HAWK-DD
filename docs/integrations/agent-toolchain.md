@@ -123,3 +123,34 @@ rm -rf .agent/game-studios && cp -R /tmp/game-studios .agent/game-studios
 ```
 
 Each subsystem's own upstream repo owns updates — don't edit `.agent/*` in place.
+
+## GSD — Get Shit Done (`npm: get-shit-done-cc`)
+
+Spec-driven dev system by TÂCHES. Installs 73 `/gsd-*` commands + agents + hooks
+into `.claude/` (local to this repo). Already installed for this project.
+
+```bash
+# Refresh to latest
+npx -y get-shit-done-cc@latest --claude --local
+```
+
+Key commands:
+- `/gsd-new-project` — scaffold a fresh spec-driven project
+- `/gsd-quick` — one-shot task in GSD's context engineering framework
+- `/gsd-plan-phase` / `/gsd-execute-phase` / `/gsd-verify-work` — phased spec loop
+
+Hooks added to `.claude/settings.json`: update check, context monitor, prompt
+injection guard, read-before-edit guard. Opt-in hooks (workflow guard, commit
+validation, session state, phase boundary) are OFF by default.
+
+## YOLO mode — `claude --dangerously-skip-permissions`
+
+Convenience wrapper at `scripts/dev/claude-yolo.sh`. Prints a banner + 10s
+cancel window, then execs Claude Code with all permission prompts disabled.
+
+```bash
+./scripts/dev/claude-yolo.sh
+```
+
+**Never run against main or a checkout with production credentials.**
+Intended for: disposable worktrees, throwaway branches, sandboxed containers.
