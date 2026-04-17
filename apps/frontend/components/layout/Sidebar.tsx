@@ -17,6 +17,7 @@ import {
     BarChart3,
     CheckSquare,
     FileText,
+    Users,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ const analyticsNav = [
 const systemNav = [
     { name: 'Connectors', href: '/settings/connectors', icon: Plug },
     { name: 'Regex Patterns', href: '/settings/regex', icon: Regex },
+    { name: 'Users', href: '/settings/users', icon: Users },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
