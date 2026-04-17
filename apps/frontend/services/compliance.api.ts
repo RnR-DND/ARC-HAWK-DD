@@ -8,7 +8,7 @@ export interface ObligationGap {
     asset_name: string;
     section: string;       // e.g. "Sec4", "Sec8"
     section_title: string; // e.g. "Lawful Processing"
-    status: 'pass' | 'gap';
+    status: string;        // 'pass' | 'gap' | 'NOT_ASSESSED' depending on endpoint
     evidence: string;
 }
 
