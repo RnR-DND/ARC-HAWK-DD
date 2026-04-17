@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Clock, CheckCircle, AlertCircle, Calendar, Loader2, Trash2 } from 'lucide-react';
+import { Play, Clock, CheckCircle, AlertCircle, Calendar, Loader2, Trash2, Zap } from 'lucide-react';
 import { scansApi } from '@/services/scans.api';
 import { format } from 'date-fns';
 
@@ -42,6 +42,27 @@ export default function ScansPage() {
     const [showScanConfigModal, setShowScanConfigModal] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasRunningScans, setHasRunningScans] = useState(false);
+    const [scanAllLoading, setScanAllLoading] = useState(false);
+    const [scanAllToast, setScanAllToast] = useState<string | null>(null);
+
+    const handleScanAll = async () => {
+        if (!confirm('Scan all connected data sources? This may take several minutes.')) return;
+        setScanAllLoading(true);
+        try {
+            await scansApi.scanAll();
+            setScanAllToast('Scan initiated for all sources');
+            setTimeout(() => {
+                setScanAllToast(null);
+                fetchScans();
+            }, 2000);
+        } catch (error) {
+            console.error('Failed to trigger scan-all:', error);
+            setScanAllToast('Failed to initiate scan');
+            setTimeout(() => setScanAllToast(null), 3000);
+        } finally {
+            setScanAllLoading(false);
+        }
+    };
 
     const handleDeleteScan = async (e: React.MouseEvent, scanId: string) => {
         e.preventDefault();
@@ -121,18 +142,38 @@ export default function ScansPage() {
                 }}
             />
 
+            {scanAllToast && (
+                <div className="fixed top-5 right-5 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white bg-blue-600 animate-in slide-in-from-right">
+                    {scanAllToast}
+                </div>
+            )}
+
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Scans</h1>
                     <p className="text-slate-500 mt-1">Manage and review PII detection scans.</p>
                 </div>
-                <button
-                    onClick={() => setShowScanConfigModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                >
-                    <Play className="w-4 h-4" />
-                    <span>New Scan</span>
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleScanAll}
+                        disabled={scanAllLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg font-medium transition-colors"
+                    >
+                        {scanAllLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Zap className="w-4 h-4" />
+                        )}
+                        <span>Scan All Sources</span>
+                    </button>
+                    <button
+                        onClick={() => setShowScanConfigModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                    >
+                        <Play className="w-4 h-4" />
+                        <span>New Scan</span>
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">

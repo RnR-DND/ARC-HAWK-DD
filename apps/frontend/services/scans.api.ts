@@ -80,7 +80,11 @@ export const scansApi = {
             console.error(`Failed to fetch PII summary for scan ${id}:`, error);
             return [];
         }
-    }
+    },
+
+    scanAll: async (): Promise<any> => {
+        return await post<any>('/scans/scan-all', {});
+    },
 };
 
 export default scansApi;
