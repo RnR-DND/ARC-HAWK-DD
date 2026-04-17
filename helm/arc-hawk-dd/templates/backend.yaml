@@ -42,6 +42,17 @@ spec:
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
+            {{- if .Values.supermemory.enabled }}
+            - name: SUPERMEMORY_ENABLED
+              value: "true"
+            - name: SUPERMEMORY_API_URL
+              value: {{ .Values.supermemory.apiUrl | quote }}
+            - name: SUPERMEMORY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.supermemory.secretName }}
+                  key: api-key
+            {{- end }}
           envFrom:
             - secretRef:
                 name: {{ include "arc-hawk-dd.fullname" . }}-backend-secrets

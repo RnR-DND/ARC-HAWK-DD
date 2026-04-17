@@ -187,6 +187,19 @@ vault:
   livenessProbe:
     exec:
       command: ["vault", "status"]
+
+# ---------------------------------------------------------------------------
+# Supermemory.ai (Memory & Hybrid-Search — optional)
+# ---------------------------------------------------------------------------
+# Free tier: 1M tokens/month + 10K search queries/month.
+# When disabled, all /api/v1/memory/* calls return 503 and scan hooks no-op.
+# API key lives in a Kubernetes secret (helm --set-file or sealed-secrets).
+supermemory:
+  enabled: false
+  apiUrl: "https://api.supermemory.ai"
+  # secretName: reference to a pre-created Secret containing key "api-key"
+  # create with: kubectl create secret generic supermemory --from-literal=api-key=sm_...
+  secretName: "supermemory"
     initialDelaySeconds: 10
     periodSeconds: 10
 

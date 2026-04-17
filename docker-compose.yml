@@ -189,6 +189,11 @@ services:
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN:-arc-hawk-dev-token}
       - VAULT_SECRET_MOUNT=secret
+      # Memory layer (supermemory.ai). Free tier: 1M tokens/mo + 10K queries/mo.
+      # When SUPERMEMORY_ENABLED!=true or key missing, all memory calls become no-ops.
+      - SUPERMEMORY_ENABLED=${SUPERMEMORY_ENABLED:-false}
+      - SUPERMEMORY_API_KEY=${SUPERMEMORY_API_KEY:-}
+      - SUPERMEMORY_API_URL=${SUPERMEMORY_API_URL:-https://api.supermemory.ai}
     env_file:
       - .env
     depends_on:

@@ -46,6 +46,7 @@ type ModuleDependencies struct {
 	FindingsProvider FindingsProvider
 	LineageSync      LineageSync
 	AuditLogger      AuditLogger
+	MemoryRecorder   MemoryRecorder
 
 	// Vault client for credential lifecycle management (nil when disabled)
 	VaultClient *vault.Client

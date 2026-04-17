@@ -8,6 +8,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/google/uuid"
 )
 
@@ -47,13 +48,29 @@ func ValidateStatusTransition(from, to string) error {
 
 // ScanService manages scan execution and state
 type ScanService struct {
-	repo *persistence.PostgresRepository
+	repo     *persistence.PostgresRepository
+	memoryFn func(context.Context, interfaces.ScanSummarySnapshot) // best-effort; may be nil
 }
 
 // NewScanService creates a new scan service
 func NewScanService(repo *persistence.PostgresRepository) *ScanService {
 	return &ScanService{
 		repo: repo,
+	}
+}
+
+// SetMemoryRecorder injects a MemoryRecorder (e.g., supermemory-backed).
+// Call from module.Initialize after deps.MemoryRecorder is available.
+// Called by scanning/module.go; safe to skip (scans still work, memory no-ops).
+func (s *ScanService) SetMemoryRecorder(rec interfaces.MemoryRecorder) {
+	if rec == nil || !rec.Enabled() {
+		return
+	}
+	s.memoryFn = func(ctx context.Context, snap interfaces.ScanSummarySnapshot) {
+		if err := rec.RecordScanCompletion(ctx, snap); err != nil {
+			// Best-effort: log and continue. Never break a scan because memory backend hiccuped.
+			log.Printf("memory: record scan %s failed: %v", snap.ScanID, err)
+		}
 	}
 }
 
@@ -121,6 +138,43 @@ func (s *ScanService) UpdateScanStatus(ctx context.Context, scanID uuid.UUID, st
 
 	if err := s.repo.UpdateScanRun(ctx, scanRun); err != nil {
 		return fmt.Errorf("failed to update scan run: %w", err)
+	}
+
+	// Best-effort: on "completed" only, push a narrow summary to the memory layer.
+	// Runs in a detached goroutine so memory-backend latency never stalls the DB write.
+	if status == "completed" && s.memoryFn != nil {
+		snap := interfaces.ScanSummarySnapshot{
+			ScanID:      scanRun.ID.String(),
+			ScanName:    scanRun.ProfileName,
+			CompletedAt: scanRun.ScanCompletedAt,
+			DurationMs:  scanRun.ScanCompletedAt.Sub(scanRun.ScanStartedAt).Milliseconds(),
+		}
+		if scanRun.TenantID != uuid.Nil {
+			snap.TenantID = scanRun.TenantID.String()
+		}
+		if md := scanRun.Metadata; md != nil {
+			if v, ok := md["sources"].([]string); ok {
+				snap.SourceTypes = v
+			} else if v, ok := md["sources"].([]interface{}); ok {
+				for _, s := range v {
+					if str, ok := s.(string); ok {
+						snap.SourceTypes = append(snap.SourceTypes, str)
+					}
+				}
+			}
+			if v, ok := md["pii_types"].([]string); ok {
+				snap.PIITypes = v
+			} else if v, ok := md["pii_types"].([]interface{}); ok {
+				for _, s := range v {
+					if str, ok := s.(string); ok {
+						snap.PIITypes = append(snap.PIITypes, str)
+					}
+				}
+			}
+		}
+		// Detach: ingestion is async on supermemory's side too, and we don't want
+		// a slow/dead memory backend to hold up the DB write the caller just did.
+		go s.memoryFn(context.Background(), snap)
 	}
 
 	return nil

@@ -22,6 +22,8 @@ import (
 	"github.com/arc-platform/backend/modules/fplearning"
 	"github.com/arc-platform/backend/modules/lineage"
 	"github.com/arc-platform/backend/modules/masking"
+	"github.com/arc-platform/backend/modules/memory"
+	memoryservice "github.com/arc-platform/backend/modules/memory/service"
 	"github.com/arc-platform/backend/modules/remediation"
 	"github.com/arc-platform/backend/modules/scanning"
 	"github.com/arc-platform/backend/modules/scanning/worker"
@@ -189,6 +191,17 @@ func main() {
 	}
 	baseDeps.VaultClient = vaultClient
 
+	// Memory recorder (supermemory.ai). Pre-constructed so scanning sees it on Initialize.
+	// Reads SUPERMEMORY_API_KEY / SUPERMEMORY_ENABLED from env; falls back to NoOp when missing.
+	memorySvc := memoryservice.NewMemoryService(memoryservice.NewClientFromEnv())
+	if memorySvc.Enabled() {
+		log.Printf("🧠 Memory recorder: supermemory.ai ready")
+		baseDeps.MemoryRecorder = memorySvc
+	} else {
+		log.Printf("🧠 Memory recorder: DISABLED (set SUPERMEMORY_ENABLED=true + SUPERMEMORY_API_KEY to enable)")
+		baseDeps.MemoryRecorder = interfaces.NoOpMemoryRecorder{}
+	}
+
 	// Phase 4: Initialize remaining modules with full dependencies
 	log.Println("📦 Phase 4: Initializing remaining modules...")
 
@@ -205,6 +218,7 @@ func main() {
 		remediation.NewRemediationModule(), // Remediation
 		fplearning.NewFPlearningModule(),   // Fingerprint Learning
 		discovery.NewDiscoveryModule(),     // Data Discovery (catalog + risk + drift + reports)
+		&memory.MemoryModule{},             // Supermemory.ai integration (scan summaries + hybrid search)
 		websocketModule,                    // Real-time WebSocket Communication
 	}
 

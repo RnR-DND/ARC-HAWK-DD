@@ -69,6 +69,11 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 
 	// Create scan service for scan orchestration
 	m.scanService = service.NewScanService(repo)
+	// Inject memory recorder (supermemory.ai) if available. Safe-nil: scans still work
+	// with memory disabled; the recorder no-ops in that case.
+	if deps.MemoryRecorder != nil {
+		m.scanService.SetMemoryRecorder(deps.MemoryRecorder)
+	}
 
 	// Get AssetManager from dependencies (injected by main.go)
 	var assetManager interfaces.AssetManager

@@ -201,32 +201,49 @@ ARC-Hawk/
 
 ## 🧰 Agentic Toolchain
 
-This project uses four integrated productivity tools. See `WORKFLOW.md` for the full unified protocol.
+This project ships 4 agent subsystems in `.agent/` + a memory layer integration.
+Full runbook: `docs/integrations/agent-toolchain.md`. Summary:
 
-### Antigravity Awesome Skills (`.agent/skills/`)
-860+ expert markdown skills. Load with `@skill-name`:
-- Backend: `@golang-pro`, `@api-design-principles`
-- Frontend: `@nextjs-best-practices`, `@react-patterns`, `@typescript-expert`
-- Scanner: `@python-patterns`, `@test-driven-development`
-- Infra: `@docker-expert`
+### Antigravity Awesome Skills (`.agent/skills/`) — 1414 `@name` cards
+Expert markdown skills, loaded with `@skill-name` in prompts. No install.
+- Backend: `@golang-pro`, `@api-design-principles`, `@backend-security-coder`
+- Frontend: `@nextjs-best-practices`, `@react-best-practices`, `@typescript-expert`
+- Infra: `@docker-expert`, `@postgres-best-practices`
 - Security: `@api-security-best-practices`
+- Testing: `@test-driven-development`, `@e2e-testing-patterns`
 
-### GSD — Get Shit Done (`.claude/`, `.gemini/`, `.codex/`)
-Spec-driven development system with 31 commands and 11 agents:
-- `/gsd:quick` — Fast ad-hoc tasks
-- `/gsd:new-project` → `/gsd:discuss-phase` → `/gsd:plan-phase` → `/gsd:execute-phase` → `/gsd:verify-work`
-- Creates: `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `.planning/`
+### Ralph (`.agent/ralph/`) — autonomous PRD loop
+`prd.json` with user stories → bash loop implements + tests + commits each.
+Seeded at `.agent/ralph/prd.arc-hawk-dd.json` with Session 14 deferred work.
+```bash
+cp .agent/ralph/prd.arc-hawk-dd.json .agent/ralph/prd.json && bash .agent/ralph/ralph.sh
+```
 
-### Ralph (`scripts/ralph/`)
-Autonomous PRD-driven iteration loop:
-- `prd.json` — User stories with `passes: true/false`
-- `progress.txt` — Learnings across iterations
-- `ralph.sh` — Bash loop that executes until all stories pass
-- `prompt.md` — Customized for ARC-Hawk conventions
+### Hive (`.agent/hive/`) — YC-backed multi-agent runtime
+Apache 2.0. 102 MCP tools, self-healing agent graphs. Requires uv + bun first-run.
+```bash
+cd .agent/hive && uv sync && bun install
+```
 
-### Hive (`.agent/hive/`)
-Goal-driven agent framework:
-- Define goals in natural language → auto-generates agent graph
-- MCP tools + TUI dashboard
-- Self-healing: captures failures, evolves graph, redeploys
-- `quickstart.ps1` for Windows setup
+### Agentsys (`.agent/agentsys/`) — strict orchestration runtime
+Plain-text output, no emoji, strict PR discipline. Cooperates with Claude Code.
+```bash
+cd .agent/agentsys && node bin/cli.js --help
+```
+
+### Game-studios (`.agent/game-studios/`) — NOT APPLICABLE
+Game-dev subagents (Godot/Unity/Unreal). Kept in tree for completeness; ignore
+unless pivoting.
+
+### Supermemory.ai — memory + hybrid search layer
+Backend module: `apps/backend/modules/memory/`. Free tier: 1M tokens + 10K queries/mo.
+Auto-records scan summaries; exposes `/api/v1/memory/search` for hybrid RAG.
+MCP server wired into Claude Code via `.claude/settings.local.json` (gitignored).
+Setup + rotation: `docs/integrations/supermemory.md`.
+
+**To enable locally:**
+```bash
+# apps/backend/.env
+SUPERMEMORY_ENABLED=true
+SUPERMEMORY_API_KEY=sm_your_key_here
+```
