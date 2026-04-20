@@ -14,16 +14,16 @@ import (
 type DPDPAObligation string
 
 const (
-	ObligationSec4LawfulProcessing  DPDPAObligation = "Sec4_LawfulProcessing"
-	ObligationSec5PurposeLimitation DPDPAObligation = "Sec5_PurposeLimitation"
-	ObligationSec6Consent           DPDPAObligation = "Sec6_Consent"
+	ObligationSec4LawfulProcessing    DPDPAObligation = "Sec4_LawfulProcessing"
+	ObligationSec5PurposeLimitation   DPDPAObligation = "Sec5_PurposeLimitation"
+	ObligationSec6Consent             DPDPAObligation = "Sec6_Consent"
 	ObligationSec7DataPrincipalRights DPDPAObligation = "Sec7_DataPrincipalRights"
-	ObligationSec8DataAccuracy      DPDPAObligation = "Sec8_DataAccuracy"
-	ObligationSec9ChildrensData     DPDPAObligation = "Sec9_ChildrensData"
-	ObligationSec10DataFiduciary    DPDPAObligation = "Sec10_DataFiduciary"
-	ObligationSec11GRO              DPDPAObligation = "Sec11_GRO"
-	ObligationSec12CrossBorder      DPDPAObligation = "Sec12_CrossBorder"
-	ObligationSec17Retention        DPDPAObligation = "Sec17_Retention"
+	ObligationSec8DataAccuracy        DPDPAObligation = "Sec8_DataAccuracy"
+	ObligationSec9ChildrensData       DPDPAObligation = "Sec9_ChildrensData"
+	ObligationSec10DataFiduciary      DPDPAObligation = "Sec10_DataFiduciary"
+	ObligationSec11GRO                DPDPAObligation = "Sec11_GRO"
+	ObligationSec12CrossBorder        DPDPAObligation = "Sec12_CrossBorder"
+	ObligationSec17Retention          DPDPAObligation = "Sec17_Retention"
 )
 
 // ObligationStatus is whether a DPDPA obligation is met, violated, or unknown.
@@ -47,18 +47,18 @@ type ObligationGap struct {
 
 // ComplianceGapReport is the full DPDPA compliance posture for the tenant.
 type ComplianceGapReport struct {
-	GeneratedAt    time.Time                          `json:"generated_at"`
-	TotalAssets    int                                `json:"total_assets"`
-	GapsBySection  map[DPDPAObligation][]ObligationGap `json:"gaps_by_section"`
-	Summary        GapSummary                         `json:"summary"`
+	GeneratedAt   time.Time                           `json:"generated_at"`
+	TotalAssets   int                                 `json:"total_assets"`
+	GapsBySection map[DPDPAObligation][]ObligationGap `json:"gaps_by_section"`
+	Summary       GapSummary                          `json:"summary"`
 }
 
 // GapSummary aggregates counts across all sections.
 type GapSummary struct {
-	TotalGaps      int `json:"total_gaps"`
-	PassCount      int `json:"pass_count"`
-	FailCount      int `json:"fail_count"`
-	UnknownCount   int `json:"unknown_count"`
+	TotalGaps    int `json:"total_gaps"`
+	PassCount    int `json:"pass_count"`
+	FailCount    int `json:"fail_count"`
+	UnknownCount int `json:"unknown_count"`
 }
 
 // DPDPAObligationService checks each DPDPA 2023 obligation against live asset data.

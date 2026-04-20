@@ -41,10 +41,6 @@ func ScanLifecycleWorkflow(ctx workflow.Context, scanID string) error {
 		return err
 	}
 
-	// Note: LLM-assisted classification (Layer 3) is handled in the Python scanner
-	// before findings are ingested. Claude (Anthropic API) is used for contextual
-	// classification of ambiguous-confidence findings. The Gemini stub has been removed.
-
 	// Async Neo4j sync (fire and forget - won't block completion)
 	workflow.ExecuteActivity(ctx, "SyncToNeo4j", scanID)
 

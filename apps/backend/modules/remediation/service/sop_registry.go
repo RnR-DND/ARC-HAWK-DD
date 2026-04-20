@@ -6,18 +6,18 @@ import "time"
 type IssueType string
 
 const (
-	IssueUnencryptedPII       IssueType = "unencrypted_pii"
-	IssueExcessiveRetention   IssueType = "excessive_retention"
-	IssueMissingConsentTag    IssueType = "missing_consent_tag"
-	IssueNoRBAC               IssueType = "no_rbac"
+	IssueUnencryptedPII        IssueType = "unencrypted_pii"
+	IssueExcessiveRetention    IssueType = "excessive_retention"
+	IssueMissingConsentTag     IssueType = "missing_consent_tag"
+	IssueNoRBAC                IssueType = "no_rbac"
 	IssueUnclassifiedSensitive IssueType = "unclassified_sensitive"
-	IssueOrphanAsset          IssueType = "orphan_asset"
-	IssueLineageCycle         IssueType = "lineage_cycle"
-	IssuePIISpike             IssueType = "pii_volume_spike"
-	IssueMissingDPO           IssueType = "missing_dpo_assignment"
-	IssueMissingPurpose       IssueType = "missing_declared_purpose"
-	IssueAuditChainBreak      IssueType = "audit_chain_broken"
-	IssueStaleAadhaarStore    IssueType = "stale_aadhaar_store"
+	IssueOrphanAsset           IssueType = "orphan_asset"
+	IssueLineageCycle          IssueType = "lineage_cycle"
+	IssuePIISpike              IssueType = "pii_volume_spike"
+	IssueMissingDPO            IssueType = "missing_dpo_assignment"
+	IssueMissingPurpose        IssueType = "missing_declared_purpose"
+	IssueAuditChainBreak       IssueType = "audit_chain_broken"
+	IssueStaleAadhaarStore     IssueType = "stale_aadhaar_store"
 )
 
 // SeverityLevel for a SOP.
@@ -33,21 +33,21 @@ const (
 // SOP is a Standard Operating Procedure definition for a known issue type.
 // Stored in-memory — no DB round-trip needed; these are static compliance requirements.
 type SOP struct {
-	IssueType       IssueType       `json:"issue_type"`
-	Title           string          `json:"title"`
-	DPDPASection    string          `json:"dpdpa_section"`   // e.g. "Sec 6", "Sec 17"
-	Severity        SeverityLevel   `json:"severity"`
-	EscalateAfter   time.Duration   `json:"-"`               // escalation threshold
-	EscalateAfterHR string          `json:"escalate_after"`  // human-readable
-	Steps           []SOPStep       `json:"steps"`
+	IssueType       IssueType        `json:"issue_type"`
+	Title           string           `json:"title"`
+	DPDPASection    string           `json:"dpdpa_section"` // e.g. "Sec 6", "Sec 17"
+	Severity        SeverityLevel    `json:"severity"`
+	EscalateAfter   time.Duration    `json:"-"`              // escalation threshold
+	EscalateAfterHR string           `json:"escalate_after"` // human-readable
+	Steps           []SOPStep        `json:"steps"`
 	AutoRemediation *AutoRemediation `json:"auto_remediation,omitempty"`
 }
 
 // SOPStep is one action in a SOP runbook.
 type SOPStep struct {
-	Order       int    `json:"order"`
-	Actor       string `json:"actor"`       // "dpo" | "engineer" | "automated"
-	Action      string `json:"action"`
+	Order           int    `json:"order"`
+	Actor           string `json:"actor"` // "dpo" | "engineer" | "automated"
+	Action          string `json:"action"`
 	SuccessCriteria string `json:"success_criteria"`
 }
 
@@ -61,11 +61,11 @@ type AutoRemediation struct {
 // SOPRegistry is the in-memory catalogue of all known SOPs.
 var SOPRegistry = map[IssueType]*SOP{
 	IssueUnencryptedPII: {
-		IssueType:     IssueUnencryptedPII,
-		Title:         "PII stored without encryption at rest",
-		DPDPASection:  "Sec 8 (Data Accuracy), Sec 4 (Lawful Processing)",
-		Severity:      SeverityCritical,
-		EscalateAfter: 7 * 24 * time.Hour,
+		IssueType:       IssueUnencryptedPII,
+		Title:           "PII stored without encryption at rest",
+		DPDPASection:    "Sec 8 (Data Accuracy), Sec 4 (Lawful Processing)",
+		Severity:        SeverityCritical,
+		EscalateAfter:   7 * 24 * time.Hour,
 		EscalateAfterHR: "7 days",
 		Steps: []SOPStep{
 			{1, "engineer", "Identify the storage layer (column/file) containing plaintext PII", "Column identified in findings report"},
@@ -81,11 +81,11 @@ var SOPRegistry = map[IssueType]*SOP{
 	},
 
 	IssueExcessiveRetention: {
-		IssueType:     IssueExcessiveRetention,
-		Title:         "Data retained beyond declared retention period",
-		DPDPASection:  "Sec 17 (Retention and Erasure)",
-		Severity:      SeverityHigh,
-		EscalateAfter: 14 * 24 * time.Hour,
+		IssueType:       IssueExcessiveRetention,
+		Title:           "Data retained beyond declared retention period",
+		DPDPASection:    "Sec 17 (Retention and Erasure)",
+		Severity:        SeverityHigh,
+		EscalateAfter:   14 * 24 * time.Hour,
 		EscalateAfterHR: "14 days",
 		Steps: []SOPStep{
 			{1, "engineer", "Query retention_violations view for affected asset", "List of overdue records exported"},
@@ -101,11 +101,11 @@ var SOPRegistry = map[IssueType]*SOP{
 	},
 
 	IssueMissingConsentTag: {
-		IssueType:     IssueMissingConsentTag,
-		Title:         "PII asset lacks linked consent record",
-		DPDPASection:  "Sec 6 (Consent)",
-		Severity:      SeverityHigh,
-		EscalateAfter: 3 * 24 * time.Hour,
+		IssueType:       IssueMissingConsentTag,
+		Title:           "PII asset lacks linked consent record",
+		DPDPASection:    "Sec 6 (Consent)",
+		Severity:        SeverityHigh,
+		EscalateAfter:   3 * 24 * time.Hour,
 		EscalateAfterHR: "3 days",
 		Steps: []SOPStep{
 			{1, "dpo", "Determine the legal basis for processing this data", "One of: explicit consent, legitimate interest, contract, legal obligation"},
@@ -120,11 +120,11 @@ var SOPRegistry = map[IssueType]*SOP{
 	},
 
 	IssueNoRBAC: {
-		IssueType:     IssueNoRBAC,
-		Title:         "Data asset accessible without role-based access control",
-		DPDPASection:  "Sec 8 (Accuracy and Security)",
-		Severity:      SeverityHigh,
-		EscalateAfter: 5 * 24 * time.Hour,
+		IssueType:       IssueNoRBAC,
+		Title:           "Data asset accessible without role-based access control",
+		DPDPASection:    "Sec 8 (Accuracy and Security)",
+		Severity:        SeverityHigh,
+		EscalateAfter:   5 * 24 * time.Hour,
 		EscalateAfterHR: "5 days",
 		Steps: []SOPStep{
 			{1, "engineer", "Identify access control policy for the data store", "Current ACL documented"},
@@ -135,11 +135,11 @@ var SOPRegistry = map[IssueType]*SOP{
 	},
 
 	IssueUnclassifiedSensitive: {
-		IssueType:     IssueUnclassifiedSensitive,
-		Title:         "High-entropy data present without PII classification",
-		DPDPASection:  "Sec 4 (Lawful Processing)",
-		Severity:      SeverityMedium,
-		EscalateAfter: 10 * 24 * time.Hour,
+		IssueType:       IssueUnclassifiedSensitive,
+		Title:           "High-entropy data present without PII classification",
+		DPDPASection:    "Sec 4 (Lawful Processing)",
+		Severity:        SeverityMedium,
+		EscalateAfter:   10 * 24 * time.Hour,
 		EscalateAfterHR: "10 days",
 		Steps: []SOPStep{
 			{1, "automated", "Re-run scan with classification_mode=contextual to trigger LLM layer", "Classification result stored; classifier=llm"},
@@ -153,11 +153,11 @@ var SOPRegistry = map[IssueType]*SOP{
 	},
 
 	IssueOrphanAsset: {
-		IssueType:     IssueOrphanAsset,
-		Title:         "Asset has no scan findings for >90 days (orphan)",
-		DPDPASection:  "Sec 8 (Data Accuracy)",
-		Severity:      SeverityMedium,
-		EscalateAfter: 14 * 24 * time.Hour,
+		IssueType:       IssueOrphanAsset,
+		Title:           "Asset has no scan findings for >90 days (orphan)",
+		DPDPASection:    "Sec 8 (Data Accuracy)",
+		Severity:        SeverityMedium,
+		EscalateAfter:   14 * 24 * time.Hour,
 		EscalateAfterHR: "14 days",
 		Steps: []SOPStep{
 			{1, "engineer", "Verify if data source still exists and is reachable", "Connection test result"},
@@ -168,11 +168,11 @@ var SOPRegistry = map[IssueType]*SOP{
 	},
 
 	IssueMissingDPO: {
-		IssueType:     IssueMissingDPO,
-		Title:         "High-risk asset (score ≥60) has no DPO assigned",
-		DPDPASection:  "Sec 10 (Data Fiduciary Obligations)",
-		Severity:      SeverityHigh,
-		EscalateAfter: 7 * 24 * time.Hour,
+		IssueType:       IssueMissingDPO,
+		Title:           "High-risk asset (score ≥60) has no DPO assigned",
+		DPDPASection:    "Sec 10 (Data Fiduciary Obligations)",
+		Severity:        SeverityHigh,
+		EscalateAfter:   7 * 24 * time.Hour,
 		EscalateAfterHR: "7 days",
 		Steps: []SOPStep{
 			{1, "dpo", "Assign a DPO or DPO delegate to the asset", "dpo_assigned field set on asset"},
@@ -182,11 +182,11 @@ var SOPRegistry = map[IssueType]*SOP{
 	},
 
 	IssueMissingPurpose: {
-		IssueType:     IssueMissingPurpose,
-		Title:         "Asset has no declared_purpose tag",
-		DPDPASection:  "Sec 5 (Purpose Limitation)",
-		Severity:      SeverityHigh,
-		EscalateAfter: 7 * 24 * time.Hour,
+		IssueType:       IssueMissingPurpose,
+		Title:           "Asset has no declared_purpose tag",
+		DPDPASection:    "Sec 5 (Purpose Limitation)",
+		Severity:        SeverityHigh,
+		EscalateAfter:   7 * 24 * time.Hour,
 		EscalateAfterHR: "7 days",
 		Steps: []SOPStep{
 			{1, "dpo", "Document the lawful purpose for collecting/processing this data", "declared_purpose column set on asset via PUT /assets/:id"},
@@ -196,11 +196,11 @@ var SOPRegistry = map[IssueType]*SOP{
 	},
 
 	IssueAuditChainBreak: {
-		IssueType:     IssueAuditChainBreak,
-		Title:         "SHA-256 audit log chain is broken — tampering suspected",
-		DPDPASection:  "Sec 8 (Security Safeguards)",
-		Severity:      SeverityCritical,
-		EscalateAfter: 0, // escalate immediately
+		IssueType:       IssueAuditChainBreak,
+		Title:           "SHA-256 audit log chain is broken — tampering suspected",
+		DPDPASection:    "Sec 8 (Security Safeguards)",
+		Severity:        SeverityCritical,
+		EscalateAfter:   0, // escalate immediately
 		EscalateAfterHR: "immediate",
 		Steps: []SOPStep{
 			{1, "engineer", "Run audit chain verification tool to identify break point", "Break index and entry ID identified"},

@@ -163,7 +163,7 @@ func (s *SemanticLineageService) SyncAssetToNeo4j(ctx context.Context, assetID u
 		// If a very similar finding already mapped to this PII_Category with higher confidence,
 		// we skip adding redundant duplicate nodes to the lineage graph to prevent explosion.
 		if existing, exists := piiCategoryMap[classification.SubCategory]; exists {
-			if existing.ConfidenceScore > classification.ConfidenceScore + 0.15 {
+			if existing.ConfidenceScore > classification.ConfidenceScore+0.15 {
 				skippedCount++
 				continue // Ignore this lower confidence redundant finding
 			} else if classification.ConfidenceScore > existing.ConfidenceScore {

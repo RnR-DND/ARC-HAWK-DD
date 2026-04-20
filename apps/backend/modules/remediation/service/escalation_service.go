@@ -35,7 +35,7 @@ var escalationThresholds = map[string]int{
 	"unencrypted_pii":        7,
 	"excessive_retention":    14,
 	"missing_consent_tag":    3,
-	"no_rbac":               5,
+	"no_rbac":                5,
 	"unclassified_sensitive": 10,
 }
 
@@ -186,8 +186,8 @@ func (s *EscalationService) insertAuditEntry(ctx context.Context, c EscalationCa
 		    (id, event_type, tenant_id, user_id, action, resource_type, resource_id, metadata, created_at)
 		VALUES (gen_random_uuid(), 'ESCALATION', $1::uuid, $2::uuid, 'ESCALATED', 'finding', $3, $4, NOW())
 	`,
-		uuid.Nil,  // tenant_id — system-level event; callers may supply via ctx in future
-		uuid.Nil,  // user_id  — system action
+		uuid.Nil, // tenant_id — system-level event; callers may supply via ctx in future
+		uuid.Nil, // user_id  — system action
 		c.FindingID.String(),
 		fmt.Sprintf(
 			`{"old_severity":"%s","new_severity":"%s","pattern_name":"%s","age_days":%d}`,

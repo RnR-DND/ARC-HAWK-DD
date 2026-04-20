@@ -163,11 +163,11 @@ type Report struct {
 
 // OverviewSummary is the aggregated dashboard payload for GET /api/discovery/overview.
 type OverviewSummary struct {
-	SourceCount        int          `json:"source_count"`
-	AssetCount         int          `json:"asset_count"`
-	FindingCount       int          `json:"finding_count"`
-	HighRiskCount      int          `json:"high_risk_count"`
-	CompositeRiskScore float64      `json:"composite_risk_score"`
+	SourceCount        int           `json:"source_count"`
+	AssetCount         int           `json:"asset_count"`
+	FindingCount       int           `json:"finding_count"`
+	HighRiskCount      int           `json:"high_risk_count"`
+	CompositeRiskScore float64       `json:"composite_risk_score"`
 	TopHotspots        []RiskHotspot `json:"top_hotspots"`
 	TrendQuarters      []TrendPoint  `json:"trend_quarters"`
 	LastSnapshotAt     *time.Time    `json:"last_snapshot_at,omitempty"`
@@ -184,11 +184,11 @@ type RiskHotspot struct {
 
 // TrendPoint is one (label, value) pair on the overview's trend chart.
 type TrendPoint struct {
-	Label              string  `json:"label"`
+	Label              string    `json:"label"`
 	TakenAt            time.Time `json:"taken_at"`
-	AssetCount         int     `json:"asset_count"`
-	FindingCount       int     `json:"finding_count"`
-	CompositeRiskScore float64 `json:"composite_risk_score"`
+	AssetCount         int       `json:"asset_count"`
+	FindingCount       int       `json:"finding_count"`
+	CompositeRiskScore float64   `json:"composite_risk_score"`
 }
 
 // RiskWeights is the config-driven weighting for the composite risk score formula.

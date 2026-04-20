@@ -4,17 +4,17 @@ import "testing"
 
 func TestValidateCreditCard(t *testing.T) {
 	valid := []string{
-		"4532015112830366",   // Visa (Luhn-valid)
-		"5425233430109903",   // Mastercard
+		"4532015112830366",    // Visa (Luhn-valid)
+		"5425233430109903",    // Mastercard
 		"4532-0151-1283-0366", // With dashes
 		"4532 0151 1283 0366", // With spaces
 	}
 	invalid := []string{
-		"1234567890123456", // Fails Luhn
-		"123456789012",     // Too short (12 digits)
+		"1234567890123456",     // Fails Luhn
+		"123456789012",         // Too short (12 digits)
 		"12345678901234567890", // Too long (20 digits)
-		"abcdefghijklm",   // Not numeric
-		"0000000000000",   // All zeros (Luhn-valid but only 13 zeros — actually passes Luhn)
+		"abcdefghijklm",        // Not numeric
+		"0000000000000",        // All zeros (Luhn-valid but only 13 zeros — actually passes Luhn)
 	}
 
 	for _, v := range valid {
@@ -36,12 +36,12 @@ func TestValidateAadhaar(t *testing.T) {
 		"500000000006", // Verhoeff-valid, starts with 5
 	}
 	invalid := []string{
-		"123456789012", // Starts with 1 (not allowed)
-		"023456789012", // Starts with 0 (not allowed)
-		"1234567890",   // Too short (10 digits)
+		"123456789012",  // Starts with 1 (not allowed)
+		"023456789012",  // Starts with 0 (not allowed)
+		"1234567890",    // Too short (10 digits)
 		"1234567890123", // Too long (13 digits)
-		"abcdefghijkl", // Not numeric
-		"295071489627", // Fails Verhoeff checksum
+		"abcdefghijkl",  // Not numeric
+		"295071489627",  // Fails Verhoeff checksum
 	}
 
 	for _, v := range valid {
@@ -88,12 +88,12 @@ func TestValidateEmail(t *testing.T) {
 		"a@b.cd",
 	}
 	invalid := []string{
-		"@example.com",   // No local part
-		"user@",          // No domain
-		"user@domain",    // No dot in domain
-		"user@.com",      // Domain starts with dot
+		"@example.com",     // No local part
+		"user@",            // No domain
+		"user@domain",      // No dot in domain
+		"user@.com",        // Domain starts with dot
 		"user@-domain.com", // Domain starts with hyphen
-		"",               // Empty
+		"",                 // Empty
 	}
 
 	for _, v := range valid {
@@ -116,9 +116,9 @@ func TestValidateIndianPhone(t *testing.T) {
 		"919876543210",
 	}
 	invalid := []string{
-		"1234567890", // Starts with 1
-		"5234567890", // Starts with 5
-		"98765432",   // Too short
+		"1234567890",  // Starts with 1
+		"5234567890",  // Starts with 5
+		"98765432",    // Too short
 		"98765432101", // Too long (11 digits without prefix)
 	}
 
@@ -166,10 +166,10 @@ func TestValidateIFSC(t *testing.T) {
 		"icic0002345", // Case-insensitive
 	}
 	invalid := []string{
-		"SBIN1001234", // 5th char must be 0
-		"SBI0001234",  // Too short
+		"SBIN1001234",  // 5th char must be 0
+		"SBI0001234",   // Too short
 		"SBIN00012345", // Too long
-		"1234056789A", // Starts with digits
+		"1234056789A",  // Starts with digits
 	}
 
 	for _, v := range valid {
@@ -191,8 +191,8 @@ func TestValidatePassport(t *testing.T) {
 		"m1234567", // Case-insensitive
 	}
 	invalid := []string{
-		"12345678", // Starts with digit
-		"A123456",  // Too short
+		"12345678",  // Starts with digit
+		"A123456",   // Too short
 		"A12345678", // Too long
 		"AB1234567", // Two letters at start
 	}
@@ -240,7 +240,7 @@ func TestValidateDrivingLicense(t *testing.T) {
 		"KA 01 20200000123",
 	}
 	invalid := []string{
-		"12345",            // Too short
+		"12345",              // Too short
 		"AAAAAAAAAAAAAAAAAA", // All letters
 	}
 
@@ -258,14 +258,14 @@ func TestValidateDrivingLicense(t *testing.T) {
 
 func TestValidateBankAccount(t *testing.T) {
 	valid := []string{
-		"123456789",         // 9 digits (minimum)
+		"123456789",          // 9 digits (minimum)
 		"123456789012345678", // 18 digits (maximum)
-		"00123456789",       // With leading zeros
+		"00123456789",        // With leading zeros
 	}
 	invalid := []string{
 		"12345678",            // Too short (8 digits)
 		"1234567890123456789", // Too long (19 digits)
-		"abcdefghi",          // Not numeric
+		"abcdefghi",           // Not numeric
 	}
 
 	for _, v := range valid {
@@ -301,18 +301,18 @@ func TestValidateEmptyValue(t *testing.T) {
 
 func TestMapPatternToPIIType(t *testing.T) {
 	cases := map[string]string{
-		"PAN_NUMBER":        "IN_PAN",
-		"aadhaar_number":    "IN_AADHAAR",
-		"CREDIT_CARD":       "CREDIT_CARD",
-		"EMAIL_ADDRESS":     "EMAIL_ADDRESS",
-		"PHONE_NUMBER":      "IN_PHONE",
-		"PASSPORT_NUMBER":   "IN_PASSPORT",
-		"UPI_ID":            "IN_UPI",
-		"IFSC_CODE":         "IN_IFSC",
-		"VOTER_ID":          "IN_VOTER_ID",
-		"DRIVING_LICENSE":   "IN_DRIVING_LICENSE",
-		"BANK_ACCOUNT":      "IN_BANK_ACCOUNT",
-		"UNKNOWN_PATTERN":   "",
+		"PAN_NUMBER":      "IN_PAN",
+		"aadhaar_number":  "IN_AADHAAR",
+		"CREDIT_CARD":     "CREDIT_CARD",
+		"EMAIL_ADDRESS":   "EMAIL_ADDRESS",
+		"PHONE_NUMBER":    "IN_PHONE",
+		"PASSPORT_NUMBER": "IN_PASSPORT",
+		"UPI_ID":          "IN_UPI",
+		"IFSC_CODE":       "IN_IFSC",
+		"VOTER_ID":        "IN_VOTER_ID",
+		"DRIVING_LICENSE": "IN_DRIVING_LICENSE",
+		"BANK_ACCOUNT":    "IN_BANK_ACCOUNT",
+		"UNKNOWN_PATTERN": "",
 	}
 
 	for pattern, expected := range cases {

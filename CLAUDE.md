@@ -71,9 +71,9 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 - `apps/backend/` — Go backend services
 - `apps/backend/migrations_versioned/` — Database migrations (000018+)
 - `apps/backend/modules/` — Service modules (auth, scanning, etc.)
-- `apps/agent/` — Edge scanner agent (canonical — hawk/ folder removed)
-- `apps/scanner/hawk_scanner/commands/` — All data source connectors (incl. csv_excel, pdf, docx)
-- `apps/frontend/components/ui/` — Canonical UI components (MetricCard, StatusBadge, Panel, etc.)
+- `apps/agent/` — Edge scanner agent (Go)
+- `apps/goScanner/` — Main scanner service (Go) — connectors, classifier, orchestrator, Presidio integration
+- `apps/frontend/components/ui/` — Shared UI primitives (MetricCards, Loading indicators, etc.)
 - `infra/k8s/monitoring/` — Kubernetes ServiceMonitors + NetworkPolicy
 - `.continue-here.md` — Session handoff file for context preservation
 - `graphify-out/` — Knowledge graph (run `/graphify .` to rebuild after major changes)

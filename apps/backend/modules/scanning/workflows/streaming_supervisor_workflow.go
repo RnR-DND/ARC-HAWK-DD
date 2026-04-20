@@ -10,7 +10,7 @@ import (
 
 // StreamingSource identifies a Kafka topic or Kinesis stream being monitored.
 type StreamingSource struct {
-	SourceType    string `json:"source_type"`    // "kafka" | "kinesis"
+	SourceType    string `json:"source_type"`     // "kafka" | "kinesis"
 	ConnectionKey string `json:"connection_key"`  // key in connection.yml
 	TopicOrStream string `json:"topic_or_stream"` // topic name or stream name
 	ProfileName   string `json:"profile_name"`
@@ -20,7 +20,7 @@ type StreamingSource struct {
 // across Temporal workflow iterations.
 type StreamingCheckpointState struct {
 	Source        StreamingSource `json:"source"`
-	KafkaOffset   int64           `json:"kafka_offset,omitempty"`   // last committed offset (per partition: simplified)
+	KafkaOffset   int64           `json:"kafka_offset,omitempty"`    // last committed offset (per partition: simplified)
 	KinesisSeqNum string          `json:"kinesis_seq_num,omitempty"` // last read sequence number
 	WindowsRun    int             `json:"windows_run"`               // total micro-batch windows completed
 	FindingsTotal int             `json:"findings_total"`            // cumulative findings emitted
@@ -28,12 +28,12 @@ type StreamingCheckpointState struct {
 
 // StreamingSupervisorInput is the workflow input.
 type StreamingSupervisorInput struct {
-	Sources            []StreamingSource `json:"sources"`
-	WindowSeconds      int               `json:"window_seconds"`        // micro-batch window duration (default: 60)
-	CheckpointEvery    int               `json:"checkpoint_every"`      // checkpoint every N windows (default: 5)
-	MaxWindowsPerRun   int               `json:"max_windows_per_run"`   // continueAsNew after this many (default: 100)
-	IngestEndpoint     string            `json:"ingest_endpoint"`       // backend ingest URL
-	ScanProfileName    string            `json:"scan_profile_name"`
+	Sources          []StreamingSource `json:"sources"`
+	WindowSeconds    int               `json:"window_seconds"`      // micro-batch window duration (default: 60)
+	CheckpointEvery  int               `json:"checkpoint_every"`    // checkpoint every N windows (default: 5)
+	MaxWindowsPerRun int               `json:"max_windows_per_run"` // continueAsNew after this many (default: 100)
+	IngestEndpoint   string            `json:"ingest_endpoint"`     // backend ingest URL
+	ScanProfileName  string            `json:"scan_profile_name"`
 }
 
 const (
@@ -43,10 +43,10 @@ const (
 )
 
 // StreamingSupervisorWorkflow is a long-running Temporal workflow that:
-//   1. Runs a micro-batch scan window against each streaming source.
-//   2. Emits findings to the existing ingest endpoint (batch contract unchanged).
-//   3. Checkpoints offset/sequence state every N windows.
-//   4. Calls ContinueAsNew after maxWindowsPerRun to avoid history bloat.
+//  1. Runs a micro-batch scan window against each streaming source.
+//  2. Emits findings to the existing ingest endpoint (batch contract unchanged).
+//  3. Checkpoints offset/sequence state every N windows.
+//  4. Calls ContinueAsNew after maxWindowsPerRun to avoid history bloat.
 //
 // This preserves the batch ingestion contract: downstream services see
 // ScanStatusRunning → ScanStatusCompleted per micro-batch, not a single
@@ -134,10 +134,10 @@ func StreamingSupervisorWorkflow(ctx workflow.Context, input StreamingSupervisor
 				ingestCtx := workflow.WithActivityOptions(ctx, ingestAO)
 				var batchScanID string
 				err = workflow.ExecuteActivity(ingestCtx, "IngestStreamingFindings", StreamingIngestInput{
-					Source:       src,
-					Findings:     windowResult.Findings,
-					ProfileName:  input.ScanProfileName,
-					IngestURL:    input.IngestEndpoint,
+					Source:      src,
+					Findings:    windowResult.Findings,
+					ProfileName: input.ScanProfileName,
+					IngestURL:   input.IngestEndpoint,
 				}).Get(ctx, &batchScanID)
 				if err != nil {
 					logger.Error("Failed to ingest streaming findings", "source", key, "error", err)
@@ -189,9 +189,9 @@ type StreamingWindowInput struct {
 
 // StreamingWindowResult is the output of RunStreamingWindowActivity.
 type StreamingWindowResult struct {
-	Findings            []map[string]any `json:"findings"`
-	LastKafkaOffset     int64            `json:"last_kafka_offset,omitempty"`
-	LastKinesisSeqNum   string           `json:"last_kinesis_seq_num,omitempty"`
+	Findings          []map[string]any `json:"findings"`
+	LastKafkaOffset   int64            `json:"last_kafka_offset,omitempty"`
+	LastKinesisSeqNum string           `json:"last_kinesis_seq_num,omitempty"`
 }
 
 // StreamingIngestInput is the input to IngestStreamingFindings.

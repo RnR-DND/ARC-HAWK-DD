@@ -76,8 +76,8 @@ func (h *PatternsHandler) CreatePattern(c *gin.Context) {
 
 	if h.auditLogger != nil {
 		_ = h.auditLogger.Record(c.Request.Context(), "PATTERN_CREATED", "custom_pattern", p.ID.String(), map[string]interface{}{
-			"name":      p.Name,
-			"tenant_id": tenantID.String(),
+			"name":       p.Name,
+			"tenant_id":  tenantID.String(),
 			"created_by": createdByStr,
 		})
 	}

@@ -39,9 +39,9 @@ func (h *InventoryHandler) ListInventory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"items": rows,
-		"count": len(rows),
-		"limit": limit,
+		"items":  rows,
+		"count":  len(rows),
+		"limit":  limit,
 		"offset": offset,
 	})
 }

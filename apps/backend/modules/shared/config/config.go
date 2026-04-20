@@ -18,13 +18,13 @@ type Config struct {
 
 // DiscoveryConfig holds tunables for the data discovery module.
 type DiscoveryConfig struct {
-	SnapshotInterval     time.Duration // default 24h, env DISCOVERY_SNAPSHOT_INTERVAL
-	SnapshotTimeout      time.Duration // default 5m per source, env DISCOVERY_SNAPSHOT_TIMEOUT
-	ReportMaxRows        int           // default 10000, env DISCOVERY_REPORT_MAX_ROWS
-	RiskWeightVolume     float64       // default 1.0
-	RiskWeightSensitivity float64      // default 2.0
-	RiskWeightExposure   float64       // default 1.5
-	FactRetentionDays    int           // default 90 (v1.5: archive)
+	SnapshotInterval      time.Duration // default 24h, env DISCOVERY_SNAPSHOT_INTERVAL
+	SnapshotTimeout       time.Duration // default 5m per source, env DISCOVERY_SNAPSHOT_TIMEOUT
+	ReportMaxRows         int           // default 10000, env DISCOVERY_REPORT_MAX_ROWS
+	RiskWeightVolume      float64       // default 1.0
+	RiskWeightSensitivity float64       // default 2.0
+	RiskWeightExposure    float64       // default 1.5
+	FactRetentionDays     int           // default 90 (v1.5: archive)
 }
 
 type ClassificationConfig struct {

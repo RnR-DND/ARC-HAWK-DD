@@ -15,10 +15,10 @@ import (
 // When Vault is disabled (VAULT_ENABLED != "true"), all methods are no-ops
 // that return ErrVaultDisabled so callers can fall back to PostgreSQL.
 type Client struct {
-	client       *vaultapi.Client
-	enabled      bool
-	secretMount  string // KV v2 mount path, e.g. "secret"
-	mu           sync.RWMutex
+	client      *vaultapi.Client
+	enabled     bool
+	secretMount string // KV v2 mount path, e.g. "secret"
+	mu          sync.RWMutex
 }
 
 // ErrVaultDisabled is returned when Vault integration is not enabled.

@@ -50,7 +50,7 @@ type RiskScoreParams struct {
 //
 // Result is rounded to the nearest integer and clamped to [0, 100].
 func ComputeRiskScore(params RiskScoreParams) float64 {
-	classification := classificationSensitivity(params.PIIType)   // [0, 1]
+	classification := classificationSensitivity(params.PIIType) // [0, 1]
 	confidence := clamp(params.Confidence, 0, 1)
 	density := clamp(params.PIIDensity, 0, 1)
 	access := clamp(params.AccessExposure, 0, 1)

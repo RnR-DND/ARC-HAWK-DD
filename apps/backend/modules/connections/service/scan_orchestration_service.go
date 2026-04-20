@@ -158,8 +158,8 @@ func (s *ScanOrchestrationService) processJobs() {
 
 	payload := map[string]any{
 		"connection_id": "",
-		"tenant_id":    "",
-		"scan_config":  map[string]any{"scope": "all"},
+		"tenant_id":     "",
+		"scan_config":   map[string]any{"scope": "all"},
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {

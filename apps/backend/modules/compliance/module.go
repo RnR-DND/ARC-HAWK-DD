@@ -11,21 +11,21 @@ import (
 )
 
 type ComplianceModule struct {
-	complianceService   *service.ComplianceService
-	consentService      *service.ConsentService
-	retentionService    *service.RetentionService
-	auditService        *service.AuditService
-	obligationService   *service.DPDPAObligationService
-	reportService       *service.ReportService
+	complianceService *service.ComplianceService
+	consentService    *service.ConsentService
+	retentionService  *service.RetentionService
+	auditService      *service.AuditService
+	obligationService *service.DPDPAObligationService
+	reportService     *service.ReportService
 
-	complianceHandler      *api.ComplianceHandler
-	consentHandler         *api.ConsentHandler
-	consentRecordsHandler  *api.ConsentRecordsHandler
-	retentionHandler       *api.RetentionHandler
-	auditHandler           *api.AuditHandler
-	dpdpaReportHandler     *api.DPDPAReportHandler
-	dataPrincipalHandler   *api.DataPrincipalHandler
-	groHandler             *api.GROHandler
+	complianceHandler     *api.ComplianceHandler
+	consentHandler        *api.ConsentHandler
+	consentRecordsHandler *api.ConsentRecordsHandler
+	retentionHandler      *api.RetentionHandler
+	auditHandler          *api.AuditHandler
+	dpdpaReportHandler    *api.DPDPAReportHandler
+	dataPrincipalHandler  *api.DataPrincipalHandler
+	groHandler            *api.GROHandler
 
 	deps *interfaces.ModuleDependencies
 }

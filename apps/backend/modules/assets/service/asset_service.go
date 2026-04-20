@@ -170,8 +170,8 @@ func (s *AssetService) ListAssets(ctx context.Context, limit, offset int) ([]*en
 // BulkTagRequest describes a bulk tag operation.
 type BulkTagRequest struct {
 	AssetIDs []uuid.UUID       `json:"asset_ids"`
-	Tags     map[string]string `json:"tags"`   // key → value
-	Mode     string            `json:"mode"`   // "merge" | "replace" — "merge" is default
+	Tags     map[string]string `json:"tags"` // key → value
+	Mode     string            `json:"mode"` // "merge" | "replace" — "merge" is default
 	// ManualOverride: if true, these tags override any existing manual tags.
 	// If false (default), manual tags (set via single-asset edit) win over bulk tags.
 	ManualOverride bool `json:"manual_override"`
@@ -179,9 +179,9 @@ type BulkTagRequest struct {
 
 // BulkTagResult is returned immediately; actual work runs in the background.
 type BulkTagResult struct {
-	JobID     string `json:"job_id"`
-	AssetCount int   `json:"asset_count"`
-	Status    string `json:"status"` // "queued"
+	JobID      string `json:"job_id"`
+	AssetCount int    `json:"asset_count"`
+	Status     string `json:"status"` // "queued"
 }
 
 // BulkTagAssets queues a background goroutine to apply tags to a batch of assets.

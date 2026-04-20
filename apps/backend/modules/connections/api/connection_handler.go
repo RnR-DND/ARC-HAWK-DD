@@ -31,9 +31,9 @@ func NewConnectionHandler(s *service.ConnectionService, syncService *service.Con
 
 // AddConnectionRequest represents the request body for adding a connection
 type AddConnectionRequest struct {
-	Name	    string                 `json:"name"`
-	SourceType  string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb redis sqlite oracle mssql firebase couchdb s3 gcs azure_blob gdrive gdrive_workspace bigquery snowflake redshift kafka kinesis filesystem csv_excel pdf docx pptx html_files email_files parquet orc avro scanned_images text slack salesforce hubspot jira ms_teams"`
-	ProfileName string                 `json:"profile_name" binding:"required,min=1,max=50"`
+	Name        string         `json:"name"`
+	SourceType  string         `json:"source_type" binding:"required,oneof=postgresql mysql mongodb redis sqlite oracle mssql firebase couchdb s3 gcs azure_blob gdrive gdrive_workspace bigquery snowflake redshift kafka kinesis filesystem csv_excel pdf docx pptx html_files email_files parquet orc avro scanned_images text slack salesforce hubspot jira ms_teams"`
+	ProfileName string         `json:"profile_name" binding:"required,min=1,max=50"`
 	Config      map[string]any `json:"config" binding:"required"`
 }
 
@@ -113,7 +113,7 @@ func (h *ConnectionHandler) DeleteConnection(c *gin.Context) {
 
 // TestConnectionRequest represents the request body for testing a connection
 type TestConnectionRequest struct {
-	SourceType string                 `json:"source_type" binding:"required,oneof=postgresql mysql mongodb redis sqlite oracle mssql firebase couchdb s3 gcs azure_blob gdrive gdrive_workspace bigquery snowflake redshift kafka kinesis filesystem csv_excel pdf docx pptx html_files email_files parquet orc avro scanned_images text slack salesforce hubspot jira ms_teams"`
+	SourceType string         `json:"source_type" binding:"required,oneof=postgresql mysql mongodb redis sqlite oracle mssql firebase couchdb s3 gcs azure_blob gdrive gdrive_workspace bigquery snowflake redshift kafka kinesis filesystem csv_excel pdf docx pptx html_files email_files parquet orc avro scanned_images text slack salesforce hubspot jira ms_teams"`
 	Config     map[string]any `json:"config" binding:"required"`
 }
 

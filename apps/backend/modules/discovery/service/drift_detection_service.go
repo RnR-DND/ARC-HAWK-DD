@@ -132,10 +132,10 @@ func DiffSnapshotFacts(prior, current []*domain.SnapshotFact, snapshotID, tenant
 		pf, hadPrior := priorByKey[k]
 		if !hadPrior {
 			events = append(events, &domain.DriftEvent{
-				TenantID:   tenantID,
-				SnapshotID: snapshotID,
-				EventType:  domain.DriftAssetAdded,
-				AssetID:    uuid.Nil, // source-level event in v1
+				TenantID:    tenantID,
+				SnapshotID:  snapshotID,
+				EventType:   domain.DriftAssetAdded,
+				AssetID:     uuid.Nil, // source-level event in v1
 				BeforeState: nil,
 				AfterState: map[string]interface{}{
 					"source_id":      k.Source,
@@ -172,10 +172,10 @@ func DiffSnapshotFacts(prior, current []*domain.SnapshotFact, snapshotID, tenant
 		} else if cf.FindingCount > 10 {
 			// Brand new findings on a previously empty (source, classification).
 			events = append(events, &domain.DriftEvent{
-				TenantID:   tenantID,
-				SnapshotID: snapshotID,
-				EventType:  domain.DriftFindingCountSpike,
-				AssetID:    uuid.Nil,
+				TenantID:    tenantID,
+				SnapshotID:  snapshotID,
+				EventType:   domain.DriftFindingCountSpike,
+				AssetID:     uuid.Nil,
 				BeforeState: map[string]interface{}{"finding_count": 0},
 				AfterState: map[string]interface{}{
 					"finding_count":  cf.FindingCount,

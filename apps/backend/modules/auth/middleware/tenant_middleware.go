@@ -74,11 +74,11 @@ func TenantMiddleware(pgRepo *persistence.PostgresRepository) gin.HandlerFunc {
 		}
 
 		ctx := WithTenantContext(c.Request.Context(), tenantID, userID, role)
-		
+
 		// CRITICAL ARCHITECTURE FIX: The DB repositories natively check for the literal string key "tenant_id".
 		// We MUST inject it here so EVERY handler inherits it natively in c.Request.Context()!
 		ctx = context.WithValue(ctx, "tenant_id", tenantID)
-		
+
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Set("tenant_context", tenantCtx)
