@@ -296,12 +296,7 @@ function KPICard({ title, value, subtitle, color, trend, tooltip }: {
             borderRadius: '12px',
             border: `1px solid ${theme.colors.border.default}`,
             padding: '24px',
-            position: 'relative',
-            overflow: 'hidden'
         }}>
-            {color && <div style={{
-                position: 'absolute', top: 0, left: 0, width: '4px', bottom: 0, backgroundColor: color
-            }} />}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <span style={{ fontSize: '14px', color: theme.colors.text.secondary, fontWeight: 600 }}>{title}</span>
                 {tooltip && <Tooltip content={tooltip}><InfoIcon size={14} /></Tooltip>}
