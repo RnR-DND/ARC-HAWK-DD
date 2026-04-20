@@ -35,6 +35,7 @@ func IngestFindings(scanID, scanName, tenantID, backendURL string, findings []cl
 
 	if total == 0 {
 		sendProgressEvent(ingestClient, tenantID, backendURL, scanID, 0, 100.0)
+		sendComplete(tenantID, backendURL, scanID, "completed", "scan produced zero findings")
 		return nil
 	}
 
@@ -85,9 +86,43 @@ func IngestFindings(scanID, scanName, tenantID, backendURL string, findings []cl
 
 	log.Printf("Ingested %d/%d findings for scan %s (%d chunks failed)", sent, total, scanID, failedChunks)
 	if failedChunks > 0 {
+		// Still signal completion so the scan doesn't hang in "running" and
+		// later get flipped to "timeout" by the backend sweeper. Pass status
+		// "failed" with a diagnostic message — backend will record it.
+		sendComplete(tenantID, backendURL, scanID, "failed",
+			fmt.Sprintf("%d of %d ingest chunks failed", failedChunks, (total+ingestChunkSize-1)/ingestChunkSize))
 		return fmt.Errorf("ingest completed with %d failed chunks (sent %d/%d findings)", failedChunks, sent, total)
 	}
+	sendComplete(tenantID, backendURL, scanID, "completed", "")
 	return nil
+}
+
+// sendComplete signals the backend that this scan is done. Without this call
+// the scan stays in "running" until the backend's timeout sweeper flips it
+// to "timeout" (10 min default), which misleads the UI into showing
+// successful scans as timeouts.
+func sendComplete(tenantID, backendURL, scanID, status, message string) {
+	if backendURL == "" {
+		return
+	}
+	body, _ := json.Marshal(map[string]any{
+		"status":  status,
+		"message": message,
+	})
+	req, err := http.NewRequest("POST", backendURL+"/api/v1/scans/"+scanID+"/complete", bytes.NewReader(body))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if tenantID != "" {
+		req.Header.Set("X-Tenant-ID", tenantID)
+	}
+	resp, err := ingestClient.Do(req)
+	if err != nil {
+		log.Printf("WARN: scan complete signal failed for %s: %v", scanID, err)
+		return
+	}
+	resp.Body.Close()
 }
 
 // buildPayload constructs the VerifiedScanInput envelope expected by
