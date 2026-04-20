@@ -47,6 +47,116 @@ const systemNav = [
     { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
+function NavItems({ onNavigate }: { onNavigate?: () => void }) {
+    const pathname = usePathname();
+
+    const isActive = (href: string) => {
+        if (href === '/') return pathname === '/';
+        return pathname.startsWith(href);
+    };
+
+    return (
+        <ScrollArea className="flex-1 p-3">
+            <nav className="space-y-1">
+                {navigation.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
+                    return (
+                        <Button
+                            key={item.name}
+                            asChild
+                            variant={active ? 'secondary' : 'ghost'}
+                            className={cn('w-full justify-start gap-3 font-medium', active && 'bg-accent')}
+                        >
+                            <Link href={item.href} onClick={onNavigate}>
+                                <Icon className="h-4 w-4" />
+                                <span className="flex-1 text-left">{item.name}</span>
+                            </Link>
+                        </Button>
+                    );
+                })}
+            </nav>
+
+            <div className="mt-6 pt-4">
+                <Separator className="mb-3" />
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+                    Analytics
+                </div>
+                <nav className="space-y-1">
+                    {analyticsNav.map((item) => {
+                        const Icon = item.icon;
+                        const active = isActive(item.href);
+                        return (
+                            <Button
+                                key={item.name}
+                                asChild
+                                variant={active ? 'secondary' : 'ghost'}
+                                className={cn('w-full justify-start gap-3 font-medium', active && 'bg-accent')}
+                            >
+                                <Link href={item.href} onClick={onNavigate}>
+                                    <Icon className="h-4 w-4" />
+                                    <span>{item.name}</span>
+                                </Link>
+                            </Button>
+                        );
+                    })}
+                </nav>
+            </div>
+
+            <div className="mt-6 pt-4">
+                <Separator className="mb-3" />
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+                    System
+                </div>
+                <nav className="space-y-1">
+                    {systemNav.map((item) => {
+                        const Icon = item.icon;
+                        const active = isActive(item.href);
+                        return (
+                            <Button
+                                key={item.name}
+                                asChild
+                                variant={active ? 'secondary' : 'ghost'}
+                                className={cn('w-full justify-start gap-3 font-medium', active && 'bg-accent')}
+                            >
+                                <Link href={item.href} onClick={onNavigate}>
+                                    <Icon className="h-4 w-4" />
+                                    <span>{item.name}</span>
+                                </Link>
+                            </Button>
+                        );
+                    })}
+                </nav>
+            </div>
+        </ScrollArea>
+    );
+}
+
+export function MobileSidebarContent() {
+    return (
+        <div className="flex flex-col h-full">
+            <NavItems />
+            <div className="p-3 border-t">
+                <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start gap-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                    <a
+                        href="https://www.digitalindia.gov.in/press_release/dpdp-act-2023-upholds-privacy-while-preserving-transparency-under-rti/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>DPDPA 2023 Act</span>
+                    </a>
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 export function Sidebar() {
     const pathname = usePathname();
 
