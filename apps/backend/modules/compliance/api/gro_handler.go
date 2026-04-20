@@ -47,7 +47,11 @@ func (h *GROHandler) GetSettings(c *gin.Context) {
 		FROM tenants WHERE id = $1
 	`, tenantID).Scan(&name, &email, &phone, &s.IsSignificantDataFiduciary)
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"error": "tenant not found"})
+		// GRO settings are optional — a tenant that has not been configured
+		// yet returns an empty settings object rather than 404. The UI
+		// page that loads this endpoint would otherwise break on every
+		// fresh tenant (including the dev-mode default tenant).
+		c.JSON(http.StatusOK, groSettings{})
 		return
 	}
 	if err != nil {

@@ -26,14 +26,23 @@ type CustomPattern struct {
 // AllPatterns returns all built-in PII patterns.
 func AllPatterns() []Pattern {
 	defs := []struct{ name, piiType, regex string }{
-		{"Aadhaar", "IN_AADHAAR", `(?:^|[^0-9])([2-9]\d{3}[\s-]?\d{4}[\s-]?\d{4})(?:[^0-9]|$)`},
+		// Boundary classes explicitly exclude hex letters (A-Fa-f) so the pattern
+		// does NOT match digit runs embedded inside SHA-256 hashes or other
+		// hex-encoded values (previously produced hundreds of false positives
+		// when scanning audit_log/findings tables with hex columns).
+		{"Aadhaar", "IN_AADHAAR", `(?:^|[^0-9A-Za-z])([2-9]\d{3}[\s-]?\d{4}[\s-]?\d{4})(?:[^0-9A-Za-z]|$)`},
 		{"PAN", "IN_PAN", `\b[A-Z]{5}[0-9]{4}[A-Z]\b`},
 		{"Credit Card Visa", "CREDIT_CARD", `\b4[0-9]{12}(?:[0-9]{3})?\b`},
 		{"Credit Card MC", "CREDIT_CARD", `\b5[1-5][0-9]{14}\b`},
 		{"Credit Card Amex", "CREDIT_CARD", `\b3[47][0-9]{13}\b`},
 		{"Credit Card Discover", "CREDIT_CARD", `\b6(?:011|5[0-9]{2})[0-9]{12}\b`},
 		{"Email", "EMAIL_ADDRESS", `[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`},
-		{"Phone India", "IN_PHONE", `(?:\+91|91|0)?[6-9]\d{9}`},
+		// \b on both sides prevents matching 10-digit substrings inside hex
+		// hashes (hex letters are word chars in RE2, so \b will not fire
+		// between `d` and `8` etc.). Note: a leading `+91` before a whitespace
+		// boundary will not match here; add a separate pattern if needed.
+		{"Phone India", "IN_PHONE", `\b(?:91|0)?[6-9]\d{9}\b`},
+		{"Phone India +91", "IN_PHONE", `\+91[\s-]?[6-9]\d{9}\b`},
 		{"GST", "IN_GST", `[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]`},
 		{"UPI", "IN_UPI", `[a-zA-Z0-9.\-_]{3,}@[a-zA-Z0-9.\-_]+`},
 		{"IFSC", "IN_IFSC", `[A-Z]{4}0[A-Z0-9]{6}`},
