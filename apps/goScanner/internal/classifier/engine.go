@@ -12,8 +12,13 @@ import (
 // named to line up with the backend's VerifiedFinding schema so the ingest
 // layer is a straight serialization pass.
 type ClassifiedFinding struct {
-	PIIType        string
-	ValueHash      string
+	PIIType   string
+	ValueHash string
+	// MatchedValue is the raw substring the pattern fired on (e.g.
+	// "alice@example.com"). This is what the UI displays as the finding's
+	// evidence. Distinct from ContextExcerpt, which is ±50 chars of
+	// surrounding text used only for disambiguation.
+	MatchedValue   string
 	Score          int
 	DetectorType   string
 	SourcePath     string
@@ -71,6 +76,7 @@ func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern,
 				findings = append(findings, ClassifiedFinding{
 					PIIType:        pat.PIIType,
 					ValueHash:      hashValue(m),
+					MatchedValue:   m,
 					Score:          score,
 					DetectorType:   detType,
 					SourcePath:     record.SourcePath,
@@ -93,6 +99,7 @@ func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern,
 				findings = append(findings, ClassifiedFinding{
 					PIIType:        cp.PIIType,
 					ValueHash:      hashValue(m),
+					MatchedValue:   m,
 					Score:          score,
 					DetectorType:   detType,
 					SourcePath:     record.SourcePath,
@@ -107,9 +114,23 @@ func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern,
 	return Dedup(findings)
 }
 
-func hashValue(v string) string {
+// HashValue returns a hex SHA-256 of v. Exported so callers outside the
+// classifier package (e.g. the orchestrator when decorating Presidio-sourced
+// findings) can produce compatible value hashes.
+func HashValue(v string) string {
 	h := sha256.Sum256([]byte(v))
 	return fmt.Sprintf("%x", h)
+}
+
+func hashValue(v string) string { return HashValue(v) }
+
+// ExcerptRange returns a ±50 character window around text[start:end], clamped
+// to the string bounds. Exported for the orchestrator's Presidio path which
+// already knows the match offsets.
+func ExcerptRange(text string, start, end int) string {
+	left := max(start-50, 0)
+	right := min(end+50, len(text))
+	return text[left:right]
 }
 
 func excerpt(text, match string) string {

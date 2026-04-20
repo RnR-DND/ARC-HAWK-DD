@@ -13,19 +13,35 @@ import (
 // VerifiedFinding represents SDK-validated finding from the Go scanner.
 // Schema aligns with the Go scanner ingest API (apps/goScanner).
 type VerifiedFinding struct {
-	PIIType          string                 `json:"pii_type"`
-	ValueHash        string                 `json:"value_hash"`
-	Source           SourceLocation         `json:"source"`
-	ValidatorsPassed []string               `json:"validators_passed"`
-	ValidationMethod string                 `json:"validation_method"`
-	MLConfidence     float64                `json:"ml_confidence"`
-	MLEntityType     string                 `json:"ml_entity_type"`
-	ContextExcerpt   string                 `json:"context_excerpt"`
-	ContextKeywords  []string               `json:"context_keywords"`
-	PatternName      string                 `json:"pattern_name"`
-	DetectedAt       string                 `json:"detected_at"`
-	SDKVersion       string                 `json:"scanner_version"`
+	PIIType   string `json:"pii_type"`
+	ValueHash string `json:"value_hash"`
+	// MatchedValue is the raw substring the pattern fired on (e.g. the email
+	// itself). This is what gets displayed as the finding's evidence. The
+	// scanner is the authoritative source for this field; older payloads
+	// without it fall back to ContextExcerpt at ingest time.
+	MatchedValue     string         `json:"matched_value"`
+	Source           SourceLocation `json:"source"`
+	ValidatorsPassed []string       `json:"validators_passed"`
+	ValidationMethod string         `json:"validation_method"`
+	MLConfidence     float64        `json:"ml_confidence"`
+	MLEntityType     string         `json:"ml_entity_type"`
+	ContextExcerpt   string         `json:"context_excerpt"`
+	ContextKeywords  []string       `json:"context_keywords"`
+	PatternName      string         `json:"pattern_name"`
+	DetectedAt       string         `json:"detected_at"`
+	SDKVersion       string         `json:"scanner_version"`
 	Metadata         map[string]any `json:"metadata,omitempty"`
+}
+
+// EvidenceValue returns the finding's raw matched value (preferred) or falls
+// back to the context excerpt for legacy payloads that did not include a
+// matched_value field. Use this wherever you need "the thing the pattern
+// matched on" — for UI display, value hashing, and format validation.
+func (vf *VerifiedFinding) EvidenceValue() string {
+	if vf.MatchedValue != "" {
+		return vf.MatchedValue
+	}
+	return vf.ContextExcerpt
 }
 
 // SourceLocation represents source information from the Go scanner.
@@ -125,14 +141,15 @@ func assetDisplayName(dataSource, cleanHost, rawHost string) string {
 func (a *SDKAdapter) MapToFinding(vf *VerifiedFinding, scanRunID, assetID uuid.UUID) *entity.Finding {
 	severity := determineSeverity(vf.PIIType)
 
+	evidence := vf.EvidenceValue()
 	return &entity.Finding{
 		ID:                  uuid.New(),
 		ScanRunID:           scanRunID,
 		AssetID:             assetID,
 		PatternID:           nil,
 		PatternName:         vf.PatternName,
-		Matches:             []string{vf.ValueHash},
-		SampleText:          vf.ContextExcerpt,
+		Matches:             []string{evidence},
+		SampleText:          evidence,
 		Severity:            severity,
 		SeverityDescription: getSeverityDescription(severity),
 		ConfidenceScore:     floatPtr(vf.MLConfidence),

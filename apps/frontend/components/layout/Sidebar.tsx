@@ -41,9 +41,9 @@ const analyticsNav = [
 ];
 
 const systemNav = [
-    { name: 'Connectors', href: '/settings/connectors', icon: Plug },
-    { name: 'Regex Patterns', href: '/settings/regex', icon: Regex },
-    { name: 'Users', href: '/settings/users', icon: Users },
+    { name: 'Connectors', href: '/connectors', icon: Plug },
+    { name: 'Regex Patterns', href: '/regex', icon: Regex },
+    { name: 'Users', href: '/users', icon: Users },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -52,7 +52,10 @@ export function Sidebar() {
 
     const isActive = (href: string) => {
         if (href === '/') return pathname === '/';
-        return pathname.startsWith(href);
+        // Match either an exact path or the top-level segment, so that e.g.
+        // visiting `/assets/123` highlights "Assets" but visiting
+        // `/connectors` does NOT also highlight "Settings".
+        return pathname === href || pathname.startsWith(href + '/');
     };
 
     return (

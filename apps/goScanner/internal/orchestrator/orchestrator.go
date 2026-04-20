@@ -2,10 +2,7 @@ package orchestrator
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
 	"log"
-	"strings"
 	"sync"
 
 	"github.com/arc-platform/go-scanner/internal/classifier"
@@ -14,6 +11,15 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
+
+// minPresidioTextLen skips Presidio NER for very short values. Column cells
+// shorter than this are unlikely to contain contextual PII and each skipped
+// value avoids a full HTTP round-trip.
+const minPresidioTextLen = 10
+
+// presidioPatternPrefix is the PatternName prefix applied to all findings
+// produced by Presidio (as opposed to the local regex engine).
+const presidioPatternPrefix = "presidio:"
 
 // ExecutionMode selects serial or parallel scanning across sources.
 type ExecutionMode string
@@ -89,7 +95,7 @@ func (o *Orchestrator) RunScan(ctx context.Context, cfg ScanConfig) ([]classifie
 		cfg.ExecutionMode = ExecutionModeParallel
 	}
 
-	if strings.EqualFold(string(cfg.ExecutionMode), string(ExecutionModeSequential)) {
+	if cfg.ExecutionMode == ExecutionModeSequential {
 		return o.runSequential(ctx, cfg)
 	}
 	return o.runParallel(ctx, cfg)
@@ -207,7 +213,27 @@ func (o *Orchestrator) scanSource(ctx context.Context, src SourceSpec, cfg ScanC
 		host = stringFromConfig(src.Config, "path")
 	}
 
-	usePresidio := presidioEntities != nil && cfg.Presidio.Enabled()
+	// Pre-compute per-source Presidio inputs once. Neither ad-hoc recognizer
+	// list nor the entity allowlist depends on per-record data, so building
+	// them here avoids ~O(records) allocations on large scans.
+	usePresidio := presidioEntities != nil && cfg.Presidio != nil && cfg.Presidio.Enabled()
+	var (
+		adHoc           []presidio.AdHocRecognizer
+		allowedEntities []string
+		srcContextWords []string
+	)
+	if usePresidio {
+		adHoc = buildAdHocRecognizers(presidioEntities, cfg.CustomPatterns)
+		allowedEntities = extendEntitiesForCustomPatterns(presidioEntities, cfg.CustomPatterns)
+		if cfg.ClassificationMode == ClassificationModeContextual {
+			if src.ProfileName != "" {
+				srcContextWords = append(srcContextWords, src.ProfileName)
+			}
+			if src.SourceType != "" {
+				srcContextWords = append(srcContextWords, src.SourceType)
+			}
+		}
+	}
 
 	fieldsCh, errCh := conn.StreamFields(ctx)
 
@@ -226,8 +252,8 @@ func (o *Orchestrator) scanSource(ctx context.Context, src SourceSpec, cfg ScanC
 			}
 			findings = append(findings, batch...)
 
-			if usePresidio {
-				presidioFindings := o.runPresidio(ctx, cfg.Presidio, rec, src, cfg, host, presidioEntities)
+			if usePresidio && len(rec.Value) >= minPresidioTextLen {
+				presidioFindings := o.runPresidio(ctx, cfg.Presidio, rec, src, host, adHoc, allowedEntities, srcContextWords)
 				findings = append(findings, presidioFindings...)
 			}
 		case err, ok := <-errCh:
@@ -253,24 +279,25 @@ func (o *Orchestrator) scanSource(ctx context.Context, src SourceSpec, cfg ScanC
 //
 // The `entities` allowlist constrains the results to what the user selected
 // plus any custom-pattern categories that apply.
-func (o *Orchestrator) runPresidio(ctx context.Context, client *presidio.Client, rec connectors.FieldRecord, src SourceSpec, cfg ScanConfig, host string, entities []string) []classifier.ClassifiedFinding {
-	contextual := cfg.ClassificationMode == ClassificationModeContextual
-
-	var contextWords []string
-	if contextual {
-		if rec.FieldName != "" {
-			contextWords = append(contextWords, rec.FieldName)
-		}
-		if src.ProfileName != "" {
-			contextWords = append(contextWords, src.ProfileName)
-		}
-		if src.SourceType != "" {
-			contextWords = append(contextWords, src.SourceType)
-		}
+// runPresidio sends rec.Value to Presidio and converts returned entities
+// into ClassifiedFindings. `adHoc` and `allowedEntities` are pre-computed at
+// the source level; `srcContextWords` carries contextual-mode source-level
+// words (profile name, source type); the record's field name — which varies
+// per call — is appended here.
+func (o *Orchestrator) runPresidio(
+	ctx context.Context,
+	client *presidio.Client,
+	rec connectors.FieldRecord,
+	src SourceSpec,
+	host string,
+	adHoc []presidio.AdHocRecognizer,
+	allowedEntities []string,
+	srcContextWords []string,
+) []classifier.ClassifiedFinding {
+	contextWords := srcContextWords
+	if len(srcContextWords) > 0 && rec.FieldName != "" {
+		contextWords = append([]string{rec.FieldName}, srcContextWords...)
 	}
-
-	adHoc := buildAdHocRecognizers(entities, cfg.CustomPatterns)
-	allowedEntities := extendEntitiesForCustomPatterns(entities, cfg.CustomPatterns)
 
 	opts := presidio.AnalyzeOptions{
 		Entities:         allowedEntities,
@@ -282,6 +309,7 @@ func (o *Orchestrator) runPresidio(ctx context.Context, client *presidio.Client,
 		return nil
 	}
 
+	table := tableFromSourcePath(rec.SourcePath)
 	out := make([]classifier.ClassifiedFinding, 0, len(results))
 	for _, e := range results {
 		if e.Start < 0 || e.End > len(rec.Value) || e.Start >= e.End {
@@ -290,16 +318,17 @@ func (o *Orchestrator) runPresidio(ctx context.Context, client *presidio.Client,
 		matched := rec.Value[e.Start:e.End]
 		out = append(out, classifier.ClassifiedFinding{
 			PIIType:        e.Type,
-			ValueHash:      hashValue(matched),
+			ValueHash:      classifier.HashValue(matched),
+			MatchedValue:   matched,
 			Score:          int(e.Score * 100),
 			DetectorType:   "presidio",
 			SourcePath:     rec.SourcePath,
 			FieldName:      rec.FieldName,
-			ContextExcerpt: excerptAround(rec.Value, e.Start, e.End),
-			PatternName:    "presidio:" + e.Type,
+			ContextExcerpt: classifier.ExcerptRange(rec.Value, e.Start, e.End),
+			PatternName:    presidioPatternPrefix + e.Type,
 			DataSource:     src.SourceType,
 			Host:           host,
-			Table:          tableFromSourcePath(rec.SourcePath),
+			Table:          table,
 		})
 	}
 	return out
@@ -370,24 +399,6 @@ func extendEntitiesForCustomPatterns(entities []string, customPatterns []classif
 		out = append(out, cp.PIIType)
 	}
 	return out
-}
-
-// hashValue duplicates classifier.hashValue to avoid exposing it.
-func hashValue(v string) string {
-	h := sha256.Sum256([]byte(v))
-	return fmt.Sprintf("%x", h)
-}
-
-func excerptAround(text string, start, end int) string {
-	left := start - 50
-	if left < 0 {
-		left = 0
-	}
-	right := end + 50
-	if right > len(text) {
-		right = len(text)
-	}
-	return text[left:right]
 }
 
 func stringFromConfig(cfg map[string]any, key string) string {

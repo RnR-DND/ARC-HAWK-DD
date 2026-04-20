@@ -81,8 +81,12 @@ func (s *IngestionService) IngestSDKVerified(ctx context.Context, input Verified
 			continue
 		}
 
-		// Format validation — reject false positives (defense-in-depth)
-		matchValue := vf.ContextExcerpt
+		// Format validation — reject false positives (defense-in-depth).
+		// Use the raw matched value, not the surrounding excerpt: the
+		// validator expects a narrow PII literal (e.g. "ABCDE1234F") and
+		// fails open on sentences. Legacy payloads that only have the
+		// excerpt still work via the fallback in EvidenceValue().
+		matchValue := vf.EvidenceValue()
 		if matchValue != "" && !validators.Validate(vf.PIIType, matchValue) {
 			continue
 		}
