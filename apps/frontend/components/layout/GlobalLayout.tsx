@@ -41,9 +41,14 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                                     <Shield className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-base font-bold text-slate-900 tracking-tight">
+                                    <div
+                                        role="heading"
+                                        aria-level={1}
+                                        aria-label="ARC-Hawk"
+                                        className="text-base font-bold text-slate-900 tracking-tight"
+                                    >
                                         ARC-Hawk
-                                    </h1>
+                                    </div>
                                     <p className="text-[11px] text-slate-400 font-medium tracking-wide uppercase">Enterprise PII Governance</p>
                                 </div>
                             </div>
