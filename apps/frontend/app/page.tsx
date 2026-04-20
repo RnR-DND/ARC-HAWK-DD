@@ -58,7 +58,7 @@ export default function Home() {
         return `ws://${raw}`;
     })();
     const { lastMessage, isConnected: wsConnected } = useWebSocket({ url: wsUrl });
-    const [liveFindings, setLiveFindings] = useState<any[]>([]);
+    const [liveFindings, setLiveFindings] = useState<Record<string, unknown>[]>([]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -68,22 +68,19 @@ export default function Home() {
     useEffect(() => {
         if (lastMessage) {
             try {
-                const msg = JSON.parse(lastMessage.data);
-                if (msg.type === 'new_finding') {
-                    setLiveFindings(prev => [msg.data, ...prev].slice(0, 5));
-                    // Optimistically update counts
+                if (lastMessage.type === 'new_finding') {
+                    setLiveFindings(prev => [lastMessage.data, ...prev].slice(0, 5));
                     setData(prev => prev ? {
                         ...prev,
                         metrics: {
                             ...prev.metrics,
                             totalPII: prev.metrics.totalPII + 1,
-                            highRiskFindings: ['High', 'Critical'].includes(msg.data.severity)
+                            highRiskFindings: ['High', 'Critical'].includes(lastMessage.data.severity as string)
                                 ? prev.metrics.highRiskFindings + 1
                                 : prev.metrics.highRiskFindings
                         }
                     } : null);
-                } else if (msg.type === 'scan_complete' || msg.type === 'scan_progress') {
-                    // Refresh data on major scan events
+                } else if (lastMessage.type === 'scan_complete' || lastMessage.type === 'scan_progress') {
                     fetchDashboardData();
                 }
             } catch (e) {
@@ -237,7 +234,7 @@ export default function Home() {
                                         <span key={i} className="text-sm font-mono text-slate-600 flex items-center gap-2">
                                             <span className={`w-2 h-2 rounded-full ${f.severity === 'Critical' ? 'bg-red-500' : 'bg-amber-500'
                                                 }`} />
-                                            Found {f.type} in {f.source}
+                                            Found {String(f.type)} in {String(f.source)}
                                         </span>
                                     ))}
                                 </div>

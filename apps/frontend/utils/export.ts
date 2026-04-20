@@ -1,6 +1,6 @@
 // Export utility functions for CSV and JSON
 
-export function exportToCSV(data: any[], filename: string) {
+export function exportToCSV(data: Record<string, unknown>[], filename: string) {
     if (data.length === 0) {
         alert('No data to export');
         return;
@@ -39,7 +39,7 @@ export function exportToCSV(data: any[], filename: string) {
     document.body.removeChild(link);
 }
 
-export function exportToJSON(data: any[], filename: string) {
+export function exportToJSON(data: Record<string, unknown>[], filename: string) {
     if (data.length === 0) {
         alert('No data to export');
         return;
@@ -59,18 +59,17 @@ export function exportToJSON(data: any[], filename: string) {
     document.body.removeChild(link);
 }
 
-export function prepareDataForExport(data: any[], fields?: string[]) {
+export function prepareDataForExport(data: Record<string, unknown>[], fields?: string[]) {
     if (!fields) return data;
 
     return data.map(item => {
-        const exported: any = {};
+        const exported: Record<string, unknown> = {};
         fields.forEach(field => {
             if (field.includes('.')) {
-                // Handle nested fields like 'asset.name'
                 const parts = field.split('.');
-                let value = item;
+                let value: unknown = item;
                 for (const part of parts) {
-                    value = value?.[part];
+                    value = (value as Record<string, unknown>)?.[part];
                 }
                 exported[field] = value;
             } else {

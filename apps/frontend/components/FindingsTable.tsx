@@ -5,6 +5,29 @@ import { FindingWithDetails } from '@/types';
 import { findingsApi } from '@/services/findings.api';
 import { FindingDetailDrawer } from './findings/FindingDetailDrawer';
 
+function SortIcon({ col, sortBy, sortOrder }: { col: string; sortBy: string; sortOrder: 'asc' | 'desc' }) {
+    if (sortBy !== col) return <span className="ml-1 text-slate-300 select-none">↕</span>;
+    return <span className="ml-1 text-blue-500 select-none">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+}
+
+function SortableTh({ col, label, className, sortBy, sortOrder, onSortChange }: {
+    col: string;
+    label: string;
+    className?: string;
+    sortBy: string;
+    sortOrder: 'asc' | 'desc';
+    onSortChange?: (col: string) => void;
+}) {
+    return (
+        <th
+            className={`px-4 py-3 font-semibold cursor-pointer hover:bg-slate-100 transition-colors select-none ${className ?? ''}`}
+            onClick={() => onSortChange?.(col)}
+        >
+            {label}<SortIcon col={col} sortBy={sortBy} sortOrder={sortOrder} />
+        </th>
+    );
+}
+
 interface FindingsTableProps {
     findings: FindingWithDetails[];
     total: number;
@@ -57,35 +80,21 @@ export default function FindingsTable({
         }
     };
 
-    const SortIcon = ({ col }: { col: string }) => {
-        if (sortBy !== col) return <span className="ml-1 text-slate-300 select-none">↕</span>;
-        return <span className="ml-1 text-blue-500 select-none">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
-    };
-
-    const SortableTh = ({ col, label, className }: { col: string; label: string; className?: string }) => (
-        <th
-            className={`px-4 py-3 font-semibold cursor-pointer hover:bg-slate-100 transition-colors select-none ${className ?? ''}`}
-            onClick={() => onSortChange?.(col)}
-        >
-            {label}<SortIcon col={col} />
-        </th>
-    );
-
     return (
         <div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead>
                         <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                            <SortableTh col="asset_name" label="Asset" />
+                            <SortableTh col="asset_name" label="Asset" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange} />
                             <th className="px-4 py-3 font-semibold">Object/Path</th>
                             <th className="px-4 py-3 font-semibold">Field</th>
-                            <SortableTh col="pattern_name" label="PII Type" />
-                            <SortableTh col="severity" label="Risk" />
-                            <SortableTh col="confidence" label="Conf" />
+                            <SortableTh col="pattern_name" label="PII Type" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange} />
+                            <SortableTh col="severity" label="Risk" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange} />
+                            <SortableTh col="confidence" label="Conf" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange} />
                             <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Detector</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
-                            <SortableTh col="created_at" label="Created" className="text-right" />
+                            <SortableTh col="created_at" label="Created" className="text-right" sortBy={sortBy} sortOrder={sortOrder} onSortChange={onSortChange} />
                             <th className="px-4 py-3 font-semibold text-right">Actions</th>
                         </tr>
                     </thead>

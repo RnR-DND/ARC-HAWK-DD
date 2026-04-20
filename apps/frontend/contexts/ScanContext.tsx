@@ -1,6 +1,16 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+
+function readSavedContext() {
+    if (typeof window === 'undefined') return null;
+    try {
+        const saved = localStorage.getItem('arc-hawk-scan-context');
+        return saved ? JSON.parse(saved) as Record<string, unknown> : null;
+    } catch {
+        return null;
+    }
+}
 
 interface ScanContext {
     currentScanId: string | null;
@@ -15,26 +25,10 @@ interface ScanContext {
 const ScanContextContext = createContext<ScanContext | undefined>(undefined);
 
 export function ScanContextProvider({ children }: { children: ReactNode }) {
-    const [currentScanId, setCurrentScanId] = useState<string | null>(null);
-    const [currentScanName, setCurrentScanName] = useState<string | null>(null);
-    const [environment, setEnvironment] = useState<'PROD' | 'DEV' | 'QA' | null>(null);
-    const [zeroValueMode, setZeroValueMode] = useState(true); // Default: hide values
-
-    // Persist to localStorage
-    useEffect(() => {
-        const saved = localStorage.getItem('arc-hawk-scan-context');
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                setCurrentScanId(parsed.scanId);
-                setCurrentScanName(parsed.scanName);
-                setEnvironment(parsed.environment);
-                setZeroValueMode(parsed.zeroValueMode ?? true);
-            } catch (e) {
-                console.error('Failed to parse scan context', e);
-            }
-        }
-    }, []);
+    const [currentScanId, setCurrentScanId] = useState<string | null>(() => (readSavedContext()?.scanId as string) ?? null);
+    const [currentScanName, setCurrentScanName] = useState<string | null>(() => (readSavedContext()?.scanName as string) ?? null);
+    const [environment, setEnvironment] = useState<'PROD' | 'DEV' | 'QA' | null>(() => (readSavedContext()?.environment as 'PROD' | 'DEV' | 'QA') ?? null);
+    const [zeroValueMode, setZeroValueMode] = useState<boolean>(() => (readSavedContext()?.zeroValueMode as boolean) ?? true);
 
     const setCurrentScan = (scanId: string, scanName: string, env: 'PROD' | 'DEV' | 'QA') => {
         setCurrentScanId(scanId);

@@ -636,7 +636,7 @@ export function ScanConfigModal({ isOpen, onClose, onRunScan }: ScanConfigModalP
 
                         {customPatterns.length === 0 ? (
                             <div className="py-4 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
-                                No custom patterns yet. Click "Add Pattern" to define your own PII types.
+                                {'No custom patterns yet. Click "Add Pattern" to define your own PII types.'}
                             </div>
                         ) : (
                             <div className="grid grid-cols-3 gap-2">

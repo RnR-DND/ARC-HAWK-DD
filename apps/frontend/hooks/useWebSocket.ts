@@ -10,7 +10,7 @@ export type WSMessageType =
 
 export interface WSMessage {
   type: WSMessageType;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -30,7 +30,7 @@ interface UseWebSocketReturn {
   isConnecting: boolean;
   connect: () => void;
   disconnect: () => void;
-  send: (message: any) => void;
+  send: (message: unknown) => void;
   lastMessage: WSMessage | null;
 }
 
@@ -136,7 +136,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     setIsConnecting(false);
   }, []);
 
-  const send = useCallback((message: any) => {
+  const send = useCallback((message: unknown) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify(message));
     } else {
@@ -168,7 +168,7 @@ export function useScanMonitoring(scanId?: string) {
     progress: number;
     status: string;
     message: string;
-    findings: any[];
+    findings: unknown[];
   }>({
     progress: 0,
     status: 'idle',
@@ -194,9 +194,9 @@ export function useScanMonitoring(scanId?: string) {
           if (!scanId || message.data.scan_id === scanId) {
             setScanProgress(prev => ({
               ...prev,
-              progress: message.data.progress,
-              status: message.data.status,
-              message: message.data.message
+              progress: message.data.progress as number,
+              status: message.data.status as string,
+              message: message.data.message as string
             }));
           }
           break;
@@ -252,8 +252,8 @@ export function useSystemStatus() {
     onMessage: (message) => {
       if (message.type === 'system_status') {
         setSystemStatus({
-          connectedClients: message.data.connected_clients || 0,
-          activeScans: message.data.active_scans || 0,
+          connectedClients: (message.data.connected_clients as number) || 0,
+          activeScans: (message.data.active_scans as number) || 0,
           lastUpdate: message.timestamp
         });
       }

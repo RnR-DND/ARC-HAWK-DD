@@ -486,7 +486,7 @@ function PatternModal({
                     <div className="space-y-2 border-t border-slate-100 pt-4">
                         <div>
                             <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Boost Keywords</label>
-                            <p className="text-xs text-slate-400 mt-0.5">Words that, if found near a match, increase confidence (e.g. "aadhaar", "national id").</p>
+                            <p className="text-xs text-slate-400 mt-0.5">{'Words that, if found near a match, increase confidence (e.g. "aadhaar", "national id").'}</p>
                         </div>
                         <div className="flex gap-2">
                             <input
@@ -537,7 +537,7 @@ function PatternModal({
                     <div className="space-y-2">
                         <div>
                             <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Suppress Keywords</label>
-                            <p className="text-xs text-slate-400 mt-0.5">Words that, if found near a match, decrease confidence (e.g. "test", "sample", "dummy").</p>
+                            <p className="text-xs text-slate-400 mt-0.5">{'Words that, if found near a match, decrease confidence (e.g. "test", "sample", "dummy").'}</p>
                         </div>
                         <div className="flex gap-2">
                             <input

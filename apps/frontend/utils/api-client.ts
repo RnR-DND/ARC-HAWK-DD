@@ -50,17 +50,17 @@ apiClient.interceptors.response.use(
 /**
  * Generic fetcher for creating strictly typed service helpers
  */
-export async function get<T>(url: string, params?: any): Promise<T> {
+export async function get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
     const response = await apiClient.get<T>(url, { params });
     return response.data;
 }
 
-export async function post<T>(url: string, body: any): Promise<T> {
+export async function post<T>(url: string, body: unknown): Promise<T> {
     const response = await apiClient.post<T>(url, body);
     return response.data;
 }
 
-export async function put<T>(url: string, body: any): Promise<T> {
+export async function put<T>(url: string, body: unknown): Promise<T> {
     const response = await apiClient.put<T>(url, body);
     return response.data;
 }

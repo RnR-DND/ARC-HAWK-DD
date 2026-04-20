@@ -695,7 +695,7 @@ export default function RemediationPage() {
     );
 }
 
-function StatCard({ title, value, color, icon }: any) {
+function StatCard({ title, value, color, icon }: { title: string; value: React.ReactNode; color: string; icon: React.ReactNode }) {
     return (
         <div style={{
             backgroundColor: theme.colors.background.card,

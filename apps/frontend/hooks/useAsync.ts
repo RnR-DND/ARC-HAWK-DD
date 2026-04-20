@@ -7,17 +7,12 @@ interface AsyncState<T> {
 }
 
 interface UseAsyncReturn<T> extends AsyncState<T> {
-  execute: (...args: any[]) => Promise<T | null>;
+  execute: (...args: unknown[]) => Promise<T | null>;
   reset: () => void;
 }
 
-/**
- * Hook for handling async operations with loading states and error handling
- * @param asyncFn - The async function to execute
- * @param options - Configuration options
- */
 export function useAsync<T>(
-  asyncFn: (...args: any[]) => Promise<T>,
+  asyncFn: (...args: unknown[]) => Promise<T>,
   options: {
     onSuccess?: (data: T) => void;
     onError?: (error: string) => void;
@@ -30,7 +25,7 @@ export function useAsync<T>(
     error: null,
   });
 
-  const execute = useCallback(async (...args: any[]): Promise<T | null> => {
+  const execute = useCallback(async (...args: unknown[]): Promise<T | null> => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
@@ -38,8 +33,8 @@ export function useAsync<T>(
       setState({ data, loading: false, error: null });
       options.onSuccess?.(data);
       return data;
-    } catch (error: any) {
-      const errorMessage = error?.message || 'An unexpected error occurred';
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       setState(prev => ({ ...prev, loading: false, error: errorMessage }));
       options.onError?.(errorMessage);
       return null;
@@ -61,13 +56,13 @@ export function useAsync<T>(
  * Hook for handling multiple async operations
  */
 export function useAsyncMultiple() {
-  const [operations, setOperations] = useState<Record<string, AsyncState<any>>>({});
+  const [operations, setOperations] = useState<Record<string, AsyncState<unknown>>>({});
 
   const createOperation = useCallback(<T,>(
     key: string,
-    asyncFn: (...args: any[]) => Promise<T>
+    asyncFn: (...args: unknown[]) => Promise<T>
   ) => {
-    const execute = async (...args: any[]): Promise<T | null> => {
+    const execute = async (...args: unknown[]): Promise<T | null> => {
       setOperations(prev => ({
         ...prev,
         [key]: { data: null, loading: true, error: null }
@@ -80,8 +75,8 @@ export function useAsyncMultiple() {
           [key]: { data, loading: false, error: null }
         }));
         return data;
-      } catch (error: any) {
-        const errorMessage = error?.message || 'An unexpected error occurred';
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
         setOperations(prev => ({
           ...prev,
           [key]: { data: null, loading: false, error: errorMessage }

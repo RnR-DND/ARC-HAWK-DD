@@ -6,6 +6,43 @@ import Tooltip, { InfoIcon } from '@/components/Tooltip';
 import { complianceApi, type RetentionViolation, type DPDPAGapReport, type SectionSummary } from '@/services/compliance.api';
 import type { ComplianceOverview } from '@/types/api';
 
+interface ConsentRecord {
+    id: string;
+    asset_id: string;
+    data_subject_id: string;
+    consent_type: string;
+    purpose: string;
+    status: string;
+}
+
+interface DPRItem {
+    id: string;
+    request_type: string;
+    status: string;
+    data_principal_id: string;
+    created_at: string;
+    due_date?: string;
+}
+
+interface DPRStats {
+    total?: number;
+    pending?: number;
+    in_progress?: number;
+    completed?: number;
+}
+
+interface HealthComponent {
+    name: string;
+    status: string;
+    message?: string;
+}
+
+interface HealthData {
+    components: HealthComponent[];
+    timestamp: string;
+    status: string;
+}
+
 export default function CompliancePage() {
     const [data, setData] = useState<ComplianceOverview | null>(null);
     const [loading, setLoading] = useState(true);
@@ -245,7 +282,14 @@ export default function CompliancePage() {
     );
 }
 
-function KPICard({ title, value, subtitle, color, trend, tooltip }: any) {
+function KPICard({ title, value, subtitle, color, trend, tooltip }: {
+    title: string;
+    value: React.ReactNode;
+    subtitle?: React.ReactNode;
+    color?: string;
+    trend?: string | number;
+    tooltip?: React.ReactNode;
+}) {
     return (
         <div style={{
             backgroundColor: theme.colors.background.card,
@@ -287,7 +331,7 @@ function RiskBadge({ level }: { level: string }) {
     );
 }
 
-function CategoryBar({ label, count, color }: any) {
+function CategoryBar({ label, count, color }: { label: string; count: string | number; color: string }) {
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
@@ -688,7 +732,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Consent Records Section ──────────────────────────────────────────────────
 function ConsentSection() {
-    const [records, setRecords] = useState<any[]>([]);
+    const [records, setRecords] = useState<ConsentRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ asset_id: '', data_subject_id: '', consent_type: 'EXPLICIT', purpose: '' });
@@ -807,7 +851,7 @@ function ConsentSection() {
                             </tr>
                         </thead>
                         <tbody>
-                            {records.map((r: any) => {
+                            {records.map((r) => {
                                 const sc = getStatusColor(r.status);
                                 return (
                                     <tr key={r.id} style={{ borderBottom: `1px solid ${theme.colors.border.default}` }}>
@@ -846,8 +890,8 @@ function ConsentSection() {
 
 // ─── DPR Management Section ───────────────────────────────────────────────────
 function DPRSection() {
-    const [stats, setStats] = useState<any>(null);
-    const [dprs, setDPRs] = useState<any[]>([]);
+    const [stats, setStats] = useState<DPRStats | null>(null);
+    const [dprs, setDPRs] = useState<DPRItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [submitForm, setSubmitForm] = useState({ request_type: 'ACCESS', data_principal_id: '', data_principal_email: '', request_details: '' });
@@ -931,9 +975,9 @@ function DPRSection() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', padding: '20px 24px' }}>
                     {[
                         { label: 'Total Requests', value: stats.total ?? dprs.length, color: theme.colors.text.primary },
-                        { label: 'Pending', value: stats.pending ?? dprs.filter((d: any) => d.status === 'PENDING').length, color: '#854d0e' },
-                        { label: 'In Progress', value: stats.in_progress ?? dprs.filter((d: any) => d.status === 'IN_PROGRESS').length, color: '#1e40af' },
-                        { label: 'Completed', value: stats.completed ?? dprs.filter((d: any) => d.status === 'COMPLETED').length, color: '#166534' },
+                        { label: 'Pending', value: stats.pending ?? dprs.filter((d) => d.status === 'PENDING').length, color: '#854d0e' },
+                        { label: 'In Progress', value: stats.in_progress ?? dprs.filter((d) => d.status === 'IN_PROGRESS').length, color: '#1e40af' },
+                        { label: 'Completed', value: stats.completed ?? dprs.filter((d) => d.status === 'COMPLETED').length, color: '#166534' },
                     ].map(({ label, value, color }) => (
                         <div key={label} style={{ padding: '16px', backgroundColor: theme.colors.background.tertiary, borderRadius: '8px', textAlign: 'center' }}>
                             <div style={{ fontSize: '24px', fontWeight: 800, color }}>{value ?? '—'}</div>
@@ -958,7 +1002,7 @@ function DPRSection() {
                             </tr>
                         </thead>
                         <tbody>
-                            {dprs.map((d: any) => (
+                            {dprs.map((d) => (
                                 <tr key={d.id} style={{ borderBottom: `1px solid ${theme.colors.border.default}` }}>
                                     <td style={{ padding: '12px 20px', fontFamily: 'monospace', fontSize: '12px', color: theme.colors.text.muted }}>{(d.id || '').slice(0, 8)}…</td>
                                     <td style={{ padding: '12px 20px' }}>
@@ -1130,7 +1174,7 @@ function GROSettingsSection() {
 }
 
 function SystemHealthStatus() {
-    const [healthData, setHealthData] = React.useState<any>(null);
+    const [healthData, setHealthData] = React.useState<HealthData | null>(null);
     const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
@@ -1172,7 +1216,7 @@ function SystemHealthStatus() {
 
     return (
         <div style={{ fontSize: '13px', color: theme.colors.text.secondary, lineHeight: '1.6' }}>
-            {healthData.components.map((comp: any) => (
+            {healthData.components.map((comp) => (
                 <p key={comp.name}>
                     {getStatusIcon(comp.status)} {comp.name}: <strong style={{
                         color: comp.status === 'online' ? theme.colors.risk.low :
