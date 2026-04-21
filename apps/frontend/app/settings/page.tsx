@@ -29,30 +29,7 @@ interface SettingItem {
 
 export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
-    const [settings, setSettings] = useState<UserSettings>({
-        // Security Settings
-        enableJWT: true,
-        sessionTimeout: '3600',
-        passwordPolicy: 'strong',
-        twoFactorEnabled: false,
-
-        // Scanner Settings
-        scanFrequency: 'daily',
-        maxFileSize: '100',
-        supportedFormats: ['json', 'csv', 'xml', 'sql'],
-        enableDeepScan: true,
-
-        // Notification Settings
-        emailNotifications: true,
-        slackNotifications: false,
-        criticalAlertsOnly: false,
-        weeklyReports: true,
-
-        // Data Retention
-        logRetention: '90',
-        scanHistoryRetention: '365',
-        backupFrequency: 'weekly'
-    });
+    const [settings, setSettings] = useState<UserSettings>({});
 
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -61,12 +38,7 @@ export default function SettingsPage() {
         const fetchSettings = async () => {
             try {
                 const data = await settingsApi.getSettings();
-                if (data && Object.keys(data).length > 0) {
-                    setSettings(prev => ({
-                        ...prev,
-                        ...data
-                    }));
-                }
+                if (data) setSettings(data);
             } catch (error) {
                 console.error('Failed to load settings:', error);
             } finally {
@@ -380,15 +352,15 @@ export default function SettingsPage() {
                                     Version
                                 </div>
                                 <div className="text-sm font-medium text-slate-900">
-                                    ARC-Hawk v1.2.0
+                                    {process.env.NEXT_PUBLIC_APP_VERSION ?? 'ARC-Hawk'}
                                 </div>
                             </div>
                             <div>
                                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                                    Last Updated
+                                    Build Date
                                 </div>
                                 <div className="text-sm font-medium text-slate-900">
-                                    January 15, 2026
+                                    {process.env.NEXT_PUBLIC_BUILD_DATE ?? '—'}
                                 </div>
                             </div>
                             <div>

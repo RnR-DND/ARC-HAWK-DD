@@ -5,6 +5,7 @@ import { Shield, AlertTriangle, CheckCircle, Clock, Play, RotateCcw, History, Bo
 import Link from 'next/link';
 import { theme } from '@/design-system/theme';
 import { remediationApi, SOP, EscalationPreview } from '@/services/remediation.api';
+import { authApi } from '@/services/auth.api';
 
 interface RemediationTask {
     id: string;
@@ -29,6 +30,7 @@ interface RemediationStats {
 }
 
 export default function RemediationPage() {
+    const [currentUserId, setCurrentUserId] = useState<string>('');
     const [tasks, setTasks] = useState<RemediationTask[]>([]);
     const [stats, setStats] = useState<RemediationStats>({
         totalTasks: 0,
@@ -57,6 +59,9 @@ export default function RemediationPage() {
     const [escalationToast, setEscalationToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
     useEffect(() => {
+        authApi.getProfile()
+            .then((u) => setCurrentUserId(u.id))
+            .catch((err) => console.error('Failed to load user profile', err));
         fetchRemediationData();
     }, []);
 
@@ -197,7 +202,7 @@ export default function RemediationPage() {
                 await remediationApi.executeRemediation({
                     finding_ids: [task.finding_id],
                     action_type: action as any,
-                    user_id: 'current-user-id'
+                    user_id: currentUserId
                 });
             } catch (e) {
                 console.error(`Failed to execute task ${task.id}`, e);

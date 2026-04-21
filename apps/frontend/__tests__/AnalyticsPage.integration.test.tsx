@@ -78,7 +78,7 @@ function mockPending() {
   const pending = () => new Promise(() => {});
   mockedApi.getHeatmap.mockImplementation(pending);
   mockedApi.getTrends.mockImplementation(pending);
-  mockedApi.getRiskDistribution.mockImplementation(pending);
+  mockedApi.getRiskDistribution.mockImplementation(pending as () => Promise<any>);
 }
 
 function mockRejected(err: Error) {
