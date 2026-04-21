@@ -31,6 +31,7 @@ interface RemediationStats {
 
 export default function RemediationPage() {
     const [currentUserId, setCurrentUserId] = useState<string>('');
+    const [remediationDisabled, setRemediationDisabled] = useState(false);
     const [tasks, setTasks] = useState<RemediationTask[]>([]);
     const [stats, setStats] = useState<RemediationStats>({
         totalTasks: 0,
@@ -193,22 +194,27 @@ export default function RemediationPage() {
         const pending = tasks.filter(t => t.status === 'PENDING');
         if (pending.length === 0) return;
 
-        // In a real app, this would be a single batch API call
-        // Here we simulate it by iterating
         for (const task of pending) {
             try {
-                // Determine action based on type (defaulting to MASK for safety if unknown)
                 const action = task.action_type || 'MASK';
                 await remediationApi.executeRemediation({
                     finding_ids: [task.finding_id],
                     action_type: action as any,
                     user_id: currentUserId
                 });
-            } catch (e) {
+            } catch (e: any) {
+                // Backend returns 503 with error="remediation_disabled" when the
+                // REMEDIATION_ENABLED flag is off. Surface this as a persistent
+                // banner rather than a noisy per-task error.
+                const status = e?.response?.status;
+                const code = e?.response?.data?.error;
+                if (status === 503 && code === 'remediation_disabled') {
+                    setRemediationDisabled(true);
+                    break;
+                }
                 console.error(`Failed to execute task ${task.id}`, e);
             }
         }
-        // Refresh after batch
         await fetchRemediationData();
     };
 
@@ -223,6 +229,35 @@ export default function RemediationPage() {
     return (
         <div style={{ minHeight: '100vh', backgroundColor: theme.colors.background.primary }}>
             <div className="container" style={{ padding: '32px', maxWidth: '1600px', margin: '0 auto' }}>
+
+                {remediationDisabled && (
+                    <div
+                        role="alert"
+                        style={{
+                            marginBottom: '24px',
+                            padding: '16px 20px',
+                            borderRadius: '8px',
+                            border: '1px solid #f59e0b',
+                            backgroundColor: '#fffbeb',
+                            color: '#92400e',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '12px',
+                        }}
+                    >
+                        <AlertTriangle style={{ width: '20px', height: '20px', flexShrink: 0, marginTop: '2px' }} />
+                        <div>
+                            <div style={{ fontWeight: 700, marginBottom: '4px' }}>
+                                Remediation is disabled on this deployment
+                            </div>
+                            <div style={{ fontSize: '13px', lineHeight: 1.5 }}>
+                                Mask / Delete / Encrypt actions will not mutate source data until connector implementations
+                                are verified. Tracking, reporting, and audit trail continue to work. Contact your administrator
+                                to enable remediation after connector verification.
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Header */}
                 <div style={{ marginBottom: '32px' }}>

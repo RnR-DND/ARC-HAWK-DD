@@ -111,8 +111,8 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	)
 	m.sdkIngestHandler = api.NewSDKIngestHandler(m.ingestionService)
 
-	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService, repo, encryptionService, deps.VaultClient)
-	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService, repo)
+	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService, repo, encryptionService, deps.VaultClient, deps.AuditLogger)
+	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService, repo, deps.AuditLogger, lineageSync)
 	m.dashboardHandler = api.NewDashboardHandler(repo)
 
 	// Custom patterns
@@ -148,8 +148,10 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 	scans := router.Group("/scans")
 	{
-		// SDK-verified ingestion (Intelligence-at-Edge)
-		scans.POST("/ingest-verified", m.sdkIngestHandler.IngestVerified)
+		// SDK-verified ingestion (Intelligence-at-Edge). This endpoint accepts
+		// either a real user session OR a valid scanner service token. See
+		// scanner_callback_auth.go for the dual-auth policy.
+		scans.POST("/ingest-verified", api.ScannerCallbackAuth(), m.sdkIngestHandler.IngestVerified)
 
 		// Scan trigger
 		scans.POST("/trigger", m.scanTriggerHandler.TriggerScan)
@@ -163,7 +165,7 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		// Scan status and details (wildcard routes)
 		scans.GET("/:id", m.scanStatusHandler.GetScan)
 		scans.GET("/:id/status", m.scanStatusHandler.GetScanStatus)
-		scans.POST("/:id/complete", m.scanStatusHandler.CompleteScan)
+		scans.POST("/:id/complete", api.ScannerCallbackAuth(), m.scanStatusHandler.CompleteScan)
 		scans.POST("/:id/cancel", m.scanStatusHandler.CancelScan)
 		// DELETE /:id requires admin role — no tenant_id on scan_runs yet (see RISK.md).
 		// This gate limits blast radius until tenant-scoped deletion is implemented.
@@ -178,7 +180,7 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		}, m.scanStatusHandler.DeleteScan)
 		scans.GET("/:id/pii-summary", m.scanStatusHandler.GetScanPIISummary)
 		scans.GET("/:id/delta", m.scanTriggerHandler.GetScanDelta)
-		scans.POST("/:id/progress-event", m.scanStatusHandler.ReceiveProgressEvent)
+		scans.POST("/:id/progress-event", api.ScannerCallbackAuth(), m.scanStatusHandler.ReceiveProgressEvent)
 	}
 
 	// Classification

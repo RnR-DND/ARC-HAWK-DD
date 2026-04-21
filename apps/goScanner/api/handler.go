@@ -7,12 +7,27 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
+	"time"
 
 	"github.com/arc-platform/go-scanner/internal/classifier"
 	"github.com/arc-platform/go-scanner/internal/orchestrator"
 	"github.com/arc-platform/go-scanner/internal/presidio"
 	"github.com/gin-gonic/gin"
 )
+
+// defaultScanTimeout caps the total wall-clock a single scan may run.
+// Override with SCAN_TIMEOUT_SECONDS env var (integer seconds).
+const defaultScanTimeout = 30 * time.Minute
+
+func resolveScanTimeout() time.Duration {
+	if v := os.Getenv("SCAN_TIMEOUT_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return time.Duration(n) * time.Second
+		}
+	}
+	return defaultScanTimeout
+}
 
 // presidioClient is shared across scans and set from the Presidio base URL
 // in the PRESIDIO_URL / PRESIDIO_ADDR environment variable. If neither is
@@ -110,11 +125,18 @@ func ScanHandler(c *gin.Context) {
 	orch := orchestrator.NewOrchestrator()
 
 	// Run scan asynchronously; respond immediately with 202 Accepted.
+	// Bound total scan wall-clock so a hung source can't leak goroutines indefinitely.
+	scanTimeout := resolveScanTimeout()
 	go func() {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), scanTimeout)
+		defer cancel()
 		findings, err := orch.RunScan(ctx, cfg)
 		if err != nil {
-			log.Printf("ERR: scan %s failed: %v", req.ScanID, err)
+			if ctx.Err() == context.DeadlineExceeded {
+				log.Printf("ERR: scan %s exceeded timeout %s", req.ScanID, scanTimeout)
+			} else {
+				log.Printf("ERR: scan %s failed: %v", req.ScanID, err)
+			}
 			return
 		}
 		log.Printf("Scan %s complete: %d findings across %d sources", req.ScanID, len(findings), len(sourceSpecs))

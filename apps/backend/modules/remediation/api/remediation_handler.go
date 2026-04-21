@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -48,14 +49,25 @@ func (h *RemediationHandler) ExecuteRemediation(c *gin.Context) {
 	userIDStr, _ := userID.(string)
 
 	var actionIDs []string
-	var errors []string
+	var errs []string
 	success := 0
 	failed := 0
 
 	for _, findingID := range req.FindingIDs {
 		actionID, err := h.service.ExecuteRemediation(c.Request.Context(), findingID, req.ActionType, userIDStr)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("Finding %s: %s", findingID, err.Error()))
+			// If the feature flag is off, fail the whole batch fast with 503 so the
+			// UI can surface a clear "Remediation disabled" banner rather than a per-
+			// finding error cascade.
+			if errors.Is(err, service.ErrRemediationDisabled) {
+				c.JSON(http.StatusServiceUnavailable, interfaces.NewErrorResponse(
+					"remediation_disabled",
+					"Remediation is disabled on this deployment",
+					"Set REMEDIATION_ENABLED=true only after connector implementations are verified; stubs will not mutate source data.",
+				))
+				return
+			}
+			errs = append(errs, fmt.Sprintf("Finding %s: %s", findingID, err.Error()))
 			failed++
 		} else {
 			actionIDs = append(actionIDs, actionID)
@@ -67,7 +79,7 @@ func (h *RemediationHandler) ExecuteRemediation(c *gin.Context) {
 		ActionIDs: actionIDs,
 		Success:   success,
 		Failed:    failed,
-		Errors:    errors,
+		Errors:    errs,
 	})
 }
 

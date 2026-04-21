@@ -348,7 +348,7 @@ func main() {
 		module.RegisterRoutes(apiV1)
 	}
 
-	healthHandler := api.NewHealthHandler(db, neo4jRepo)
+	healthHandler := api.NewHealthHandler(db, neo4jRepo, vaultClient)
 	apiV1.GET("/health/components", healthHandler.GetComponentsHealth)
 
 	log.Println("\n✅ All routes registered")
@@ -439,7 +439,7 @@ func validateRequiredEnvVars() {
 		log.Println("⚠️  WARNING: POSTGRES_PASSWORD is a placeholder — set a strong password for production")
 	}
 
-	// B-12: Enforce strong secrets in release mode
+	// B-12 + P1-4: Enforce strong secrets and transport security in release mode
 	ginMode := os.Getenv("GIN_MODE")
 	encKey := os.Getenv("ENCRYPTION_KEY")
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -452,6 +452,37 @@ func validateRequiredEnvVars() {
 		}
 		if os.Getenv("DB_SSLMODE") == "disable" {
 			log.Fatal("FATAL: DB_SSLMODE=disable is not allowed in release mode")
+		}
+
+		// Vault integration: if enabled, require HTTPS and a non-dev token.
+		if strings.EqualFold(os.Getenv("VAULT_ENABLED"), "true") {
+			addr := os.Getenv("VAULT_ADDR")
+			if !strings.HasPrefix(addr, "https://") {
+				log.Fatal("FATAL: VAULT_ADDR must use https:// in release mode when VAULT_ENABLED=true")
+			}
+			token := os.Getenv("VAULT_TOKEN")
+			if len(token) < 32 {
+				log.Fatal("FATAL: VAULT_TOKEN must be at least 32 characters in release mode")
+			}
+			if token == "arc-hawk-dev-token" || strings.HasPrefix(token, "dev-") {
+				log.Fatal("FATAL: VAULT_TOKEN appears to be a dev token; rotate before release")
+			}
+		}
+
+		// Scanner service token: required in release mode so the backend →
+		// go-scanner channel is actually authenticated.
+		scannerToken := os.Getenv("SCANNER_SERVICE_TOKEN")
+		if scannerToken == "" || len(scannerToken) < 32 {
+			log.Fatal("FATAL: SCANNER_SERVICE_TOKEN must be at least 32 characters in release mode")
+		}
+		if scannerToken == "dev-scanner-token-change-me" {
+			log.Fatal("FATAL: SCANNER_SERVICE_TOKEN is still the default placeholder; rotate before release")
+		}
+
+		// Remediation: warn if enabled, since connectors are stubs. Don't fail
+		// the boot — operators may have verified connectors — but make it loud.
+		if strings.EqualFold(os.Getenv("REMEDIATION_ENABLED"), "true") {
+			log.Println("⚠️  WARNING: REMEDIATION_ENABLED=true in release mode — verify that every connector actually mutates source data")
 		}
 	}
 }

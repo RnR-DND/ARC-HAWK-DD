@@ -119,6 +119,20 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 			return
 		}
 
+		// Check scanner service token — allows the go-scanner to call the
+		// backend's ingest-verified / complete / progress-event endpoints
+		// without a user JWT. The per-route ScannerCallbackAuth middleware
+		// re-validates and scopes tenant context. This branch only exists so
+		// the global middleware doesn't reject the request with 401 before
+		// the per-route middleware runs.
+		if token := c.GetHeader("X-Scanner-Token"); token != "" {
+			if expected := os.Getenv("SCANNER_SERVICE_TOKEN"); expected != "" && token == expected {
+				c.Set("service_auth", "scanner")
+				c.Next()
+				return
+			}
+		}
+
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			// In dev mode (AUTH_REQUIRED != "true"), allow anonymous access

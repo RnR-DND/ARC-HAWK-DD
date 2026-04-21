@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/scanning/service"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/arc-platform/backend/modules/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -18,15 +20,66 @@ type ScanStatusHandler struct {
 	scanService      *service.ScanService
 	repo             *persistence.PostgresRepository
 	websocketService interface{}
+	auditLogger      interfaces.AuditLogger
+	lineageSync      interfaces.LineageSync
 }
 
 // NewScanStatusHandler creates a new scan status handler
-func NewScanStatusHandler(scanService *service.ScanService, websocketService interface{}, repo *persistence.PostgresRepository) *ScanStatusHandler {
+func NewScanStatusHandler(scanService *service.ScanService, websocketService interface{}, repo *persistence.PostgresRepository, auditLogger interfaces.AuditLogger, lineageSync interfaces.LineageSync) *ScanStatusHandler {
+	if lineageSync == nil {
+		lineageSync = &interfaces.NoOpLineageSync{}
+	}
 	return &ScanStatusHandler{
 		scanService:      scanService,
 		repo:             repo,
 		websocketService: websocketService,
+		auditLogger:      auditLogger,
+		lineageSync:      lineageSync,
 	}
+}
+
+func (h *ScanStatusHandler) recordAudit(ctx context.Context, action, resourceID string, meta map[string]interface{}) {
+	if h.auditLogger == nil {
+		return
+	}
+	if err := h.auditLogger.Record(ctx, action, "scan", resourceID, meta); err != nil {
+		log.Printf("WARN: audit record failed action=%s scan=%s: %v", action, resourceID, err)
+	}
+}
+
+// syncLineageForScan runs in a background goroutine after a scan reaches a
+// terminal state. It queries the distinct asset_ids produced by this scan
+// and replays them through the lineage sync, so the Neo4j graph reflects
+// newly-discovered assets without waiting for a remediation action.
+func (h *ScanStatusHandler) syncLineageForScan(scanID uuid.UUID) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*60_000_000_000) // 5 min
+	defer cancel()
+
+	if h.repo == nil || h.lineageSync == nil {
+		return
+	}
+	rows, err := h.repo.GetDB().QueryContext(ctx, `
+		SELECT DISTINCT asset_id FROM findings WHERE scan_run_id = $1 AND asset_id IS NOT NULL
+	`, scanID)
+	if err != nil {
+		log.Printf("WARN: lineage sync query failed for scan %s: %v", scanID, err)
+		return
+	}
+	defer rows.Close()
+
+	synced := 0
+	for rows.Next() {
+		var assetID uuid.UUID
+		if err := rows.Scan(&assetID); err != nil {
+			continue
+		}
+		if err := h.lineageSync.SyncAssetToNeo4j(ctx, assetID); err != nil {
+			log.Printf("WARN: lineage sync failed for asset %s (scan %s): %v", assetID, scanID, err)
+			continue
+		}
+		synced++
+	}
+	log.Printf("Lineage sync complete for scan %s: %d assets synced", scanID, synced)
 }
 
 // GetScan handles GET /api/v1/scans/:id
@@ -146,8 +199,10 @@ func (h *ScanStatusHandler) CompleteScan(c *gin.Context) {
 		return
 	}
 
-	// Only allow specific status updates
-	if req.Status != "completed" && req.Status != "failed" {
+	// Only allow specific status updates. "partial" is used when ingestion
+	// succeeded for some chunks but not all (P0-5): data is present but
+	// incomplete. Surface it distinct from "completed" so the UI can warn.
+	if req.Status != "completed" && req.Status != "failed" && req.Status != "partial" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid status",
 		})
@@ -178,6 +233,36 @@ func (h *ScanStatusHandler) CompleteScan(c *gin.Context) {
 			"error": "Failed to update scan status",
 		})
 		return
+	}
+
+	// Emit terminal-state audit event. Maps the three valid terminal statuses
+	// to the corresponding action so downstream consumers (compliance, SIEM)
+	// can filter. DPDPA Section 8(2) accountability trail.
+	action := "SCAN_COMPLETED"
+	switch req.Status {
+	case "failed":
+		action = "SCAN_FAILED"
+	case "partial":
+		action = "SCAN_PARTIAL"
+	}
+	meta := map[string]interface{}{"status": req.Status}
+	if req.Message != "" {
+		meta["message"] = req.Message
+	}
+	if scan, err := h.scanService.GetScanRun(c.Request.Context(), scanID); err == nil {
+		meta["total_findings"] = scan.TotalFindings
+		meta["tenant_id"] = scan.TenantID.String()
+	}
+	h.recordAudit(c.Request.Context(), action, scanID.String(), meta)
+
+	// Kick lineage sync for every asset touched by this scan. Previously sync
+	// only ran after remediation, leaving the graph stale for freshly-discovered
+	// assets. P1-10. Fire-and-forget; lineage sync errors are logged, not
+	// surfaced to the scanner caller.
+	if req.Status == "completed" || req.Status == "partial" {
+		if h.lineageSync != nil && h.lineageSync.IsAvailable() {
+			go h.syncLineageForScan(scanID)
+		}
 	}
 
 	// Broadcast completion via WebSocket

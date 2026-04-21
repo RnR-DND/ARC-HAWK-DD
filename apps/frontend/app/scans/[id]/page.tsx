@@ -128,7 +128,7 @@ export default function ScanDetailPage({ params }: { params: Promise<{ id: strin
             {/* Content */}
             <div className="flex-1 overflow-auto p-8">
                 <div className="max-w-4xl mx-auto space-y-8">
-                    {/* PII Detection Summary - Only show if we have summary data or mock integration if needed */}
+                    {/* PII Detection Summary */}
                     {piiSummary.length > 0 ? (
                         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">

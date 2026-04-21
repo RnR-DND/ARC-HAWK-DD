@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/vault"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,13 +18,15 @@ import (
 type HealthHandler struct {
 	db        *sql.DB
 	neo4jRepo *persistence.Neo4jRepository
+	vault     *vault.Client
 }
 
 // NewHealthHandler creates a new health handler
-func NewHealthHandler(db *sql.DB, neo4jRepo *persistence.Neo4jRepository) *HealthHandler {
+func NewHealthHandler(db *sql.DB, neo4jRepo *persistence.Neo4jRepository, vaultClient *vault.Client) *HealthHandler {
 	return &HealthHandler{
 		db:        db,
 		neo4jRepo: neo4jRepo,
+		vault:     vaultClient,
 	}
 }
 
@@ -75,6 +79,16 @@ func (h *HealthHandler) GetComponentsHealth(c *gin.Context) {
 	components = append(components, scannerHealth)
 	if scannerHealth.Status == "offline" {
 		degraded = true // Scanner offline is degraded, not critical
+	}
+
+	// Check Vault (if enabled). Reports disabled/online/offline so operators
+	// can see at a glance whether secrets are coming from Vault or falling
+	// back to PostgreSQL encryption.
+	vaultHealth := h.checkVault(ctx)
+	components = append(components, vaultHealth)
+	if vaultHealth.Status == "offline" {
+		// Vault offline when enabled is degraded, not critical — we fall back.
+		degraded = true
 	}
 
 	// Determine overall status
@@ -191,4 +205,34 @@ func (h *HealthHandler) checkScanner(ctx context.Context) ComponentHealth {
 		health.Details = "No scans in the last hour"
 	}
 	return health
+}
+
+func (h *HealthHandler) checkVault(ctx context.Context) ComponentHealth {
+	_ = ctx // reserved for future per-call context
+	health := ComponentHealth{
+		Name:      "Vault",
+		LastCheck: time.Now(),
+	}
+	if h.vault == nil || !h.vault.IsEnabled() {
+		health.Status = "disabled"
+		health.Message = "Vault integration disabled"
+		health.Details = "Credentials fall back to PostgreSQL encryption"
+		return health
+	}
+	if err := h.vault.HealthCheck(); err != nil {
+		health.Status = "offline"
+		health.Message = "Vault health check failed"
+		health.Details = truncate(err.Error(), 256)
+		return health
+	}
+	health.Status = "online"
+	health.Message = "Vault reachable"
+	return health
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return strings.ToValidUTF8(s[:n], "") + "…"
 }

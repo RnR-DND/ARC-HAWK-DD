@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 	_ "github.com/lib/pq"
@@ -23,11 +24,25 @@ func (c *PostgresConnector) Connect(ctx context.Context, config map[string]any) 
 	if port == "" {
 		port = "5432"
 	}
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", host, user, pass, dbname, port)
+	// sslmode is configurable per-source; defaults to "prefer" (opportunistic
+	// TLS) to avoid plaintext when the server supports it, while still
+	// allowing connection to dev/test databases without certs. Override with
+	// sslmode in the connection config, or set DB_SSLMODE_DEFAULT for a
+	// stricter default (e.g. "verify-full") in release environments.
+	sslmode := cfgString(config, "sslmode")
+	if sslmode == "" {
+		if v := os.Getenv("DB_SSLMODE_DEFAULT"); v != "" {
+			sslmode = v
+		} else {
+			sslmode = "prefer"
+		}
+	}
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", host, user, pass, dbname, port, sslmode)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return err
 	}
+	applyPoolDefaults(db)
 	c.db = db
 	return db.PingContext(ctx)
 }

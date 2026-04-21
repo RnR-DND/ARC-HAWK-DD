@@ -26,9 +26,20 @@ func main() {
 	}
 
 	r := gin.Default()
-	r.POST("/scan", scannerapi.ScanHandler)
+	// /health and /metrics remain public so Docker and Prometheus can probe.
 	r.GET("/health", scannerapi.HealthHandler)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// /scan is privileged — require the shared service token. Backend must
+	// send X-Scanner-Token. See apps/goScanner/api/auth_middleware.go.
+	authed := r.Group("/", scannerapi.ServiceTokenAuth())
+	authed.POST("/scan", scannerapi.ScanHandler)
+
+	if os.Getenv("SCANNER_AUTH_REQUIRED") == "false" {
+		log.Printf("WARN: scanner auth disabled (SCANNER_AUTH_REQUIRED=false) — dev mode only")
+	} else if os.Getenv("SCANNER_SERVICE_TOKEN") == "" {
+		log.Printf("WARN: SCANNER_SERVICE_TOKEN is empty; /scan will reject all requests")
+	}
 
 	log.Printf("Go scanner starting on :%s", port)
 	if err := r.Run(":" + port); err != nil {

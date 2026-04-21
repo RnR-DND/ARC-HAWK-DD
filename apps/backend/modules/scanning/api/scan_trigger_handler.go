@@ -16,6 +16,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/vault"
+	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/arc-platform/backend/modules/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,6 +32,7 @@ type ScanTriggerHandler struct {
 	encryption       *encryption.EncryptionService
 	vault            *vault.Client
 	patternsService  *service.PatternsService
+	auditLogger      interfaces.AuditLogger
 }
 
 // Prometheus metrics
@@ -66,7 +68,7 @@ var (
 	})
 )
 
-func NewScanTriggerHandler(scanService *service.ScanService, websocketService any, repo *persistence.PostgresRepository, enc *encryption.EncryptionService, vaultClient *vault.Client) *ScanTriggerHandler {
+func NewScanTriggerHandler(scanService *service.ScanService, websocketService any, repo *persistence.PostgresRepository, enc *encryption.EncryptionService, vaultClient *vault.Client, auditLogger interfaces.AuditLogger) *ScanTriggerHandler {
 	return &ScanTriggerHandler{
 		scanService:      scanService,
 		websocketService: websocketService,
@@ -74,6 +76,18 @@ func NewScanTriggerHandler(scanService *service.ScanService, websocketService an
 		encryption:       enc,
 		vault:            vaultClient,
 		patternsService:  service.NewPatternsService(repo),
+		auditLogger:      auditLogger,
+	}
+}
+
+// recordAudit is a helper that swallows audit errors (never break a scan on an
+// audit failure) but logs them so operators can detect chain gaps.
+func (h *ScanTriggerHandler) recordAudit(ctx context.Context, action, resourceType, resourceID string, metadata map[string]interface{}) {
+	if h.auditLogger == nil {
+		return
+	}
+	if err := h.auditLogger.Record(ctx, action, resourceType, resourceID, metadata); err != nil {
+		log.Printf("WARN: audit record failed action=%s resource=%s/%s: %v", action, resourceType, resourceID, err)
 	}
 }
 
@@ -131,8 +145,23 @@ func (h *ScanTriggerHandler) TriggerScan(c *gin.Context) {
 	// Extract tenant ID before goroutine — Gin context must not be used inside goroutines.
 	tenantID := tenantIDFromCtx(c)
 
-	// Trigger background scan
-	go h.executeScan(scanRun.ID, &req, tenantID)
+	// Per-tenant concurrent-scan cap. Prevents a single tenant from spawning
+	// unbounded scan goroutines and OOMing the backend for every tenant.
+	release, ok := getTenantScanLimiter().TryAcquire(tenantID)
+	if !ok {
+		scanTriggerFailureCounter.WithLabelValues("unknown", "tenant_rate_limited").Inc()
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error":   "tenant_scan_limit",
+			"message": "Too many concurrent scans for this tenant. Wait for one to finish before starting another.",
+		})
+		return
+	}
+
+	// Trigger background scan; limiter released when goroutine exits.
+	go func() {
+		defer release()
+		h.executeScan(scanRun.ID, &req, tenantID)
+	}()
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Scan triggered successfully",
@@ -178,6 +207,18 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Minute)
 	defer cancel()
 	log.Printf("Starting scan execution: %s", scanID.String())
+
+	// Audit the scan lifecycle. SCAN_STARTED captures actor, tenant, and
+	// sources at dispatch time. DPDPA Section 8(2) requires an immutable
+	// record of which data was accessed when and by whom.
+	h.recordAudit(ctx, "SCAN_STARTED", "scan", scanID.String(), map[string]interface{}{
+		"tenant_id":      tenantID.String(),
+		"scan_name":      req.Name,
+		"source_count":   len(req.Sources),
+		"sources":        req.Sources,
+		"execution_mode": req.ExecutionMode,
+		"pii_types":      req.PIITypes,
+	})
 
 	// Broadcast scan start via WebSocket
 	if h.websocketService != nil {
@@ -261,6 +302,12 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 			break // No point retrying a request construction error
 		}
 		reqHttp.Header.Set("Content-Type", "application/json")
+		// Authenticate to the scanner using the shared service token. The
+		// scanner's ServiceTokenAuth middleware (apps/goScanner/api/auth_middleware.go)
+		// rejects any /scan call without a matching token in release mode.
+		if token := os.Getenv("SCANNER_SERVICE_TOKEN"); token != "" {
+			reqHttp.Header.Set("X-Scanner-Token", token)
+		}
 
 		resp, err := client.Do(reqHttp)
 		if err != nil {

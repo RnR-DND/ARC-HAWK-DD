@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -13,6 +15,16 @@ import (
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/google/uuid"
 )
+
+// ErrRemediationDisabled is returned when REMEDIATION_ENABLED is not set to "true".
+// This is a safety gate: the connector implementations are stubs that report success
+// without actually mutating source data. Enabling in production without completing
+// connector work would silently mislead users about compliance status.
+var ErrRemediationDisabled = errors.New("remediation is disabled (REMEDIATION_ENABLED != true); connectors are stubs and will not mutate source data")
+
+func isRemediationEnabled() bool {
+	return strings.EqualFold(os.Getenv("REMEDIATION_ENABLED"), "true")
+}
 
 // RemediationService handles remediation operations
 type RemediationService struct {
@@ -66,6 +78,10 @@ type RemediationRequest struct {
 
 // ExecuteRemediation performs remediation on source system
 func (s *RemediationService) ExecuteRemediation(ctx context.Context, findingID string, actionType string, userID string) (string, error) {
+	if !isRemediationEnabled() {
+		log.Printf("WARN: remediation blocked by REMEDIATION_ENABLED flag (finding=%s action=%s user=%s)", findingID, actionType, userID)
+		return "", ErrRemediationDisabled
+	}
 	// 1. Get finding details
 	finding, err := s.getFinding(ctx, findingID)
 	if err != nil {
@@ -294,6 +310,10 @@ func (s *RemediationService) GenerateRemediationPreview(ctx context.Context, fin
 // ExecuteRemediationRequest executes a previously previewed remediation request.
 // The preview is single-use — it is deleted after successful execution.
 func (s *RemediationService) ExecuteRemediationRequest(ctx context.Context, requestID string, userID string) (*RemediationResult, error) {
+	if !isRemediationEnabled() {
+		log.Printf("WARN: batch remediation blocked by REMEDIATION_ENABLED flag (request=%s user=%s)", requestID, userID)
+		return nil, ErrRemediationDisabled
+	}
 	// 1. Retrieve and validate the stored preview.
 	var previewJSON []byte
 	var expiresAt time.Time

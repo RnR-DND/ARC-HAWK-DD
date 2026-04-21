@@ -1,9 +1,11 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/arc-platform/backend/modules/remediation/service"
+	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/gin-gonic/gin"
 )
 
@@ -101,6 +103,14 @@ func (h *RemediationConfirmationHandler) ApproveRemediation(c *gin.Context) {
 	// Execute remediation
 	result, err := h.service.ExecuteRemediationRequest(c.Request.Context(), req.RequestID, req.UserID)
 	if err != nil {
+		if errors.Is(err, service.ErrRemediationDisabled) {
+			c.JSON(http.StatusServiceUnavailable, interfaces.NewErrorResponse(
+				"remediation_disabled",
+				"Remediation is disabled on this deployment",
+				"Set REMEDIATION_ENABLED=true only after connector implementations are verified; stubs will not mutate source data.",
+			))
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

@@ -28,6 +28,7 @@ func (c *MSSQLConnector) Connect(ctx context.Context, config map[string]any) err
 	if err != nil {
 		return err
 	}
+	applyPoolDefaults(db)
 	c.db = db
 	return db.PingContext(ctx)
 }

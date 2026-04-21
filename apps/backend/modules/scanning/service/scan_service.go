@@ -17,16 +17,20 @@ const (
 	ScanStatusPending   = "pending"
 	ScanStatusRunning   = "running"
 	ScanStatusCompleted = "completed"
+	ScanStatusPartial   = "partial" // ingestion partially succeeded (some chunks dropped)
 	ScanStatusFailed    = "failed"
 	ScanStatusCancelled = "cancelled"
 	ScanStatusTimeout   = "timeout"
 )
 
-// validTransitions defines allowed state transitions
+// validTransitions defines allowed state transitions.
+// "partial" is a terminal state (same as completed / failed): it signals
+// ingestion completed but with lost chunks. UI should surface a warning.
 var validTransitions = map[string][]string{
 	ScanStatusPending:   {ScanStatusRunning, ScanStatusCancelled, ScanStatusFailed},
-	ScanStatusRunning:   {ScanStatusCompleted, ScanStatusFailed, ScanStatusCancelled, ScanStatusTimeout},
+	ScanStatusRunning:   {ScanStatusCompleted, ScanStatusPartial, ScanStatusFailed, ScanStatusCancelled, ScanStatusTimeout},
 	ScanStatusCompleted: {},
+	ScanStatusPartial:   {},
 	ScanStatusFailed:    {},
 	ScanStatusCancelled: {},
 	ScanStatusTimeout:   {},
