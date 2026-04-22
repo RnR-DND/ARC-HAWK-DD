@@ -197,7 +197,7 @@ function LineageCanvasContent({ nodes: graphNodes, edges: graphEdges, onNodeClic
 
                 {/* Legend panel */}
                 <Panel position="top-right">
-                    <GraphLegend />
+                    <GraphLegend nodes={graphNodes} />
                 </Panel>
 
                 {/* Stats panel */}
@@ -225,7 +225,35 @@ function LineageCanvasContent({ nodes: graphNodes, edges: graphEdges, onNodeClic
 
 // ─── Legend ───────────────────────────────────────────────────────────────────
 
-function GraphLegend() {
+// PII type → risk color (matches LineageNode.tsx accent bar)
+const RISK_COLOR: Record<string, string> = {
+    Critical: '#ef4444',
+    High:     '#f97316',
+    Medium:   '#eab308',
+    Low:      '#22c55e',
+};
+
+interface GraphLegendProps {
+    nodes: BaseNode[];
+}
+
+function GraphLegend({ nodes }: GraphLegendProps) {
+    // Collect unique PII types from the rendered graph, preserving their risk
+    // color so the legend swatch matches the node's visible accent bar.
+    const piiTypes = React.useMemo(() => {
+        const seen = new Map<string, string>(); // pii_type → risk color
+        nodes.forEach(n => {
+            if (n.type !== 'pii_category') return;
+            const meta = n.metadata as Record<string, any>;
+            const label: string = meta?.pii_type || n.label;
+            if (!label || seen.has(label)) return;
+            const risk = meta?.risk_level as string | undefined;
+            seen.set(label, RISK_COLOR[risk ?? ''] ?? '#64748b');
+        });
+        return Array.from(seen, ([label, color]) => ({ label, color }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [nodes]);
+
     return (
         <div style={{
             background: '#fff', border: '1px solid #e2e8f0',
@@ -233,25 +261,37 @@ function GraphLegend() {
             boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
             fontSize: '11px', color: '#475569',
             display: 'flex', flexDirection: 'column', gap: '6px',
-            minWidth: '140px',
+            minWidth: '160px', maxWidth: '220px',
+            maxHeight: '60vh', overflowY: 'auto',
         }}>
             <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '11px', marginBottom: '2px' }}>Legend</div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {[
-                    { color: '#3b82f6', label: 'System' },
-                    { color: '#10b981', label: 'Asset' },
-                    { color: '#ef4444', label: 'PII (Critical)' },
-                    { color: '#f97316', label: 'PII (High)' },
-                    { color: '#eab308', label: 'PII (Medium)' },
-                    { color: '#22c55e', label: 'PII (Low)' },
-                ].map(item => (
-                    <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: item.color, flexShrink: 0 }} />
-                        <span>{item.label}</span>
-                    </div>
-                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#3b82f6', flexShrink: 0 }} />
+                    <span>System</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#10b981', flexShrink: 0 }} />
+                    <span>Asset</span>
+                </div>
             </div>
+
+            {piiTypes.length > 0 && (
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '6px', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        PII Types
+                    </div>
+                    {piiTypes.map(item => (
+                        <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                            <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: item.color, flexShrink: 0 }} />
+                            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#0f172a', wordBreak: 'break-all' }}>
+                                {item.label}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '6px', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>

@@ -65,7 +65,11 @@ export default function InfoPanel({ nodeId, nodeData, onClose }: InfoPanelProps)
                     right: 0,
                     bottom: 0,
                     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                    zIndex: theme.zIndex.overlay,
+                    // Hardcoded zIndex 9998/9999 so the panel always sits
+                    // above the sidebar/topbar. The theme.zIndex.modal token
+                    // rendered below them in practice — app chrome in the
+                    // Next.js root layout uses default stacking context.
+                    zIndex: 9998,
                     backdropFilter: 'blur(2px)',
                 }}
             />
@@ -81,7 +85,7 @@ export default function InfoPanel({ nodeId, nodeData, onClose }: InfoPanelProps)
                     maxWidth: '90vw',
                     backgroundColor: colors.background.surface,
                     boxShadow: theme.shadows['2xl'],
-                    zIndex: theme.zIndex.modal,
+                    zIndex: 9999,
                     display: 'flex',
                     flexDirection: 'column',
                     animation: 'slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',

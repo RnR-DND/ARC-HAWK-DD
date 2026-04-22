@@ -168,10 +168,22 @@ export default function LineagePage() {
                 childrenMap[e.source].push(e.target);
             });
 
-            // Map findings by (assetId, patternName) → list of occurrences
+            // Edge map keyed by `source__target`. Per-(asset,pii) finding_count
+            // lives on the EXPOSES edge's metadata; the PII_Category node is
+            // MERGEd globally by pii_type so its finding_count gets overwritten
+            // by the last-synced asset and cannot be trusted for per-asset display.
+            const edgeByEndpoints: Record<string, typeof edges[0]> = {};
+            edges.forEach(e => { edgeByEndpoints[`${e.source}__${e.target}`] = e; });
+
+            // Map findings by (assetId, subCategory) → occurrences. We key by the
+            // classification's sub_category (e.g. "IN_PAN") so findings from
+            // multiple pattern sources ("PAN", "presidio:IN_PAN") collapse into
+            // the same PII group. Fallback to pattern_name if no classification.
             const findingsByAssetPII: Record<string, FieldOccurrence[]> = {};
             (findingsResult.findings || []).forEach((f: any) => {
-                const key = `${f.asset_id}__${f.pattern_name}`;
+                const subCat = f.classifications?.[0]?.sub_category as string | undefined;
+                const piiKey = subCat || f.pattern_name;
+                const key = `${f.asset_id}__${piiKey}`;
                 if (!findingsByAssetPII[key]) findingsByAssetPII[key] = [];
                 const { dir, field } = splitPath(f.asset_path || '');
                 findingsByAssetPII[key].push({
@@ -197,14 +209,20 @@ export default function LineagePage() {
                         const piiNode = nodeMap[pid];
                         if (!piiNode || piiNode.type !== 'pii_category') return null;
                         const meta = piiNode.metadata as Record<string, any>;
-                        const key = `${aid}__${meta.pii_type || piiNode.label}`;
+                        const piiType = meta.pii_type || piiNode.label;
+                        const key = `${aid}__${piiType}`;
                         const fields = findingsByAssetPII[key] || [];
+                        // Prefer the EXPOSES edge's per-asset count over the
+                        // node's shared count (see edgeByEndpoints comment).
+                        const edgeMeta = (edgeByEndpoints[`${aid}__${pid}`]?.metadata ?? {}) as Record<string, any>;
+                        const findingCount = edgeMeta.finding_count ?? fields.length ?? meta.finding_count ?? 0;
+                        const avgConfidence = edgeMeta.avg_confidence ?? meta.avg_confidence ?? 0;
                         return {
-                            piiType: meta.pii_type || piiNode.label,
+                            piiType,
                             riskLevel: meta.risk_level || 'Medium',
                             dpdpaCategory: meta.dpdpa_category || '—',
-                            findingCount: meta.finding_count || 0,
-                            avgConfidence: meta.avg_confidence || 0,
+                            findingCount,
+                            avgConfidence,
                             fields,
                         } as PIIGroup;
                     }).filter(Boolean) as PIIGroup[];
@@ -270,11 +288,22 @@ export default function LineagePage() {
         return s;
     });
 
-    // Filter system groups by search
+    // Filter system groups by focused asset + search query. When the page
+    // is opened from an asset detail (?assetId=X) the lineage is scoped to
+    // that single asset so users see just its flow, not the whole graph.
     const filteredGroups = React.useMemo(() => {
-        if (!searchQuery) return systemGroups;
+        let groups = systemGroups;
+        if (focusedAssetId) {
+            groups = groups
+                .map(sg => ({
+                    ...sg,
+                    assets: sg.assets.filter(a => a.assetId === focusedAssetId),
+                }))
+                .filter(sg => sg.assets.length > 0);
+        }
+        if (!searchQuery) return groups;
         const lower = searchQuery.toLowerCase();
-        return systemGroups
+        return groups
             .map(sg => ({
                 ...sg,
                 assets: sg.assets
@@ -290,7 +319,7 @@ export default function LineagePage() {
                     .filter(a => a.piiGroups.length > 0),
             }))
             .filter(sg => sg.assets.length > 0);
-    }, [systemGroups, searchQuery]);
+    }, [systemGroups, searchQuery, focusedAssetId]);
 
     // Stats
     const stats = {
@@ -302,20 +331,58 @@ export default function LineagePage() {
                 sa + a.piiGroups.reduce((sp, p) => sp + p.findingCount, 0), 0), 0),
     };
 
-    // Lineage graph filtered nodes/edges
+    // Lineage graph filtered nodes/edges. When focusedAssetId is set we walk
+    // the edge list from the focused asset in both directions (parents and
+    // descendants) so the graph view matches what Path view renders.
     const filteredNodes = React.useMemo(() => {
-        const nodes = lineageData?.nodes || [];
+        const allNodes = lineageData?.nodes || [];
+        const allEdges = lineageData?.edges || [];
+
+        let scopedIds: Set<string> | null = null;
+        if (focusedAssetId) {
+            scopedIds = new Set<string>([focusedAssetId]);
+            // Two separate one-way walks from the focused asset:
+            //  • upwards: visit only parents, then parents-of-parents (never re-descend)
+            //  • downwards: visit only children, then children-of-children
+            // If both walks shared a queue, walking up to the system would
+            // then walk DOWN to all sibling assets — which is exactly the
+            // "full system graph" regression that shipped in v1.
+            const parentOf: Record<string, string[]> = {};
+            const childrenOf: Record<string, string[]> = {};
+            allEdges.forEach(e => {
+                (childrenOf[e.source] ||= []).push(e.target);
+                (parentOf[e.target] ||= []).push(e.source);
+            });
+
+            const upQueue = [focusedAssetId];
+            while (upQueue.length) {
+                const cur = upQueue.shift()!;
+                for (const p of parentOf[cur] || []) {
+                    if (!scopedIds.has(p)) { scopedIds.add(p); upQueue.push(p); }
+                }
+            }
+
+            const downQueue = [focusedAssetId];
+            while (downQueue.length) {
+                const cur = downQueue.shift()!;
+                for (const ch of childrenOf[cur] || []) {
+                    if (!scopedIds.has(ch)) { scopedIds.add(ch); downQueue.push(ch); }
+                }
+            }
+        }
+
+        const nodes = scopedIds ? allNodes.filter(n => scopedIds!.has(n.id)) : allNodes;
         if (!searchQuery) return nodes;
         const lower = searchQuery.toLowerCase();
         return nodes.filter(n => n.label.toLowerCase().includes(lower) || n.type.toLowerCase().includes(lower));
-    }, [lineageData, searchQuery]);
+    }, [lineageData, searchQuery, focusedAssetId]);
 
     const filteredEdges = React.useMemo(() => {
         const edges = lineageData?.edges || [];
-        if (!searchQuery) return edges;
         const nodeIds = new Set(filteredNodes.map(n => n.id));
+        // Keep only edges where both endpoints survived the node filter.
         return edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
-    }, [lineageData, filteredNodes, searchQuery]);
+    }, [lineageData, filteredNodes]);
 
     if (loading && !lineageData) {
         return <LoadingState fullScreen message="Loading data lineage..." />;
