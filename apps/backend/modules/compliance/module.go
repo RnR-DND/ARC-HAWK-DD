@@ -1,31 +1,44 @@
 package compliance
 
 import (
+	"context"
 	"log"
 
-	"github.com/arc-platform/backend/modules/compliance/api"
-	"github.com/arc-platform/backend/modules/compliance/service"
+	compapi "github.com/arc-platform/backend/modules/compliance/api"
+	compsvc "github.com/arc-platform/backend/modules/compliance/service"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/audit"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
-type ComplianceModule struct {
-	complianceService *service.ComplianceService
-	consentService    *service.ConsentService
-	retentionService  *service.RetentionService
-	auditService      *service.AuditService
-	obligationService *service.DPDPAObligationService
-	reportService     *service.ReportService
+// scanHookSetter is satisfied by *scanning.ScanningModule without importing it.
+type scanHookSetter interface {
+	SetScanCompletionHook(fn func(ctx context.Context, tenantID uuid.UUID, scanRunID string, totalFindings int))
+}
 
-	complianceHandler     *api.ComplianceHandler
-	consentHandler        *api.ConsentHandler
-	consentRecordsHandler *api.ConsentRecordsHandler
-	retentionHandler      *api.RetentionHandler
-	auditHandler          *api.AuditHandler
-	dpdpaReportHandler    *api.DPDPAReportHandler
-	dataPrincipalHandler  *api.DataPrincipalHandler
-	groHandler            *api.GROHandler
+type ComplianceModule struct {
+	complianceService *compsvc.ComplianceService
+	consentService    *compsvc.ConsentService
+	retentionService  *compsvc.RetentionService
+	auditService      *compsvc.AuditService
+	obligationService *compsvc.DPDPAObligationService
+	reportService     *compsvc.ReportService
+
+	ledgerLogger        *audit.LedgerLogger
+	regressionDetector  *compsvc.ObligationRegressionDetector
+	evidencePackageSvc  *compsvc.EvidencePackageService
+
+	complianceHandler     *compapi.ComplianceHandler
+	consentHandler        *compapi.ConsentHandler
+	consentRecordsHandler *compapi.ConsentRecordsHandler
+	retentionHandler      *compapi.RetentionHandler
+	auditHandler          *compapi.AuditHandler
+	dpdpaReportHandler    *compapi.DPDPAReportHandler
+	dataPrincipalHandler  *compapi.DataPrincipalHandler
+	groHandler            *compapi.GROHandler
+	evidenceHandler       *compapi.EvidenceHandler
 
 	deps *interfaces.ModuleDependencies
 }
@@ -40,25 +53,53 @@ func (m *ComplianceModule) Initialize(deps *interfaces.ModuleDependencies) error
 
 	repo := persistence.NewPostgresRepository(deps.DB)
 
-	// Initialize services
-	m.complianceService = service.NewComplianceService(repo, deps.Neo4jRepo)
-	m.consentService = service.NewConsentService(deps.DB)
-	m.retentionService = service.NewRetentionService(deps.DB)
-	m.auditService = service.NewAuditService(deps.DB)
-	m.obligationService = service.NewDPDPAObligationService(repo)
-	m.reportService = service.NewReportService(m.obligationService)
+	// Core services
+	m.complianceService = compsvc.NewComplianceService(repo, deps.Neo4jRepo)
+	m.consentService = compsvc.NewConsentService(deps.DB)
+	m.retentionService = compsvc.NewRetentionService(deps.DB)
+	m.auditService = compsvc.NewAuditService(deps.DB)
+	m.obligationService = compsvc.NewDPDPAObligationService(repo)
+	m.reportService = compsvc.NewReportService(m.obligationService)
 
-	// Initialize handlers
-	m.complianceHandler = api.NewComplianceHandler(m.complianceService)
-	m.consentHandler = api.NewConsentHandler(m.consentService)
-	m.consentRecordsHandler = api.NewConsentRecordsHandler(deps.DB)
-	m.retentionHandler = api.NewRetentionHandler(m.retentionService)
-	m.auditHandler = api.NewAuditHandler(m.auditService)
-	m.dpdpaReportHandler = api.NewDPDPAReportHandler(m.obligationService, m.reportService)
-	m.dataPrincipalHandler = api.NewDataPrincipalHandler(deps.DB)
-	m.groHandler = api.NewGROHandler(deps.DB)
+	// DPDP evidence services
+	m.ledgerLogger = audit.NewLedgerLogger(deps.DB)
+	m.regressionDetector = compsvc.NewObligationRegressionDetector(deps.DB, m.ledgerLogger)
+	m.evidencePackageSvc = compsvc.NewEvidencePackageService(deps.DB, m.ledgerLogger)
 
-	log.Printf("✅ Compliance Module initialized (6 services, Sec 7/11/12 handlers)")
+	// Handlers
+	m.complianceHandler = compapi.NewComplianceHandler(m.complianceService)
+	m.consentHandler = compapi.NewConsentHandler(m.consentService)
+	m.consentRecordsHandler = compapi.NewConsentRecordsHandler(deps.DB)
+	m.retentionHandler = compapi.NewRetentionHandler(m.retentionService)
+	m.auditHandler = compapi.NewAuditHandler(m.auditService)
+	m.dpdpaReportHandler = compapi.NewDPDPAReportHandler(m.obligationService, m.reportService)
+	m.dataPrincipalHandler = compapi.NewDataPrincipalHandler(deps.DB)
+	m.groHandler = compapi.NewGROHandler(deps.DB)
+	m.evidenceHandler = compapi.NewEvidenceHandler(m.evidencePackageSvc, m.ledgerLogger)
+
+	// Wire scan completion hook into scanning module (duck-typed, no import needed).
+	// Scanning is initialized before compliance, so it's already in the registry.
+	if scanMod, ok := deps.Registry.Get("scanning"); ok {
+		if setter, ok := scanMod.(scanHookSetter); ok {
+			ledger := m.ledgerLogger
+			detector := m.regressionDetector
+			setter.SetScanCompletionHook(func(ctx context.Context, tenantID uuid.UUID, scanRunID string, totalFindings int) {
+				_ = ledger.Log(ctx, audit.LogEntry{
+					TenantID:     tenantID,
+					EventType:    audit.EventScanCompleted,
+					ResourceID:   scanRunID,
+					ResourceType: "scan_run",
+					Payload: map[string]interface{}{
+						"total_findings": totalFindings,
+					},
+				})
+				_ = detector.DetectRegressions(ctx, tenantID, scanRunID)
+			})
+			log.Printf("⚖️  Scan completion hook wired (audit ledger + obligation regression)")
+		}
+	}
+
+	log.Printf("✅ Compliance Module initialized (9 services, evidence package + audit ledger)")
 	return nil
 }
 
@@ -74,7 +115,7 @@ func (m *ComplianceModule) RegisterRoutes(router *gin.RouterGroup) {
 		dpdpa.GET("/gaps", m.dpdpaReportHandler.GetObligationGaps)
 		dpdpa.GET("/report", m.dpdpaReportHandler.GenerateHTMLReport)
 
-		// Consent records (migration 000030 schema) — full lifecycle management.
+		// Consent records (migration 000030 schema)
 		consentRec := compliance.Group("/consent")
 		consentRec.GET("", m.consentRecordsHandler.ListConsentRecords)
 		consentRec.POST("", m.consentRecordsHandler.CreateConsentRecord)
@@ -89,6 +130,10 @@ func (m *ComplianceModule) RegisterRoutes(router *gin.RouterGroup) {
 		// DPDPA Sec 11 — Grievance Redressal Officer settings
 		compliance.GET("/gro-settings", m.groHandler.GetSettings)
 		compliance.PUT("/gro-settings", m.groHandler.UpdateSettings)
+
+		// DPDP Act 2023 evidence package + immutable audit trail
+		compliance.POST("/evidence-package", m.evidenceHandler.GeneratePackage)
+		compliance.GET("/audit-trail", m.evidenceHandler.GetAuditTrail)
 	}
 
 	// Consent management routes
@@ -110,16 +155,16 @@ func (m *ComplianceModule) RegisterRoutes(router *gin.RouterGroup) {
 		retention.GET("/timeline/:assetId", m.retentionHandler.GetRetentionTimeline)
 	}
 
-	// Audit log routes
-	audit := router.Group("/audit")
+	// Audit log routes (existing audit_logs table)
+	auditGroup := router.Group("/audit")
 	{
-		audit.GET("/logs", m.auditHandler.ListAuditLogs)
-		audit.GET("/user/:userId", m.auditHandler.GetUserActivity)
-		audit.GET("/resource/:resourceType/:resourceId", m.auditHandler.GetResourceHistory)
-		audit.GET("/recent", m.auditHandler.GetRecentActivity)
+		auditGroup.GET("/logs", m.auditHandler.ListAuditLogs)
+		auditGroup.GET("/user/:userId", m.auditHandler.GetUserActivity)
+		auditGroup.GET("/resource/:resourceType/:resourceId", m.auditHandler.GetResourceHistory)
+		auditGroup.GET("/recent", m.auditHandler.GetRecentActivity)
 	}
 
-	log.Printf("⚖️  Compliance routes registered (26 endpoints)")
+	log.Printf("⚖️  Compliance routes registered (28 endpoints)")
 }
 
 func (m *ComplianceModule) Shutdown() error {
