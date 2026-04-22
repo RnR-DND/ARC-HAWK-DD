@@ -36,11 +36,11 @@ backend:
     REDIS_URL: ""
     TEMPORAL_HOST: ""
   livenessProbe:
-    httpGet: { path: /health, port: 8080 }
+    httpGet: { path: /livez, port: 8080 }
     initialDelaySeconds: 15
     periodSeconds: 20
   readinessProbe:
-    httpGet: { path: /health, port: 8080 }
+    httpGet: { path: /readyz, port: 8080 }
     initialDelaySeconds: 10
     periodSeconds: 10
 

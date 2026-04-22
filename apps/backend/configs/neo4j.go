@@ -15,7 +15,7 @@ func LoadNeo4jConfig() *Neo4jConfig {
 	return &Neo4jConfig{
 		URI:      getEnvWithDefault("NEO4J_URI", "bolt://localhost:7687"),
 		Username: getEnvWithDefault("NEO4J_USERNAME", "neo4j"),
-		Password: getEnvWithDefault("NEO4J_PASSWORD", "password123"),
+		Password: getEnvWithDefault("NEO4J_PASSWORD", ""),
 		Database: getEnvWithDefault("NEO4J_DATABASE", "neo4j"),
 	}
 }

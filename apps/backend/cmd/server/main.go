@@ -316,28 +316,35 @@ func main() {
 		fmt.Fprintf(c.Writer, "arc_hawk_modules_count %d\n", len(registry.GetAll()))
 	})
 
-	// Health check — minimal response to avoid leaking architecture details
-	router.GET("/health", func(c *gin.Context) {
-		dbHealthy := true
-		if err := db.Ping(); err != nil {
-			dbHealthy = false
-		}
-
-		neo4jHealthy := true
-		if err := neo4jRepo.GetDriver().VerifyConnectivity(c.Request.Context()); err != nil {
-			neo4jHealthy = false
-		}
-
-		status := "healthy"
-		if !dbHealthy || !neo4jHealthy {
-			status = "unhealthy"
-		}
-
-		c.JSON(200, gin.H{
-			"status":  status,
-			"service": "arc-platform-backend",
-		})
+	// /livez — always 200 while process is up (Kubernetes liveness probe)
+	router.GET("/livez", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "alive", "service": "arc-platform-backend"})
 	})
+
+	// /readyz — 503 if critical dependencies are down (Kubernetes readiness probe)
+	readyzHandler := func(c *gin.Context) {
+		dbHealthy := db.Ping() == nil
+		neo4jHealthy := neo4jRepo.GetDriver().VerifyConnectivity(c.Request.Context()) == nil
+
+		if !dbHealthy || !neo4jHealthy {
+			c.JSON(503, gin.H{
+				"status":      "unavailable",
+				"service":     "arc-platform-backend",
+				"db_healthy":  dbHealthy,
+				"neo4j_healthy": neo4jHealthy,
+			})
+			return
+		}
+		c.JSON(200, gin.H{
+			"status":      "ready",
+			"service":     "arc-platform-backend",
+			"db_healthy":  true,
+			"neo4j_healthy": true,
+		})
+	}
+	router.GET("/readyz", readyzHandler)
+	// /health kept as back-compat alias for /readyz with correct status code
+	router.GET("/health", readyzHandler)
 
 	// Register all module routes
 	log.Println("\n🛣️  Registering Module Routes...")

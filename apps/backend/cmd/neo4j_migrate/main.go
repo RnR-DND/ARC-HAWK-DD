@@ -20,7 +20,7 @@ func main() {
 	// Get Neo4j connection details
 	neo4jURI := getEnv("NEO4J_URI", "bolt://localhost:7687")
 	neo4jUser := getEnv("NEO4J_USER", "neo4j")
-	neo4jPassword := getEnv("NEO4J_PASSWORD", "password123")
+	neo4jPassword := getEnv("NEO4J_PASSWORD", "")
 
 	// Create Neo4j driver
 	driver, err := neo4j.NewDriver(neo4jURI, neo4j.BasicAuth(neo4jUser, neo4jPassword, ""))
@@ -77,7 +77,7 @@ func printUsage() {
 	fmt.Println("Environment variables:")
 	fmt.Println("  NEO4J_URI      - Neo4j connection URI (default: bolt://localhost:7687)")
 	fmt.Println("  NEO4J_USER     - Neo4j username (default: neo4j)")
-	fmt.Println("  NEO4J_PASSWORD - Neo4j password (default: password123)")
+	fmt.Println("  NEO4J_PASSWORD - Neo4j password (default: (required — no default))")
 }
 
 func getEnv(key, defaultValue string) string {
