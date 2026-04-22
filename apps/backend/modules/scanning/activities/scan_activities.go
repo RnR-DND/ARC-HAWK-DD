@@ -3,6 +3,7 @@ package activities
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -264,30 +265,152 @@ func (a *ScanActivities) RollbackRemediation(ctx context.Context, actionID strin
 	return nil
 }
 
-// GetFinding retrieves finding details
+// GetFinding retrieves finding details by ID.
 func (a *ScanActivities) GetFinding(ctx context.Context, findingID string) (map[string]interface{}, error) {
-	var finding map[string]interface{}
-	// TODO: Implement finding retrieval
+	id, err := uuid.Parse(findingID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid finding ID %q: %w", findingID, err)
+	}
+
+	row := a.db.QueryRowContext(ctx, `
+		SELECT id, scan_run_id, asset_id, pattern_id, severity, pii_type,
+		       field_name, field_path, matched_value, risk_score, created_at
+		  FROM findings
+		 WHERE id = $1`, id)
+
+	var (
+		fID, scanRunID, assetID uuid.UUID
+		patternID               *uuid.UUID
+		severity, piiType       string
+		fieldName, fieldPath    string
+		matchedValue            string
+		riskScore               float64
+		createdAt               time.Time
+	)
+	if err := row.Scan(&fID, &scanRunID, &assetID, &patternID, &severity, &piiType,
+		&fieldName, &fieldPath, &matchedValue, &riskScore, &createdAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("finding %s not found", findingID)
+		}
+		return nil, fmt.Errorf("query finding: %w", err)
+	}
+
+	finding := map[string]interface{}{
+		"id":            fID.String(),
+		"scan_run_id":   scanRunID.String(),
+		"asset_id":      assetID.String(),
+		"severity":      severity,
+		"pii_type":      piiType,
+		"field_name":    fieldName,
+		"field_path":    fieldPath,
+		"matched_value": matchedValue,
+		"risk_score":    riskScore,
+		"created_at":    createdAt,
+	}
+	if patternID != nil {
+		finding["pattern_id"] = patternID.String()
+	}
 	return finding, nil
 }
 
-// GetActivePolicies retrieves active policies of a specific type
+// GetActivePolicies retrieves active policies of a specific type.
 func (a *ScanActivities) GetActivePolicies(ctx context.Context, policyType string) ([]map[string]interface{}, error) {
+	rows, err := a.db.QueryContext(ctx, `
+		SELECT id, name, policy_type, conditions, actions
+		  FROM policies
+		 WHERE is_active = true AND policy_type = $1
+		 ORDER BY created_at`, policyType)
+	if err != nil {
+		return nil, fmt.Errorf("query policies: %w", err)
+	}
+	defer rows.Close()
+
 	var policies []map[string]interface{}
-	// TODO: Implement policy retrieval
-	return policies, nil
+	for rows.Next() {
+		var id uuid.UUID
+		var name, pType string
+		var conditionsJSON, actionsJSON []byte
+		if err := rows.Scan(&id, &name, &pType, &conditionsJSON, &actionsJSON); err != nil {
+			return nil, fmt.Errorf("scan policy row: %w", err)
+		}
+		policies = append(policies, map[string]interface{}{
+			"id":         id.String(),
+			"name":       name,
+			"type":       pType,
+			"conditions": string(conditionsJSON),
+			"actions":    string(actionsJSON),
+		})
+	}
+	return policies, rows.Err()
 }
 
-// EvaluatePolicyConditions evaluates if a policy matches a finding
-func (a *ScanActivities) EvaluatePolicyConditions(ctx context.Context, policy map[string]interface{}, finding map[string]interface{}) (bool, error) {
-	// TODO: Implement policy condition evaluation
-	return false, nil
+// EvaluatePolicyConditions checks whether a policy's conditions match a finding.
+// Supported condition keys: pii_type, severity, min_risk_score.
+func (a *ScanActivities) EvaluatePolicyConditions(_ context.Context, policy map[string]interface{}, finding map[string]interface{}) (bool, error) {
+	condRaw, ok := policy["conditions"].(string)
+	if !ok || condRaw == "" {
+		return false, nil
+	}
+
+	var conds map[string]interface{}
+	if err := json.Unmarshal([]byte(condRaw), &conds); err != nil {
+		return false, fmt.Errorf("parse conditions: %w", err)
+	}
+
+	if v, ok := conds["pii_type"]; ok {
+		if piiType, _ := finding["pii_type"].(string); piiType != fmt.Sprintf("%v", v) {
+			return false, nil
+		}
+	}
+	if v, ok := conds["severity"]; ok {
+		if severity, _ := finding["severity"].(string); severity != fmt.Sprintf("%v", v) {
+			return false, nil
+		}
+	}
+	if v, ok := conds["min_risk_score"]; ok {
+		threshold, _ := toFloat64(v)
+		score, _ := toFloat64(finding["risk_score"])
+		if score < threshold {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
-// ExecutePolicyActions executes actions defined in a policy
+// ExecutePolicyActions logs the policy actions for audit; auto-execution is deferred
+// to the remediation module to preserve the human-approval gate.
 func (a *ScanActivities) ExecutePolicyActions(ctx context.Context, policy map[string]interface{}, findingID string) error {
-	// TODO: Implement policy action execution
+	policyID, _ := policy["id"].(string)
+	policyName, _ := policy["name"].(string)
+	actions, _ := policy["actions"].(string)
+
+	log.Printf("INFO: policy engine — policy %q (%s) matched finding %s; actions=%s (deferred to remediation module)",
+		policyName, policyID, findingID, actions)
+
+	if a.auditLogger != nil {
+		_ = a.auditLogger.Record(ctx, "POLICY_MATCHED", "finding", findingID, map[string]interface{}{
+			"policy_id":   policyID,
+			"policy_name": policyName,
+			"actions":     actions,
+			"note":        "auto-execution deferred; remediation module applies actions with approval gate",
+		})
+	}
 	return nil
+}
+
+
+func toFloat64(v interface{}) (float64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	}
+	return 0, false
 }
 
 // StreamMessage represents a message from a Redis stream.
