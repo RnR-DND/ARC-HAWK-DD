@@ -11,9 +11,14 @@ import (
 	"github.com/arc-platform/go-scanner/internal/presidio"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
+
+var tracer = otel.Tracer("arc-hawk-scanner/orchestrator")
 
 var (
 	findingsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -114,6 +119,14 @@ func presidioEnabled(mode ClassificationMode) bool {
 // RunScan scans all sources (parallel or sequential based on cfg.ExecutionMode)
 // and returns aggregated findings.
 func (o *Orchestrator) RunScan(ctx context.Context, cfg ScanConfig) ([]classifier.ClassifiedFinding, error) {
+	ctx, span := tracer.Start(ctx, "scan.execute")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("scan.id", cfg.ScanID),
+		attribute.Int("scan.sources", len(cfg.Sources)),
+		attribute.String("scan.mode", string(cfg.ExecutionMode)),
+	)
+
 	activeScans.Inc()
 	defer activeScans.Dec()
 
@@ -124,10 +137,20 @@ func (o *Orchestrator) RunScan(ctx context.Context, cfg ScanConfig) ([]classifie
 		cfg.ExecutionMode = ExecutionModeParallel
 	}
 
+	var findings []classifier.ClassifiedFinding
+	var scanErr error
 	if cfg.ExecutionMode == ExecutionModeSequential {
-		return o.runSequential(ctx, cfg)
+		findings, scanErr = o.runSequential(ctx, cfg)
+	} else {
+		findings, scanErr = o.runParallel(ctx, cfg)
 	}
-	return o.runParallel(ctx, cfg)
+	if scanErr != nil {
+		span.RecordError(scanErr)
+		span.SetStatus(codes.Error, scanErr.Error())
+	} else {
+		span.SetAttributes(attribute.Int("scan.findings", len(findings)))
+	}
+	return findings, scanErr
 }
 
 func (o *Orchestrator) runSequential(ctx context.Context, cfg ScanConfig) ([]classifier.ClassifiedFinding, error) {
@@ -345,12 +368,17 @@ func (o *Orchestrator) runPresidio(
 		ContextWords:     contextWords,
 		AdHocRecognizers: adHoc,
 	}
+	pCtx, pSpan := tracer.Start(ctx, "presidio.analyze")
+	pSpan.SetAttributes(attribute.String("field.name", rec.FieldName))
 	t0 := time.Now()
-	results := analyzeWithBreaker(ctx, client, rec.Value, opts)
+	results := analyzeWithBreaker(pCtx, client, rec.Value, opts)
 	presidioLatency.Observe(time.Since(t0).Seconds())
 	if len(results) == 0 {
+		pSpan.End()
 		return nil
 	}
+	pSpan.SetAttributes(attribute.Int("presidio.matches", len(results)))
+	pSpan.End()
 
 	table := tableFromSourcePath(rec.SourcePath)
 	out := make([]classifier.ClassifiedFinding, 0, len(results))

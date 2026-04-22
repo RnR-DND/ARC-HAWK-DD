@@ -23,6 +23,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 // ScanTriggerHandler handles scan trigger requests
@@ -326,12 +328,12 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 			break // No point retrying a request construction error
 		}
 		reqHttp.Header.Set("Content-Type", "application/json")
-		// Authenticate to the scanner using the shared service token. The
-		// scanner's ServiceTokenAuth middleware (apps/goScanner/api/auth_middleware.go)
-		// rejects any /scan call without a matching token in release mode.
+		// Authenticate to the scanner using the shared service token.
 		if token := os.Getenv("SCANNER_SERVICE_TOKEN"); token != "" {
 			reqHttp.Header.Set("X-Scanner-Token", token)
 		}
+		// Propagate W3C traceparent/tracestate so scanner spans join the same trace.
+		otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(reqHttp.Header))
 
 		resp, err := client.Do(reqHttp)
 		if err != nil {

@@ -54,6 +54,7 @@ import (
 	memoryservice "github.com/arc-platform/backend/modules/memory/service"
 	"github.com/arc-platform/backend/modules/remediation"
 	"github.com/arc-platform/backend/modules/scanning"
+	scanningservice "github.com/arc-platform/backend/modules/scanning/service"
 	"github.com/arc-platform/backend/modules/scanning/worker"
 	"github.com/arc-platform/backend/modules/shared/api"
 	"github.com/arc-platform/backend/modules/shared/config"
@@ -63,9 +64,11 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/vault"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/arc-platform/backend/modules/shared/middleware"
+	"github.com/arc-platform/backend/modules/shared/telemetry"
 	"github.com/arc-platform/backend/modules/websocket"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -83,6 +86,15 @@ func main() {
 
 	// Validate required environment variables early for clear error messages
 	validateRequiredEnvVars()
+
+	// Initialize distributed tracing (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset)
+	shutdownTracer, err := telemetry.InitTracer(context.Background(), "arc-hawk-backend")
+	if err != nil {
+		log.Printf("⚠️  OTel tracer init failed: %v (tracing disabled)", err)
+		shutdownTracer = func(context.Context) error { return nil }
+	} else {
+		log.Println("🔭 OpenTelemetry tracer initialized")
+	}
 
 	// Set Gin mode
 	ginMode := os.Getenv("GIN_MODE")
@@ -167,6 +179,11 @@ func main() {
 	neo4jSyncWorker := persistence.NewNeo4jSyncWorker(db, neo4jRepo)
 	neo4jSyncWorker.Start(serverCtx)
 	log.Println("✅ Neo4j outbox sync worker started")
+
+	// Scan watchdog — marks stuck scans failed after stalledScanThreshold
+	scanWatchdog := scanningservice.NewScanWatchdog(db, 5*time.Minute)
+	scanWatchdog.Start(serverCtx)
+	log.Println("✅ Scan watchdog started")
 
 	// Initialize Module Registry
 	log.Println("\n📦 Initializing Modules...")
@@ -308,6 +325,9 @@ func main() {
 
 	// H-5: Request body size limit (10MB)
 	router.MaxMultipartMemory = 10 << 20
+
+	// Distributed tracing — propagates W3C traceparent through every request
+	router.Use(otelgin.Middleware("arc-hawk-backend"))
 
 	// CORS middleware
 	allowedOrigins := getEnv("ALLOWED_ORIGINS", "http://localhost:3000")
@@ -462,6 +482,10 @@ func main() {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	if err := shutdownTracer(ctx); err != nil {
+		log.Printf("OTel tracer shutdown error: %v", err)
 	}
 
 	log.Println("✅ Server exited cleanly")
