@@ -112,18 +112,30 @@ func (s *ConnectionService) GetConnectionByProfile(ctx context.Context, sourceTy
 }
 
 // DeleteConnection deletes a connection by ID.
-// Removes the secret from Vault (if enabled) before deleting from PostgreSQL.
+// Postgres is deleted first; Vault cleanup follows only on success so that a
+// failed Postgres delete never leaves the UI pointing at a missing Vault secret.
 func (s *ConnectionService) DeleteConnection(ctx context.Context, id uuid.UUID) error {
-	// Look up the connection first so we know its sourceType/profileName for Vault cleanup
+	// Capture Vault coords before the row disappears.
+	var sourceType, profileName string
 	if s.vault != nil && s.vault.IsEnabled() {
 		if conn, err := s.pgRepo.GetConnection(ctx, id); err == nil {
-			if vErr := s.vault.DeleteConnectionSecret(conn.SourceType, conn.ProfileName); vErr != nil {
-				log.Printf("WARN: Vault delete failed for %s/%s: %v", conn.SourceType, conn.ProfileName, vErr)
-			}
+			sourceType = conn.SourceType
+			profileName = conn.ProfileName
 		}
 	}
 
-	return s.pgRepo.DeleteConnection(ctx, id)
+	// Delete from Postgres first — if this fails, the Vault secret is still intact.
+	if err := s.pgRepo.DeleteConnection(ctx, id); err != nil {
+		return err
+	}
+
+	// Postgres row is gone; clean up Vault secret. Non-fatal if it fails.
+	if s.vault != nil && s.vault.IsEnabled() && sourceType != "" {
+		if vErr := s.vault.DeleteConnectionSecret(sourceType, profileName); vErr != nil {
+			log.Printf("WARN: Vault delete failed for %s/%s (Postgres row already deleted): %v", sourceType, profileName, vErr)
+		}
+	}
+	return nil
 }
 
 // UpdateValidationStatus updates the validation status of a connection
