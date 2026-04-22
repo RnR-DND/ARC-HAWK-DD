@@ -57,9 +57,98 @@ func NewNeo4jRepository(uri, username, password string) (*Neo4jRepository, error
 		return nil, fmt.Errorf("failed to verify Neo4j connectivity: %w", err)
 	}
 
-	return &Neo4jRepository{
-		driver: driver,
-	}, nil
+	repo := &Neo4jRepository{driver: driver}
+
+	// Ensure uniqueness constraints + clean any pre-existing duplicate
+	// Asset / PII_Category nodes and duplicate active EXPOSES edges left
+	// behind by historical syncs that used inconsistent MERGE keys. Failure
+	// here is logged but non-fatal so the service still starts.
+	if err := repo.EnsureSchema(ctx); err != nil {
+		fmt.Printf("[neo4j] WARN: EnsureSchema failed: %v\n", err)
+	}
+
+	return repo, nil
+}
+
+// EnsureSchema ensures Neo4j constraints exist and collapses any pre-existing
+// duplicate nodes/edges that accumulated before constraints were in place.
+// Safe to call repeatedly: constraint creation uses IF NOT EXISTS and the
+// dedup queries are no-ops on a clean graph.
+func (r *Neo4jRepository) EnsureSchema(ctx context.Context) error {
+	if r.driver == nil {
+		return fmt.Errorf("neo4j driver not initialized")
+	}
+	session := r.driver.NewSession(ctx, neo4j.SessionConfig{DatabaseName: "neo4j"})
+	defer session.Close(ctx)
+
+	// Step 1 — collapse duplicate nodes and edges left by historical syncs
+	// that used inconsistent MERGE keys. Uses APOC (enabled in docker-compose).
+	dedupQueries := []string{
+		// Collapse duplicate Asset nodes (same .id). apoc.refactor.mergeNodes
+		// reroutes every incoming/outgoing relationship onto the kept node,
+		// preserving relationship types and properties.
+		`
+		MATCH (a:Asset)
+		WHERE a.id IS NOT NULL
+		WITH a.id AS aid, collect(a) AS nodes
+		WHERE size(nodes) > 1
+		CALL apoc.refactor.mergeNodes(nodes, {properties: 'discard', mergeRels: true})
+		YIELD node
+		RETURN count(node)
+		`,
+		// Collapse duplicate PII_Category nodes by canonical pii_type.
+		`
+		MATCH (p:PII_Category)
+		WITH coalesce(p.pii_type, p.type, p.name) AS pt, collect(p) AS nodes
+		WHERE size(nodes) > 1 AND pt IS NOT NULL
+		CALL apoc.refactor.mergeNodes(nodes, {properties: 'discard', mergeRels: true})
+		YIELD node
+		SET node.pii_type = coalesce(node.pii_type, node.type, node.name),
+		    node.type     = coalesce(node.pii_type, node.type, node.name),
+		    node.name     = coalesce(node.pii_type, node.type, node.name)
+		RETURN count(node)
+		`,
+		// Collapse duplicate active EXPOSES edges per (asset, pii). Keep the
+		// edge with the highest finding_count, close the rest by setting
+		// until=datetime() so active-window queries skip them.
+		`
+		MATCH (a:Asset)-[r:EXPOSES]->(p:PII_Category)
+		WHERE r.until IS NULL
+		WITH a, p, collect(r) AS rels
+		WHERE size(rels) > 1
+		WITH rels,
+		     reduce(best = head(rels), x IN rels |
+		       CASE WHEN coalesce(x.finding_count, 0) > coalesce(best.finding_count, 0)
+		         THEN x ELSE best END) AS keep
+		UNWIND rels AS r
+		WITH r, keep WHERE r <> keep
+		SET r.until = datetime(),
+		    r.closed_at = datetime(),
+		    r.closed_reason = 'dedup'
+		RETURN count(r)
+		`,
+	}
+
+	for _, q := range dedupQueries {
+		if _, err := session.Run(ctx, q, nil); err != nil {
+			fmt.Printf("[neo4j] WARN: dedup query failed (non-fatal): %v\n", err)
+		}
+	}
+
+	// Step 2 — create uniqueness constraints. These prevent MERGE races from
+	// producing new duplicates after dedup. Constraints are idempotent.
+	constraints := []string{
+		`CREATE CONSTRAINT system_id_unique IF NOT EXISTS FOR (s:System) REQUIRE s.id IS UNIQUE`,
+		`CREATE CONSTRAINT asset_id_unique IF NOT EXISTS FOR (a:Asset) REQUIRE a.id IS UNIQUE`,
+		`CREATE CONSTRAINT pii_category_pii_type_unique IF NOT EXISTS FOR (p:PII_Category) REQUIRE p.pii_type IS UNIQUE`,
+	}
+	for _, q := range constraints {
+		if _, err := session.Run(ctx, q, nil); err != nil {
+			// Constraint may already exist under a different name — log and continue.
+			fmt.Printf("[neo4j] WARN: constraint query failed (non-fatal): %v — %s\n", err, q)
+		}
+	}
+	return nil
 }
 
 // GetDriver returns the underlying Neo4j driver

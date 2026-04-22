@@ -159,19 +159,6 @@ func (s *SemanticLineageService) SyncAssetToNeo4j(ctx context.Context, assetID u
 			continue
 		}
 
-		// [New] Max Marginal Relevance (MMR) Style Deduplication Logic
-		// If a very similar finding already mapped to this PII_Category with higher confidence,
-		// we skip adding redundant duplicate nodes to the lineage graph to prevent explosion.
-		if existing, exists := piiCategoryMap[classification.SubCategory]; exists {
-			if existing.ConfidenceScore > classification.ConfidenceScore+0.15 {
-				skippedCount++
-				continue // Ignore this lower confidence redundant finding
-			} else if classification.ConfidenceScore > existing.ConfidenceScore {
-				// Upgrade existing confidence score representation
-				existing.ConfidenceScore = classification.ConfidenceScore
-			}
-		}
-
 		// Extract PII type from SubCategory (e.g., "IN_AADHAAR", "CREDIT_CARD")
 		piiType := classification.SubCategory
 		if piiType == "" {
@@ -189,6 +176,14 @@ func (s *SemanticLineageService) SyncAssetToNeo4j(ctx context.Context, assetID u
 		}
 
 		agg := piiCategoryMap[piiType]
+		// Track highest individual confidence seen for this PII type. Previously
+		// a "MMR dedup" step skipped lower-confidence findings here, which made
+		// FindingCount undercount (e.g. asset reported 7 PANs, lineage showed 1).
+		// FindingCount must reflect every finding row; confidence averaging
+		// already handles low-quality findings via TotalConfidence / FindingCount.
+		if classification.ConfidenceScore > agg.ConfidenceScore {
+			agg.ConfidenceScore = classification.ConfidenceScore
+		}
 		agg.FindingCount++
 		agg.TotalConfidence += classification.ConfidenceScore
 
