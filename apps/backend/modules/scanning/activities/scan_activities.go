@@ -432,21 +432,32 @@ type StreamCheckpoint struct {
 	WindowCount int    `json:"window_count"`
 }
 
-// RunStreamingWindowActivity reads a batch of messages from a Redis stream.
+// streamConsumerGroup and streamConsumer identify this service in the Redis
+// consumer group. At-least-once delivery: messages stay in the PEL until XACK.
+const streamConsumerGroup = "arc-hawk-temporal"
+const streamConsumer = "scan-activities"
+
+// RunStreamingWindowActivity reads a batch of messages from a Redis stream
+// using XREADGROUP for at-least-once delivery, then XACKs processed messages.
 // Temporal calls this once per micro-batch window.
 func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueName string, windowSec int) ([]StreamMessage, error) {
-	// XREAD with a short block timeout equal to the window duration
+	// Ensure consumer group exists — XGROUP CREATE is idempotent with MKSTREAM.
+	_ = a.rdb.XGroupCreateMkStream(ctx, queueName, streamConsumerGroup, "0").Err()
+
 	deadline := time.Duration(windowSec) * time.Second
-	streams, err := a.rdb.XRead(ctx, &goredis.XReadArgs{
-		Streams: []string{queueName, "0"},
-		Count:   500,
-		Block:   deadline,
+	streams, err := a.rdb.XReadGroup(ctx, &goredis.XReadGroupArgs{
+		Group:    streamConsumerGroup,
+		Consumer: streamConsumer,
+		Streams:  []string{queueName, ">"},
+		Count:    500,
+		Block:    deadline,
 	}).Result()
 	if err != nil && err != goredis.Nil {
-		return nil, fmt.Errorf("redis XREAD error on %s: %w", queueName, err)
+		return nil, fmt.Errorf("redis XREADGROUP error on %s: %w", queueName, err)
 	}
 
 	var msgs []StreamMessage
+	var ids []string
 	for _, stream := range streams {
 		for _, msg := range stream.Messages {
 			payload := make(map[string]string)
@@ -459,8 +470,18 @@ func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueNa
 				ID:      msg.ID,
 				Payload: payload,
 			})
+			ids = append(ids, msg.ID)
 		}
 	}
+
+	// XACK immediately — Temporal retries the activity on failure, so re-delivery
+	// is handled at the activity level rather than through the Redis PEL.
+	if len(ids) > 0 {
+		if err := a.rdb.XAck(ctx, queueName, streamConsumerGroup, ids...).Err(); err != nil {
+			log.Printf("WARN: XACK failed for %s (messages will redeliver on next run): %v", queueName, err)
+		}
+	}
+
 	log.Printf("INFO: streaming window read %d messages from %s", len(msgs), queueName)
 	return msgs, nil
 }

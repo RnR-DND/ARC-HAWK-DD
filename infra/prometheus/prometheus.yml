@@ -1,7 +1,14 @@
 global:
   scrape_interval: 15s
 
+rule_files:
+  - "slo_rules.yml"
+
 scrape_configs:
   - job_name: 'arc-hawk-backend'
     static_configs:
       - targets: ['backend:8080']
+
+  - job_name: 'arc-hawk-scanner'
+    static_configs:
+      - targets: ['go-scanner:8001']

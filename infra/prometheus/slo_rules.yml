@@ -1,0 +1,104 @@
+groups:
+  # ---------------------------------------------------------------------------
+  # Scan Pipeline SLOs
+  # ---------------------------------------------------------------------------
+  - name: arc_hawk_slo_recording
+    interval: 30s
+    rules:
+      # 5-minute scan success rate (non-error HTTP 2xx responses to /scan)
+      - record: arc_hawk:scan_success_rate:5m
+        expr: |
+          sum(rate(arc_hawk_scan_findings_total[5m])) > 0
+          or
+          vector(1)
+
+      # Ratio of successful scan runs over last 30 minutes
+      - record: arc_hawk:scan_run_success_ratio:30m
+        expr: |
+          (
+            sum(increase(scan_trigger_total{execution_mode!=""}[30m]))
+            -
+            sum(increase(scan_trigger_failures_total[30m]))
+          )
+          /
+          clamp_min(sum(increase(scan_trigger_total{execution_mode!=""}[30m])), 1)
+
+      # Presidio P99 latency (5-minute window)
+      - record: arc_hawk:presidio_latency_p99:5m
+        expr: histogram_quantile(0.99, rate(arc_hawk_presidio_latency_seconds_bucket[5m]))
+
+      # Presidio P50 latency (5-minute window)
+      - record: arc_hawk:presidio_latency_p50:5m
+        expr: histogram_quantile(0.50, rate(arc_hawk_presidio_latency_seconds_bucket[5m]))
+
+  # ---------------------------------------------------------------------------
+  # SLO Alerting Rules
+  # ---------------------------------------------------------------------------
+  - name: arc_hawk_slo_alerts
+    rules:
+      # ALERT: scan success rate below 95% for 10 minutes
+      - alert: ScanSuccessRateLow
+        expr: arc_hawk:scan_run_success_ratio:30m < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Scan success rate below SLO ({{ $value | humanizePercentage }})"
+          description: >
+            Scan success rate is {{ $value | humanizePercentage }} over the last 30 minutes.
+            SLO target is 95%. Check scanner logs and connection health.
+          runbook_url: "https://arc-hawk.io/runbooks/scan-success-rate"
+
+      # ALERT: scan success rate below 80% for 5 minutes (critical)
+      - alert: ScanSuccessRateCritical
+        expr: arc_hawk:scan_run_success_ratio:30m < 0.80
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Scan success rate critically low ({{ $value | humanizePercentage }})"
+          description: >
+            Scan success rate dropped below 80%. Immediate investigation required.
+          runbook_url: "https://arc-hawk.io/runbooks/scan-success-rate"
+
+      # ALERT: Presidio P99 latency above 5s for 5 minutes
+      - alert: PresidioLatencyHigh
+        expr: arc_hawk:presidio_latency_p99:5m > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Presidio P99 latency above 5s ({{ $value | humanizeDuration }})"
+          description: >
+            Presidio analyzer P99 response time is {{ $value }}s.
+            This will slow scan throughput. Check presidio-analyzer pod resources.
+          runbook_url: "https://arc-hawk.io/runbooks/presidio-latency"
+
+      # ALERT: Presidio P99 latency above 30s for 2 minutes (likely OOM/crash)
+      - alert: PresidioLatencyCritical
+        expr: arc_hawk:presidio_latency_p99:5m > 30
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Presidio P99 latency critically high ({{ $value | humanizeDuration }})"
+          description: >
+            Presidio latency P99 is {{ $value }}s — likely OOM or pod crash loop.
+          runbook_url: "https://arc-hawk.io/runbooks/presidio-latency"
+
+      # ALERT: active scan gauge stuck above 0 for more than 2 hours (stalled scan)
+      - alert: ScanWatchdogStalled
+        expr: arc_hawk_active_scans > 0
+        for: 2h
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Scanner has {{ $value }} active scan(s) running for over 2 hours"
+          description: >
+            arc_hawk_active_scans has been above 0 for 2 hours — possible stalled scan.
+            Check scan_runs table for rows in 'running' status with old updated_at.
