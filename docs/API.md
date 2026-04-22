@@ -23,12 +23,16 @@ Complete API reference for the ARC-Hawk Backend. Base URL: `http://localhost:808
 
 ## Authentication
 
-> **Note**: Authentication is not yet implemented. All endpoints are currently public.
+All `/api/v1/*` endpoints require authentication (except `/auth/login`, `/auth/register`, `/auth/refresh`).
 
-When authentication is implemented, the API will support:
+Two schemes are supported:
 
-- **JWT Bearer Token**: `Authorization: Bearer <token>`
-- **API Key**: `X-API-Key: <api_key>`
+- **JWT Bearer Token**: `Authorization: Bearer <token>` — obtain via `POST /api/v1/auth/login`
+- **API Key**: `X-API-Key: <api_key>` — pre-provisioned per-tenant key stored hashed in `api_keys` table
+
+Scanner callbacks (`/scans/ingest-verified`, `/scans/:id/complete`, `/scans/:id/progress-event`) use a separate internal scheme: `X-Scanner-Token: <SCANNER_SERVICE_TOKEN>` + `X-Tenant-ID: <tenant_id>`.
+
+> **OpenAPI spec:** See `docs/openapi/openapi.yaml` for the canonical, machine-readable contract including full auth scheme definitions and per-endpoint security requirements.
 
 ---
 
