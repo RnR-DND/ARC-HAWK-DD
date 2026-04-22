@@ -50,10 +50,15 @@ func ValidateStatusTransition(from, to string) error {
 	return fmt.Errorf("invalid transition from %q to %q", from, to)
 }
 
+// ScanCompletionHook is called after a scan reaches "completed" or "partial" status.
+// tenantID and scanRunID identify the scan; totalFindings is the final count.
+type ScanCompletionHook func(ctx context.Context, tenantID uuid.UUID, scanRunID string, totalFindings int)
+
 // ScanService manages scan execution and state
 type ScanService struct {
-	repo     *persistence.PostgresRepository
-	memoryFn func(context.Context, interfaces.ScanSummarySnapshot) // best-effort; may be nil
+	repo           *persistence.PostgresRepository
+	memoryFn       func(context.Context, interfaces.ScanSummarySnapshot) // best-effort; may be nil
+	completionHook ScanCompletionHook                                     // optional; called on terminal success
 }
 
 // NewScanService creates a new scan service
@@ -61,6 +66,12 @@ func NewScanService(repo *persistence.PostgresRepository) *ScanService {
 	return &ScanService{
 		repo: repo,
 	}
+}
+
+// SetCompletionHook registers a callback invoked after a scan reaches "completed"
+// or "partial" status. Safe to call concurrently; replaces any prior hook.
+func (s *ScanService) SetCompletionHook(fn ScanCompletionHook) {
+	s.completionHook = fn
 }
 
 // SetMemoryRecorder injects a MemoryRecorder (e.g., supermemory-backed).
@@ -142,6 +153,16 @@ func (s *ScanService) UpdateScanStatus(ctx context.Context, scanID uuid.UUID, st
 
 	if err := s.repo.UpdateScanRun(ctx, scanRun); err != nil {
 		return fmt.Errorf("failed to update scan run: %w", err)
+	}
+
+	// Fire completion hook (audit ledger + obligation regression). Best-effort: runs
+	// in a detached goroutine so downstream latency never stalls the DB write.
+	if (status == "completed" || status == "partial") && s.completionHook != nil {
+		hook := s.completionHook
+		tid := scanRun.TenantID
+		sid := scanRun.ID.String()
+		tf := scanRun.TotalFindings
+		go hook(context.Background(), tid, sid, tf)
 	}
 
 	// Best-effort: on "completed" only, push a narrow summary to the memory layer.

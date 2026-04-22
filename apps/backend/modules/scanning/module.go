@@ -237,6 +237,15 @@ func (m *ScanningModule) Shutdown() error {
 	return nil
 }
 
+// SetScanCompletionHook registers a hook called after each scan reaches a
+// terminal success state. Used by the compliance module to write audit ledger
+// entries and run obligation regression detection without a circular import.
+func (m *ScanningModule) SetScanCompletionHook(fn service.ScanCompletionHook) {
+	if m.scanService != nil {
+		m.scanService.SetCompletionHook(fn)
+	}
+}
+
 // NewScanningModule creates a new scanning module
 func NewScanningModule() *ScanningModule {
 	return &ScanningModule{}
