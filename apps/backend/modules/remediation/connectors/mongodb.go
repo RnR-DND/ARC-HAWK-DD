@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -165,12 +166,26 @@ func (c *MongoDBConnector) GetOriginalValue(ctx context.Context, location string
 		return "", fmt.Errorf("failed to get original value from MongoDB: %w", err)
 	}
 
-	// Extract field value
-	if value, ok := result[fieldName]; ok {
+	// Extract field value — supports dotted nested paths like "address.email"
+	if value, ok := getNestedField(result, fieldName); ok {
 		return fmt.Sprintf("%v", value), nil
 	}
 
 	return "", fmt.Errorf("field %s not found in document", fieldName)
+}
+
+// getNestedField traverses a bson.M using a dotted field path (e.g. "address.email").
+func getNestedField(doc bson.M, fieldPath string) (interface{}, bool) {
+	parts := strings.SplitN(fieldPath, ".", 2)
+	val, ok := doc[parts[0]]
+	if !ok || len(parts) == 1 {
+		return val, ok
+	}
+	nested, ok := val.(bson.M)
+	if !ok {
+		return nil, false
+	}
+	return getNestedField(nested, parts[1])
 }
 
 // RestoreValue restores original MongoDB document value

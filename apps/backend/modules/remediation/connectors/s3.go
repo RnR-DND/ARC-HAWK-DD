@@ -3,6 +3,7 @@ package connectors
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -210,23 +211,48 @@ func (c *S3Connector) GetOriginalValue(ctx context.Context, location string, fie
 	return string(content), nil
 }
 
-// RestoreValue restores original S3 object content
+// RestoreValue restores original S3 object content.
+// originalValue may be a JSON envelope {"content":"...","backup_key":"..."} produced
+// by callers that embed the backup key, or plain content for backwards compatibility.
+// Either way, both possible backup suffixes (.backup and .deleted.backup) are cleaned up.
 func (c *S3Connector) RestoreValue(ctx context.Context, location string, fieldName string, recordID string, originalValue string) error {
-	// Upload original content
+	content := originalValue
+	backupKey := location + ".backup"
+
+	var envelope struct {
+		Content   string `json:"content"`
+		BackupKey string `json:"backup_key"`
+	}
+	if err := json.Unmarshal([]byte(originalValue), &envelope); err == nil && envelope.Content != "" {
+		content = envelope.Content
+		if envelope.BackupKey != "" {
+			backupKey = envelope.BackupKey
+		}
+	}
+
 	_, err := c.client.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(location),
-		Body:   bytes.NewReader([]byte(originalValue)),
+		Body:   bytes.NewReader([]byte(content)),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to restore S3 object: %w", err)
 	}
 
-	// Remove backup
-	backupKey := location + ".backup"
+	// Clean up whichever backup key was used; also attempt the alternate suffix
+	// so that a Delete-path backup (.deleted.backup) is removed even when the
+	// caller stored the default Mask-path key (.backup) in originalValue.
 	c.client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(backupKey),
+	})
+	altKey := location + ".deleted.backup"
+	if backupKey == altKey {
+		altKey = location + ".backup"
+	}
+	c.client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(altKey),
 	})
 
 	return nil

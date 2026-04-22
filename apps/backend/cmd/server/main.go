@@ -129,6 +129,12 @@ func main() {
 
 	log.Printf("✅ Neo4j connection established")
 
+	// F-14: Start Neo4j outbox sync worker — drains neo4j_sync_queue for at-least-once delivery
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	neo4jSyncWorker := persistence.NewNeo4jSyncWorker(db, neo4jRepo)
+	neo4jSyncWorker.Start(serverCtx)
+	log.Println("✅ Neo4j outbox sync worker started")
+
 	// Initialize Module Registry
 	log.Println("\n📦 Initializing Modules...")
 	log.Println(strings.Repeat("=", 70))
@@ -387,6 +393,9 @@ func main() {
 	<-quit
 
 	log.Println("\n🛑 Shutting down server...")
+
+	serverCancel()
+	neo4jSyncWorker.Stop()
 
 	if temporalWorker != nil {
 		log.Println("⏰ Stopping Temporal Worker...")

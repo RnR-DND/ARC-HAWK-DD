@@ -50,6 +50,11 @@ func (t *PostgresTransaction) Rollback() error {
 	return t.tx.Rollback()
 }
 
+// ExecContext executes a raw query within the transaction.
+func (t *PostgresTransaction) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	return t.tx.ExecContext(ctx, query, args...)
+}
+
 // GetDB returns the underlying database connection (for read-only operations outside transaction)
 func (r *PostgresRepository) GetDB() *sql.DB {
 	return r.db

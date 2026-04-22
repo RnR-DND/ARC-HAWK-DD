@@ -549,6 +549,24 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		return nil, fmt.Errorf("failed to update scan run: %w", err)
 	}
 
+	// F-14: Queue Neo4j sync inside the transaction (transactional outbox).
+	// The neo4j_sync_worker drains this table asynchronously — if Neo4j is
+	// unavailable the entry stays pending and retries up to 5 times, so
+	// PostgreSQL and Neo4j cannot permanently diverge on a transient failure.
+	for assetID, piiTypeCounts := range assetPIIMap {
+		payload, _ := json.Marshal(map[string]interface{}{
+			"asset_id":        assetID.String(),
+			"pii_type_counts": piiTypeCounts,
+			"scan_id":         scanRun.ID.String(),
+		})
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO neo4j_sync_queue (operation, payload)
+			VALUES ('sync_findings', $1)
+		`, payload); err != nil {
+			return nil, fmt.Errorf("outbox insert: %w", err)
+		}
+	}
+
 	// CRITICAL FIX: Commit the transaction to persist all changes
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
@@ -559,16 +577,6 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 	for _, assetID := range assetIDs {
 		if err := s.recalculateAssetRisk(ctx, assetID); err != nil {
 			log.Printf("Error recalculating risk for asset %s: %v", assetID, err)
-		}
-	}
-
-	// C4/C5: Sync PII categories to Neo4j for lineage graph (3-level contract: System → Asset → PII_Category)
-	// This runs after commit to avoid blocking the transaction. Failures are non-fatal (logged only).
-	if s.neo4jRepo != nil {
-		for assetID, piiTypes := range assetPIIMap {
-			if err := s.neo4jRepo.SyncFindingsToPIICategories(ctx, assetID.String(), piiTypes); err != nil {
-				log.Printf("WARN: neo4j PII category sync failed for asset %s: %v", assetID, err)
-			}
 		}
 	}
 
