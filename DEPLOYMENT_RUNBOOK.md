@@ -1,8 +1,10 @@
 # 📋 DEPLOYMENT_RUNBOOK.md - ARC-Hawk Deployment Guide
 
-**Version:** 2.2.0
-**Date:** 2026-01-22
+**Version:** 3.0.0
+**Date:** 2026-04-22
 **Status:** Production Ready with CI/CD
+
+> For the unified end-to-end runbook (local dev + Docker Compose), see [docs/RUNBOOK_E2E.md](./docs/RUNBOOK_E2E.md).
 
 ---
 
@@ -18,8 +20,8 @@ This runbook documents deployment procedures for ARC-Hawk PII Discovery Platform
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │   ┌──────────┐    ┌──────────┐    ┌──────────────────────────┐ │
-│   │ Scanner  │───▶│ Backend  │───▶│ PostgreSQL + Neo4j       │ │
-│   │ (Python)│    │  (Go)    │    │ (Data Storage & Graph)   │ │
+│   │Go Scanner│───▶│ Backend  │───▶│ PostgreSQL + Neo4j       │ │
+│   │ :8001    │    │  (Go)    │    │ (Data Storage & Graph)   │ │
 │   └──────────┘    └──────────┘    └──────────────────────────┘ │
 │         │               │                     │                │
 │         │               │                     │                │
@@ -40,16 +42,15 @@ This runbook documents deployment procedures for ARC-Hawk PII Discovery Platform
 ### Prerequisites
 
 ```bash
-✓ Docker & Docker Compose
+✓ Docker & Docker Compose v2+
 ✓ Go 1.24+
 ✓ Node.js 18+
-✓ Python 3.9+
 ```
 
 ### Step 1: Start Infrastructure
 
 ```bash
-cd /Users/prathameshyadav/ARC-Hawk
+cd <your-arc-hawk-repo-root>
 
 # Start all services
 docker-compose up -d
@@ -99,19 +100,20 @@ npm run start
 
 **Frontend runs on:** `http://localhost:3000`
 
-### Step 4: Run Scanner
+### Step 4: Go Scanner
+
+The Go scanner starts automatically via Docker Compose (`go-scanner` service).
+For local development outside Docker:
 
 ```bash
-cd apps/scanner
-
-# Install dependencies (first time only)
-pip install -r requirements.txt
-
-# Run filesystem scan
-python -m hawk_scanner.main fs \
-  --connection config/connection.yml \
-  --json output.json
+cd apps/goScanner
+SCANNER_SERVICE_TOKEN=<token> \
+BACKEND_URL=http://localhost:8080 \
+PRESIDIO_URL=http://localhost:3000 \
+go run cmd/scanner/main.go
 ```
+
+See [docs/SCANNER_REFERENCE.md](./docs/SCANNER_REFERENCE.md) for full details.
 
 ---
 
@@ -343,8 +345,8 @@ cd apps/backend && go build ./...
 # Frontend build
 cd apps/frontend && npm run build
 
-# Scanner build
-cd apps/scanner && python setup.py sdist
+# Go scanner build
+cd apps/goScanner && go build ./...
 
 # Run all tests
 make test
@@ -359,8 +361,8 @@ make test
 # Backend tests
 cd apps/backend && go test ./...
 
-# Scanner tests
-cd apps/scanner && python -m pytest tests/
+# Go scanner tests
+cd apps/goScanner && go test ./...
 
 # Frontend tests
 cd apps/frontend && npm test
@@ -374,7 +376,7 @@ cd apps/frontend && npm test
 
 # Or individually
 cd apps/backend && go test ./modules/scanning -v
-cd apps/scanner && python -m pytest tests/test_validation.py -v
+cd apps/goScanner && go test ./... -v
 ```
 
 ### End-to-End Tests

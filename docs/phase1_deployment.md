@@ -1,3 +1,5 @@
+> **Historical**: This document describes Phase 1 deployment. For current deployment, see [docs/RUNBOOK_E2E.md](./RUNBOOK_E2E.md).
+
 # Phase 1: Database-Backed Connections - Deployment Guide
 
 ## Prerequisites

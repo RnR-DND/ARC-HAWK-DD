@@ -1,3 +1,5 @@
+> **Deprecated**: This document is superseded by [docs/RUNBOOK_E2E.md](./RUNBOOK_E2E.md). Content below is historical.
+
 # ARC-Hawk Seamless Scanner Guide
 
 ## 🚀 One-Command Scan-to-Dashboard Workflow

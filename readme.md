@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](./LICENSE)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen)](apps/backend)
 [![Node.js](https://img.shields.io/badge/node-18+-green)](apps/frontend)
-[![Python](https://img.shields.io/badge/python-3.9+-blue)](apps/scanner)
+[![Go Scanner](https://img.shields.io/badge/go--scanner-1.24+-00ADD8)](apps/goScanner)
 
 **Enterprise-grade PII Discovery, Classification, and Lineage Tracking Platform**
 
@@ -17,7 +17,7 @@
 
 ---
 
-> **⚠️ Development Status**: ARC-Hawk is currently in active development. Some features are incomplete (see [TODO.md](./TODO.md) for details). Not recommended for production use without authentication implementation.
+> **Status**: ARC-Hawk v3.0.0 is in active development. See [TODO.md](./TODO.md) for known open items and [AGENTS.md](./AGENTS.md) for AI agent development guidance.
 
 ---
 
@@ -42,9 +42,8 @@ ARC-Hawk is a **comprehensive platform** that automatically discovers, validates
 
 - **Docker** & **Docker Compose** (v2.0+)
 - **4GB+ RAM** recommended
-- **Go 1.21+** (for backend development)
+- **Go 1.24+** (for backend development)
 - **Node.js 18+** (for frontend development)
-- **Python 3.9+** (for scanner development)
 
 ### Installation
 
@@ -126,7 +125,7 @@ ARC-Hawk uses a modern, distributed architecture with **Intelligence-at-Edge** p
                                          │                 │
                                     ┌────▼────┐            │
                                     │ Scanner │            │
-                                    │ (Python)│            │
+                                    │ (Go/Gin)│            │
                                     └────┬────┘            │
                                          │                 │
                     ┌────────────────────┼─────────────────┘
@@ -143,7 +142,7 @@ ARC-Hawk uses a modern, distributed architecture with **Intelligence-at-Edge** p
 1. **Frontend (Next.js 14)**: Real-time dashboard with ReactFlow visualization for lineage, compliance tracking, and remediation actions
 2. **Backend (Go/Gin)**: Modular monolith with 10 business modules (Assets, Scanning, Lineage, Compliance, Discovery, Remediation, Masking, Analytics, Connections, Auth)
 3. **Orchestrator (Temporal)**: Manages long-running workflows with reliable retries and state management
-4. **Scanner (Python)**: High-performance PII detection engine with SDK-based validation
+4. **Go Scanner (Go/Gin)**: High-performance PII detection engine at `apps/goScanner/` (port 8001) — canonical scanner; Python scanner retired
 5. **Storage**:
    - **PostgreSQL**: Relational data (Assets, Findings, Configs, Compliance)
    - **Neo4j**: Graph data (Lineage, Relationships, Data Flow)
@@ -282,11 +281,16 @@ ARC-Hawk includes **150+ pages** of comprehensive documentation:
 - [**RISK.md**](./RISK.md) - Risk assessments, blast radius, and deferred work
 - [**TODO.md**](./TODO.md) - Known issues and roadmap
 
+### Integration
+- [**Integration Guide**](./docs/INTEGRATION_GUIDE.md) - End-to-end microservice integration walkthrough
+- [**Webhooks**](./docs/WEBHOOKS.md) - Webhook event stream reference
+- [**OpenAPI Spec**](./docs/openapi/openapi.yaml) - OpenAPI 3.0 spec (coming soon)
+
 ### Development
 - [**AGENTS.md**](./AGENTS.md) - AI Agent development guide
 - [**Backend README**](./apps/backend/README.md) - Go backend documentation
 - [**Frontend README**](./apps/frontend/README.md) - Next.js frontend documentation
-- [**Scanner README**](./apps/scanner/README.md) - Python scanner documentation
+- [**Scanner Reference**](./docs/SCANNER_REFERENCE.md) - Go scanner at apps/goScanner/
 
 ---
 
@@ -339,29 +343,32 @@ npm run lint
 - `services/` - Typed API clients
 - `types/` - TypeScript definitions
 
-### Scanner (Python)
+### Go Scanner
+
+The Go scanner runs as an internal sidecar (port `:8001`) and is managed automatically by Docker Compose. For local development:
 
 ```bash
-cd apps/scanner
-
-# Install dependencies
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-
-# Run filesystem scan
-python -m hawk_scanner.main fs --path /path/to/scan --json output.json
-
-# Run PostgreSQL scan
-python -m hawk_scanner.main postgresql --connection config/connection.yml
+cd apps/goScanner
 
 # Run tests
-python -m pytest tests/ -v
+go test ./...
+
+# Build binary
+go build -o go-scanner cmd/scanner/main.go
+
+# Run locally
+SCANNER_SERVICE_TOKEN=<token> \
+BACKEND_URL=http://localhost:8080 \
+PRESIDIO_URL=http://localhost:3000 \
+./go-scanner
 ```
 
 **Key Directories:**
-- `hawk_scanner/commands/` - Source connectors (S3, PostgreSQL, etc.)
-- `sdk/` - Scanner SDK with validators and recognizers
-- `tests/` - Test suite with ground truth data
+- `internal/connectors/` - 36+ source connectors (databases, cloud, SaaS, files)
+- `internal/orchestrator/` - Scan orchestration and ingest logic
+- `api/` - HTTP handler and auth middleware
+
+See [docs/SCANNER_REFERENCE.md](./docs/SCANNER_REFERENCE.md) for full details.
 
 ---
 
@@ -385,17 +392,16 @@ cd apps/frontend
 npm test -- --passWithNoTests
 ```
 
-### Scanner Tests
+### Go Scanner Tests
 ```bash
-cd apps/scanner
-python -m pytest tests/ -v
-python -m pytest tests/test_validation.py -v  # Specific test
+cd apps/goScanner
+go test ./...
 ```
 
 ### Integration Tests
 ```bash
-# End-to-end smoke test
-python scripts/testing/smoke-tests.py
+# End-to-end manual walkthrough
+# See tests/e2e/README.md for the curl-based walkthrough
 
 # API endpoint verification
 python scripts/verify_endpoints.py
