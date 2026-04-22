@@ -53,6 +53,9 @@ func NewClient() (*Client, error) {
 	if token == "" {
 		return nil, fmt.Errorf("VAULT_TOKEN is required when VAULT_ENABLED=true")
 	}
+	if strings.HasPrefix(token, "arc-hawk-dev") || token == "root" || strings.HasPrefix(token, "hvs.dev") {
+		log.Printf("WARNING: VAULT_TOKEN looks like a dev/root token (%q) — use AppRole in production", token[:min(len(token), 16)])
+	}
 	vc.SetToken(token)
 
 	mount := os.Getenv("VAULT_SECRET_MOUNT")

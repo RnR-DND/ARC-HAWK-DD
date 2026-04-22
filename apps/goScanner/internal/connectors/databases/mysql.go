@@ -10,7 +10,10 @@ import (
 )
 
 // MySQLConnector scans a MySQL database.
-type MySQLConnector struct{ db *sql.DB }
+type MySQLConnector struct {
+	db         *sql.DB
+	sampleSize int
+}
 
 func (c *MySQLConnector) SourceType() string { return "mysql" }
 
@@ -30,6 +33,7 @@ func (c *MySQLConnector) Connect(ctx context.Context, config map[string]any) err
 	}
 	applyPoolDefaults(db)
 	c.db = db
+	c.sampleSize = cfgInt(config, "sample_size", 1000, 50000)
 	return db.PingContext(ctx)
 }
 
@@ -63,7 +67,7 @@ func (c *MySQLConnector) StreamFields(ctx context.Context) (<-chan connectors.Fi
 			}
 		}
 		for _, t := range tables {
-			query := fmt.Sprintf("SELECT * FROM `%s`.`%s` LIMIT 10000", t.schema, t.name)
+			query := fmt.Sprintf("SELECT * FROM `%s`.`%s` LIMIT %d", t.schema, t.name, c.sampleSize)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue

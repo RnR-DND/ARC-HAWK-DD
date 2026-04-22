@@ -112,6 +112,7 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	m.sdkIngestHandler = api.NewSDKIngestHandler(m.ingestionService)
 
 	m.scanTriggerHandler = api.NewScanTriggerHandler(m.scanService, deps.WebSocketService, repo, encryptionService, deps.VaultClient, deps.AuditLogger)
+	m.scanTriggerHandler.StartNeo4jQueueGauge(deps.DB)
 	m.scanStatusHandler = api.NewScanStatusHandler(m.scanService, deps.WebSocketService, repo, deps.AuditLogger, lineageSync)
 	m.dashboardHandler = api.NewDashboardHandler(repo)
 

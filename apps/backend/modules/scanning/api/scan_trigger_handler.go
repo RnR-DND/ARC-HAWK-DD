@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,6 +67,11 @@ var (
 		Help:    "Distribution of PII classification confidence scores emitted by the scanner",
 		Buckets: []float64{0.5, 0.6, 0.7, 0.8, 0.9, 1.0},
 	})
+
+	neo4jSyncQueuePending = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "arc_hawk_neo4j_sync_queue_pending",
+		Help: "Number of entries in neo4j_sync_queue with status pending or failed.",
+	})
 )
 
 func NewScanTriggerHandler(scanService *service.ScanService, websocketService any, repo *persistence.PostgresRepository, enc *encryption.EncryptionService, vaultClient *vault.Client, auditLogger interfaces.AuditLogger) *ScanTriggerHandler {
@@ -78,6 +84,24 @@ func NewScanTriggerHandler(scanService *service.ScanService, websocketService an
 		patternsService:  service.NewPatternsService(repo),
 		auditLogger:      auditLogger,
 	}
+}
+
+// StartNeo4jQueueGauge starts a background goroutine that polls the
+// neo4j_sync_queue table every 30 s and updates the Prometheus gauge.
+// Call once from module.Initialize after the handler is constructed.
+func (h *ScanTriggerHandler) StartNeo4jQueueGauge(db *sql.DB) {
+	go func() {
+		t := time.NewTicker(30 * time.Second)
+		defer t.Stop()
+		for range t.C {
+			var n float64
+			if err := db.QueryRowContext(context.Background(),
+				`SELECT COUNT(*) FROM neo4j_sync_queue WHERE status IN ('pending','failed')`).
+				Scan(&n); err == nil {
+				neo4jSyncQueuePending.Set(n)
+			}
+		}
+	}()
 }
 
 // recordAudit is a helper that swallows audit errors (never break a scan on an

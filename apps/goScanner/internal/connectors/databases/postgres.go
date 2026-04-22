@@ -11,7 +11,10 @@ import (
 )
 
 // PostgresConnector scans a PostgreSQL database.
-type PostgresConnector struct{ db *sql.DB }
+type PostgresConnector struct {
+	db         *sql.DB
+	sampleSize int
+}
 
 func (c *PostgresConnector) SourceType() string { return "postgresql" }
 
@@ -44,6 +47,7 @@ func (c *PostgresConnector) Connect(ctx context.Context, config map[string]any) 
 	}
 	applyPoolDefaults(db)
 	c.db = db
+	c.sampleSize = cfgInt(config, "sample_size", 1000, 50000)
 	return db.PingContext(ctx)
 }
 
@@ -91,7 +95,7 @@ func (c *PostgresConnector) StreamFields(ctx context.Context) (<-chan connectors
 			}
 		}
 		for _, t := range tables {
-			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT 10000`, t.schema, t.name)
+			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT %d`, t.schema, t.name, c.sampleSize)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue

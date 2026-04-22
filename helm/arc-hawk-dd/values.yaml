@@ -25,6 +25,7 @@ backend:
   env:
     AUTH_REQUIRED: "true"
     LOG_LEVEL: "info"
+    VAULT_ENABLED: "false"    # set to "true" when vault.enabled is true
   # Secrets — set via --set or external secrets manager
   secrets:
     DATABASE_URL: ""

@@ -2,14 +2,35 @@ package orchestrator
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/arc-platform/go-scanner/internal/classifier"
 	"github.com/arc-platform/go-scanner/internal/connectors"
 	"github.com/arc-platform/go-scanner/internal/presidio"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+)
+
+var (
+	findingsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "arc_hawk_scan_findings_total",
+		Help: "Total PII findings produced by the scanner engine.",
+	}, []string{"pii_type", "source_type"})
+
+	presidioLatency = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "arc_hawk_presidio_latency_seconds",
+		Help:    "Latency of Presidio Analyze calls.",
+		Buckets: prometheus.DefBuckets,
+	})
+
+	activeScans = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "arc_hawk_active_scans",
+		Help: "Number of scan jobs currently in progress.",
+	})
 )
 
 // minPresidioTextLen skips Presidio NER for very short values. Column cells
@@ -93,6 +114,9 @@ func presidioEnabled(mode ClassificationMode) bool {
 // RunScan scans all sources (parallel or sequential based on cfg.ExecutionMode)
 // and returns aggregated findings.
 func (o *Orchestrator) RunScan(ctx context.Context, cfg ScanConfig) ([]classifier.ClassifiedFinding, error) {
+	activeScans.Inc()
+	defer activeScans.Dec()
+
 	if cfg.MaxConcurrency <= 0 {
 		cfg.MaxConcurrency = 4 // matches Python ThreadPoolExecutor default
 	}
@@ -116,7 +140,7 @@ func (o *Orchestrator) runSequential(ctx context.Context, cfg ScanConfig) ([]cla
 		presidioEntities := o.presidioEntitiesForSource(src.ProfileName, cfg)
 		findings, err := o.scanSource(ctx, src, cfg, allowed, presidioEntities)
 		if err != nil {
-			log.Printf("WARN: sequential source %s/%s failed: %v", src.SourceType, src.ProfileName, err)
+			slog.WarnContext(ctx, "sequential source scan failed", "source_type", src.SourceType, "profile", src.ProfileName, "error", err)
 			continue
 		}
 		if cfg.OnBatch != nil && len(findings) > 0 {
@@ -147,7 +171,7 @@ func (o *Orchestrator) runParallel(ctx context.Context, cfg ScanConfig) ([]class
 			presidioEntities := o.presidioEntitiesForSource(src.ProfileName, cfg)
 			findings, err := o.scanSource(gctx, src, cfg, allowed, presidioEntities)
 			if err != nil {
-				log.Printf("WARN: parallel source %s/%s failed: %v", src.SourceType, src.ProfileName, err)
+				slog.WarnContext(gctx, "parallel source scan failed", "source_type", src.SourceType, "profile", src.ProfileName, "error", err)
 				return nil // non-fatal: continue other sources
 			}
 			if len(findings) > 0 {
@@ -262,6 +286,7 @@ func (o *Orchestrator) scanSource(ctx context.Context, src SourceSpec, cfg ScanC
 				batch[i].DataSource = src.SourceType
 				batch[i].Host = host
 				batch[i].Table = tableFromSourcePath(batch[i].SourcePath)
+				findingsTotal.WithLabelValues(batch[i].PIIType, src.SourceType).Inc()
 			}
 			findings = append(findings, batch...)
 
@@ -317,7 +342,9 @@ func (o *Orchestrator) runPresidio(
 		ContextWords:     contextWords,
 		AdHocRecognizers: adHoc,
 	}
+	t0 := time.Now()
 	results := client.Analyze(ctx, rec.Value, opts)
+	presidioLatency.Observe(time.Since(t0).Seconds())
 	if len(results) == 0 {
 		return nil
 	}

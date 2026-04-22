@@ -10,8 +10,11 @@ import (
 )
 
 // SnowflakeConnector scans a Snowflake data warehouse.
-// Config keys: account, user, password, database, warehouse, schema (optional)
-type SnowflakeConnector struct{ db *sql.DB }
+// Config keys: account, user, password, database, warehouse, schema (optional), sample_size (default 1000, max 50000)
+type SnowflakeConnector struct {
+	db         *sql.DB
+	sampleSize int
+}
 
 func (c *SnowflakeConnector) SourceType() string { return "snowflake" }
 
@@ -44,6 +47,7 @@ func (c *SnowflakeConnector) Connect(ctx context.Context, cfg map[string]any) er
 		return err
 	}
 	c.db = db
+	c.sampleSize = cfgInt(cfg, "sample_size", 1000, 50000)
 	return db.PingContext(ctx)
 }
 
@@ -79,7 +83,7 @@ func (c *SnowflakeConnector) StreamFields(ctx context.Context) (<-chan connector
 		}
 
 		for _, t := range tables {
-			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT 10000`, t.schema, t.name)
+			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT %d`, t.schema, t.name, c.sampleSize)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue

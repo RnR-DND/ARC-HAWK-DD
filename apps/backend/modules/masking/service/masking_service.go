@@ -42,7 +42,11 @@ const (
 	MaskingStrategyTokenize MaskingStrategy = "TOKENIZE"
 )
 
-// MaskAsset masks all findings for a given asset
+// MaskAsset masks all findings for a given asset.
+// NOTE: This method masks PII in ARC-HAWK's internal findings table only.
+// It does NOT reach back to the source system (database, S3, SaaS, etc.) to
+// redact the original data. Source-system remediation must be triggered
+// separately via RemediationService.ExecuteRemediation per finding.
 func (s *MaskingService) MaskAsset(ctx context.Context, assetID uuid.UUID, strategy MaskingStrategy, maskedBy string) error {
 	// Validate strategy
 	if !isValidStrategy(strategy) {

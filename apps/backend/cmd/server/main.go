@@ -100,6 +100,11 @@ func main() {
 		log.Println("⚠️  WARNING: AUTH_REQUIRED=false — authentication disabled (dev mode only)")
 	}
 
+	// Warn when Vault credential storage is disabled in production.
+	if ginMode == "release" && !strings.EqualFold(os.Getenv("VAULT_ENABLED"), "true") {
+		log.Println("WARNING: VAULT_ENABLED is not set to true in release mode — credentials stored in PostgreSQL only, not Vault")
+	}
+
 	log.Println("🚀 Starting ARC-Hawk Backend (Modular Monolith Architecture)")
 	log.Println(strings.Repeat("=", 70))
 

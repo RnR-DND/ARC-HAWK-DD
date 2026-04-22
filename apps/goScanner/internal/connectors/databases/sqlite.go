@@ -10,7 +10,10 @@ import (
 )
 
 // SQLiteConnector scans a SQLite database file.
-type SQLiteConnector struct{ db *sql.DB }
+type SQLiteConnector struct {
+	db         *sql.DB
+	sampleSize int
+}
 
 func (c *SQLiteConnector) SourceType() string { return "sqlite" }
 
@@ -24,6 +27,7 @@ func (c *SQLiteConnector) Connect(ctx context.Context, config map[string]any) er
 		return err
 	}
 	c.db = db
+	c.sampleSize = cfgInt(config, "sample_size", 1000, 50000)
 	return db.PingContext(ctx)
 }
 
@@ -57,7 +61,7 @@ func (c *SQLiteConnector) StreamFields(ctx context.Context) (<-chan connectors.F
 		}
 
 		for _, tbl := range tables {
-			query := fmt.Sprintf(`SELECT * FROM "%s" LIMIT 10000`, tbl)
+			query := fmt.Sprintf(`SELECT * FROM "%s" LIMIT %d`, tbl, c.sampleSize)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue

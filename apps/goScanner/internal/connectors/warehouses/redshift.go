@@ -11,8 +11,11 @@ import (
 
 // RedshiftConnector scans an Amazon Redshift cluster.
 // Redshift is PostgreSQL-compatible; this connector uses the lib/pq driver.
-// Config keys: host, port (default 5439), user, password, dbname
-type RedshiftConnector struct{ db *sql.DB }
+// Config keys: host, port (default 5439), user, password, dbname, sample_size (default 1000, max 50000)
+type RedshiftConnector struct {
+	db         *sql.DB
+	sampleSize int
+}
 
 func (c *RedshiftConnector) SourceType() string { return "redshift" }
 
@@ -32,6 +35,7 @@ func (c *RedshiftConnector) Connect(ctx context.Context, cfg map[string]any) err
 		return err
 	}
 	c.db = db
+	c.sampleSize = cfgInt(cfg, "sample_size", 1000, 50000)
 	return db.PingContext(ctx)
 }
 
@@ -67,7 +71,7 @@ func (c *RedshiftConnector) StreamFields(ctx context.Context) (<-chan connectors
 		}
 
 		for _, t := range tables {
-			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT 10000`, t.schema, t.name)
+			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT %d`, t.schema, t.name, c.sampleSize)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue

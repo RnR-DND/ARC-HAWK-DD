@@ -73,6 +73,21 @@ func (e *Engine) Classify(record connectors.FieldRecord, custom []CustomPattern,
 		for _, m := range matches {
 			score, detType := Score(m, pat.PIIType, record, nil, nil)
 			if score >= 50 {
+				if len(pat.ContextKeywords) > 0 {
+					fieldCtx := strings.ToLower(record.FieldName + " " + record.SourcePath)
+					found := false
+					for _, kw := range pat.ContextKeywords {
+						if strings.Contains(fieldCtx, kw) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						score -= 40
+					}
+				}
+			}
+			if score >= 50 {
 				findings = append(findings, ClassifiedFinding{
 					PIIType:        pat.PIIType,
 					ValueHash:      hashValue(m),

@@ -63,6 +63,33 @@ func cfgString(config map[string]any, keys ...string) string {
 	return ""
 }
 
+// cfgInt returns an integer from config[key], clamped to [1, maxVal].
+// Falls back to def when the key is absent, zero, or unparseable.
+func cfgInt(config map[string]any, key string, def, maxVal int) int {
+	v, ok := config[key]
+	if !ok || v == nil {
+		return def
+	}
+	var n int
+	switch t := v.(type) {
+	case float64:
+		n = int(t)
+	case int:
+		n = t
+	case int64:
+		n = int(t)
+	case string:
+		fmt.Sscanf(t, "%d", &n) //nolint:errcheck
+	}
+	if n <= 0 {
+		return def
+	}
+	if n > maxVal {
+		return maxVal
+	}
+	return n
+}
+
 func envPoolInt(name string, def int) int {
 	if v := os.Getenv(name); v != "" {
 		var n int
