@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { theme, getRiskColor } from '@/design-system/theme';
 import Tooltip, { InfoIcon } from '@/components/Tooltip';
 import { complianceApi, type RetentionViolation, type DPDPAGapReport, type SectionSummary } from '@/services/compliance.api';
+import { get } from '@/utils/api-client';
 import type { ComplianceOverview } from '@/types/api';
 
 interface ConsentRecord {
@@ -257,9 +258,14 @@ export default function CompliancePage() {
                                 DPDPA Categories
                             </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <CategoryBar label="Sensitive Personal Data" count={data.critical_exposure.total_findings} color={theme.colors.risk.critical} />
-                                <CategoryBar label="Personal Data" count={data.remediation_queue.length} color={theme.colors.risk.high} />
-                                <CategoryBar label="Non-Personal Data" count={data.total_assets} color={theme.colors.risk.low} />
+                                {(() => {
+                                    const barMax = Math.max(data.critical_exposure.total_findings, data.remediation_queue.length, data.total_assets, 1);
+                                    return (<>
+                                        <CategoryBar label="Sensitive Personal Data" count={data.critical_exposure.total_findings} color={theme.colors.risk.critical} maxCount={barMax} />
+                                        <CategoryBar label="Personal Data" count={data.remediation_queue.length} color={theme.colors.risk.high} maxCount={barMax} />
+                                        <CategoryBar label="Non-Personal Data" count={data.total_assets} color={theme.colors.risk.low} maxCount={barMax} />
+                                    </>);
+                                })()}
                             </div>
                         </div>
 
@@ -326,7 +332,8 @@ function RiskBadge({ level }: { level: string }) {
     );
 }
 
-function CategoryBar({ label, count, color }: { label: string; count: string | number; color: string }) {
+function CategoryBar({ label, count, color, maxCount }: { label: string; count: string | number; color: string; maxCount: number }) {
+    const pct = maxCount > 0 ? Math.round((Number(count) / maxCount) * 100) : 0;
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
@@ -334,7 +341,7 @@ function CategoryBar({ label, count, color }: { label: string; count: string | n
                 <span style={{ color: theme.colors.text.primary, fontWeight: 600 }}>{count}</span>
             </div>
             <div style={{ height: '6px', backgroundColor: theme.colors.background.tertiary, borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: '60%', backgroundColor: color, borderRadius: '3px' }} />
+                <div style={{ height: '100%', width: `${pct}%`, backgroundColor: color, borderRadius: '3px' }} />
             </div>
         </div>
     );
@@ -1180,11 +1187,8 @@ function SystemHealthStatus() {
 
     const fetchHealthData = async () => {
         try {
-            const res = await fetch('/api/v1/health/components');
-            if (res.ok) {
-                const data = await res.json();
-                setHealthData(data);
-            }
+            const data = await get<HealthData>('/health/components');
+            setHealthData(data);
         } catch (error) {
             console.error('Failed to fetch health data', error);
         } finally {

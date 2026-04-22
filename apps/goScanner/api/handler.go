@@ -7,12 +7,29 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/arc-platform/go-scanner/internal/classifier"
 	"github.com/arc-platform/go-scanner/internal/orchestrator"
 	"github.com/arc-platform/go-scanner/internal/presidio"
 	"github.com/gin-gonic/gin"
 )
+
+// defaultScanTimeout caps the total wall-clock a single scan may run.
+// Override with SCAN_TIMEOUT_SECONDS env var (integer seconds).
+const defaultScanTimeout = 30 * time.Minute
+
+func resolveScanTimeout() time.Duration {
+	if v := os.Getenv("SCAN_TIMEOUT_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return time.Duration(n) * time.Second
+		}
+	}
+	return defaultScanTimeout
+}
 
 // presidioClient is shared across scans and set from the Presidio base URL
 // in the PRESIDIO_URL / PRESIDIO_ADDR environment variable. If neither is
@@ -110,17 +127,55 @@ func ScanHandler(c *gin.Context) {
 	orch := orchestrator.NewOrchestrator()
 
 	// Run scan asynchronously; respond immediately with 202 Accepted.
+	// Bound total scan wall-clock so a hung source can't leak goroutines indefinitely.
+	scanTimeout := resolveScanTimeout()
 	go func() {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), scanTimeout)
+		defer cancel()
+
+		// Per-source streaming: ingest each source's findings immediately after
+		// that source completes rather than accumulating all findings in memory.
+		// Peak RSS is bounded to max_concurrency * largest_single_source (P1-1).
+		var (
+			streamMu      sync.Mutex
+			totalSent     int
+			totalFailed   int32 // atomic for goroutine-safe increment
+			totalChunks   int32
+		)
+		if backendURL != "" {
+			cfg.OnBatch = func(batch []classifier.ClassifiedFinding) {
+				chunks := (len(batch) + 1999) / 2000
+				atomic.AddInt32(&totalChunks, int32(chunks))
+				s, f := orchestrator.IngestFindingsBatch(req.ScanID, req.ScanName, req.TenantID, backendURL, batch)
+				streamMu.Lock()
+				totalSent += s
+				streamMu.Unlock()
+				atomic.AddInt32(&totalFailed, int32(f))
+			}
+		}
+
 		findings, err := orch.RunScan(ctx, cfg)
 		if err != nil {
-			log.Printf("ERR: scan %s failed: %v", req.ScanID, err)
+			if ctx.Err() == context.DeadlineExceeded {
+				log.Printf("ERR: scan %s exceeded timeout %s", req.ScanID, scanTimeout)
+			} else {
+				log.Printf("ERR: scan %s failed: %v", req.ScanID, err)
+			}
 			return
 		}
-		log.Printf("Scan %s complete: %d findings across %d sources", req.ScanID, len(findings), len(sourceSpecs))
+
 		if backendURL != "" {
-			if err := orchestrator.IngestFindings(req.ScanID, req.ScanName, req.TenantID, backendURL, findings); err != nil {
-				log.Printf("ERR: ingest failed for scan %s: %v", req.ScanID, err)
+			if cfg.OnBatch != nil {
+				// Streaming was used — send completion signal with aggregate counts.
+				log.Printf("Scan %s streamed: sent=%d failedChunks=%d", req.ScanID, totalSent, totalFailed)
+				orchestrator.SendScanComplete(req.ScanID, req.TenantID, backendURL,
+					totalSent, int(atomic.LoadInt32(&totalFailed)), int(atomic.LoadInt32(&totalChunks)))
+			} else {
+				// Fallback: no streaming (backendURL was empty during config; shouldn't happen).
+				log.Printf("Scan %s complete: %d findings (non-streaming fallback)", req.ScanID, len(findings))
+				if err := orchestrator.IngestFindings(req.ScanID, req.ScanName, req.TenantID, backendURL, findings); err != nil {
+					log.Printf("ERR: ingest failed for scan %s: %v", req.ScanID, err)
+				}
 			}
 		}
 	}()

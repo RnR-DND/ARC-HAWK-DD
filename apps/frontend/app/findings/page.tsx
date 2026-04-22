@@ -7,10 +7,12 @@ import LoadingState from '@/components/LoadingState';
 import { findingsApi } from '@/services/findings.api';
 import { RemediationConfirmationModal } from '@/components/remediation/RemediationConfirmationModal';
 import { remediationApi } from '@/services/remediation.api';
+import { authApi } from '@/services/auth.api';
 
 import type { FindingWithDetails, FindingsResponse } from '@/types';
 
 export default function FindingsPage() {
+    const [currentUserId, setCurrentUserId] = useState<string>('');
     const [findingsData, setFindingsData] = useState<FindingsResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,9 @@ export default function FindingsPage() {
     const [selectedFinding, setSelectedFinding] = useState<FindingWithDetails | null>(null);
 
     useEffect(() => {
+        authApi.getProfile()
+            .then((u) => setCurrentUserId(u.id))
+            .catch((err) => console.error('Failed to load user profile', err));
         findingsApi.getFacets()
             .then(setFacets)
             .catch((err) => console.error('Failed to load findings facets', err));
@@ -151,7 +156,7 @@ export default function FindingsPage() {
             await remediationApi.executeRemediation({
                 finding_ids: [remediationState.findingId],
                 action_type: remediationState.action,
-                user_id: 'current-user'
+                user_id: currentUserId
             });
 
             setRemediationState(prev => ({ ...prev, isOpen: false }));

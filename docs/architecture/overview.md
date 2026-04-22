@@ -4,21 +4,22 @@
 
 ARC-Hawk is a unified platform for Data Lineage and PII Discovery with an "Intelligence-at-Edge" architecture where the Scanner SDK is the sole authority for data classification and validation.
 
-**Version**: 2.1.0  
+**Version**: 3.0.0  
 **Architecture**: 3-Level Semantic Hierarchy
 
 ---
 
 ## Components
 
-### 1. Hawk Scanner (Python)
+### 1. Go Scanner (Go)
 - **Purpose**: PII detection, validation, and classification engine
-- **Technology**: Python with Presidio, custom validators
+- **Technology**: Go 1.24, internal sidecar at `apps/goScanner/` on port `:8001` (internal only)
 - **Capabilities**:
-  - Scans filesystems, databases, and cloud storage
-  - Mathematical validation for 11 locked Indian PII types
-  - Produces `VerifiedFinding` objects with confidence scores
-  - CLI-based architecture with auto-ingestion
+  - 36+ connectors: filesystems, databases, cloud storage, SaaS, file formats
+  - Mathematical validation for 11 locked Indian PII types (Verhoeff, Luhn, Modulo-26)
+  - Presidio NLP integration for entity recognition
+  - Per-source streaming ingestion via Go channels
+  - Python scanner retired in v3.0.0 — do not reference `apps/scanner/`
 
 ### 2. Backend Platform (Go)
 - **Purpose**: Central processing API and orchestration layer
@@ -45,7 +46,7 @@ ARC-Hawk is a unified platform for Data Lineage and PII Discovery with an "Intel
 
 ```mermaid
 graph LR
-    Scanner[Hawk Scanner<br/>Python] -->|VerifiedFinding JSON| API[Backend API<br/>Go]
+    Scanner[Go Scanner<br/>:8001 internal] -->|Batched findings| API[Backend API<br/>Go :8080]
     API -->|Persist| PG[(PostgreSQL<br/>Findings)]
     API -->|Sync| Neo4j[(Neo4j<br/>Lineage Graph)]
     Dashboard[Frontend<br/>Next.js] -->|Read| API
@@ -107,7 +108,7 @@ graph TD
 
 ## Architecture Evolution
 
-### v2.0 → v2.1.0 Migration
+### v2.0 → v3.0.0 Migration
 
 **Previous (Deprecated)**:
 ```
@@ -133,8 +134,8 @@ Edges: SYSTEM_OWNS_ASSET, EXPOSES
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Scanner** | Python 3.9+, Presidio | PII detection & validation |
-| **Backend** | Go 1.21+, Gin, GORM | API & orchestration |
+| **Scanner** | Go 1.24, Presidio (via HTTP) | PII detection & validation |
+| **Backend** | Go 1.24+, Gin, GORM | API & orchestration |
 | **Database** | PostgreSQL 15 | Canonical findings storage |
 | **Graph DB** | Neo4j 5.x | Lineage relationships |
 | **Frontend** | Next.js 14, TypeScript | Visualization dashboard |
@@ -152,8 +153,10 @@ Edges: SYSTEM_OWNS_ASSET, EXPOSES
 - `POST /api/v1/lineage/sync` - Trigger manual Neo4j sync
 
 ### Health
-- `GET /health` - Service health check
-- `GET /api/v1/health/neo4j` - Neo4j connectivity check
+- `GET /livez` - Liveness probe (always 200 while process runs)
+- `GET /readyz` - Readiness probe (503 if PostgreSQL or Neo4j unreachable)
+- `GET /health` - Back-compat alias for `/readyz`
+- `GET /api/v1/health/components` - Per-component health detail
 
 ---
 

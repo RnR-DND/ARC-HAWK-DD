@@ -17,12 +17,21 @@
 - **Styling**: Tailwind CSS
 
 ## Scanner
-- **Language**: Python 3.9+
-- **NLP**: spaCy (`en_core_web_sm`)
-- **Validation**: Custom Algorithms (Verhoeff, Luhn)
-- **Communication**: REST + Temporal Worker
+- **Language**: Go 1.24 (`apps/goScanner/`)
+- **NLP**: Presidio (via HTTP to `presidio-analyzer` container)
+- **Validation**: Custom Algorithms (Verhoeff, Luhn, Weighted Modulo-26)
+- **Connectors**: 36+ (databases, cloud, SaaS, files)
+- **Communication**: REST (receives scan jobs from backend, streams findings back)
+- **Port**: `:8001` internal Docker network only
+- **Note**: Python scanner (`apps/scanner/`) removed in v3.0.0
 
 ## Infrastructure
-- **Containerization**: Docker, Docker Compose
+- **Containerization**: Docker, Docker Compose v2+
 - **CI/CD**: GitHub Actions (planned)
-- **Monitoring**: Prometheus endpoints available
+- **Monitoring**: Prometheus + Grafana (metrics endpoints at `/metrics`)
+- **Secret Management**: HashiCorp Vault (dev mode in docker-compose)
+
+## Developer Tools
+- **OpenAPI**: swaggo (`github.com/swaggo/swag`) — generates `docs/openapi/openapi.yaml` from Go annotations
+- **Migrations**: golang-migrate (`github.com/golang-migrate/migrate/v4`)
+- **Go Version**: 1.24+

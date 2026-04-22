@@ -60,7 +60,17 @@ func NewRateLimiter(config RateLimiterConfig) *RateLimiter {
 	return rl
 }
 
-// Middleware returns a Gin middleware handler for rate limiting
+// Middleware returns a Gin middleware handler for rate limiting.
+//
+// Rate limiting key selection (in order):
+//  1. tenant_id + user_id (from JWT/API-key auth) — prevents one tenant's
+//     noisy user from affecting another tenant. Also immune to X-Forwarded-For
+//     spoofing.
+//  2. Client IP (Gin's ClientIP, honors trusted proxy config) — for
+//     unauthenticated routes (login, register, health).
+//
+// P1-11 replaces the previous IP-only scheme, which let a single shared IP
+// (corporate NAT, mobile carrier) DOS an entire tenant.
 func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if rl == nil {
@@ -68,11 +78,9 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 			return
 		}
 
-		// Use Gin's built-in ClientIP which respects trusted proxy config.
-		// Do NOT blindly trust X-Forwarded-For — it can be spoofed by clients.
-		clientIP := c.ClientIP()
+		key := rateLimitKey(c)
 
-		if !rl.allow(clientIP) {
+		if !rl.allow(key) {
 			c.Header("Retry-After", "60")
 			c.Header("X-RateLimit-Limit", strconv.Itoa(rl.requestsRate))
 			c.Header("X-RateLimit-Remaining", "0")
@@ -86,6 +94,31 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// rateLimitKey chooses a stable identity for rate-limit bucketing.
+func rateLimitKey(c *gin.Context) string {
+	if tenantID, ok := c.Get("tenant_id"); ok && tenantID != nil {
+		if userID, ok := c.Get("user_id"); ok && userID != nil {
+			return "t:" + toStr(tenantID) + "|u:" + toStr(userID)
+		}
+		return "t:" + toStr(tenantID)
+	}
+	return "ip:" + c.ClientIP()
+}
+
+func toStr(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return stringerOrFmt(v)
+}
+
+func stringerOrFmt(v interface{}) string {
+	if s, ok := v.(interface{ String() string }); ok {
+		return s.String()
+	}
+	return ""
 }
 
 // allow checks if the client is allowed to make a request

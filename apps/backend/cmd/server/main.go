@@ -1,3 +1,27 @@
+// @title           ARC-HAWK-DD API
+// @version         3.0.0
+// @description     Enterprise PII Discovery, Classification, and Lineage Tracking Platform.
+// @termsOfService  https://arc-hawk.io/terms
+
+// @contact.name   ARC-Hawk Security Team
+// @contact.email  security@arc-hawk.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT Bearer token. Format: "Bearer <token>"
+
+// @securityDefinitions.apikey APIKeyAuth
+// @in header
+// @name X-API-Key
+// @description Tenant API key for service-to-service authentication
+
 package main
 
 import (
@@ -11,6 +35,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	_ "github.com/arc-platform/backend/docs/openapi"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	swaggerFiles "github.com/swaggo/files"
 
 	"github.com/arc-platform/backend/modules/analytics"
 	"github.com/arc-platform/backend/modules/assets"
@@ -70,6 +98,11 @@ func main() {
 	}
 	if authRequired == "false" {
 		log.Println("⚠️  WARNING: AUTH_REQUIRED=false — authentication disabled (dev mode only)")
+	}
+
+	// Warn when Vault credential storage is disabled in production.
+	if ginMode == "release" && !strings.EqualFold(os.Getenv("VAULT_ENABLED"), "true") {
+		log.Println("WARNING: VAULT_ENABLED is not set to true in release mode — credentials stored in PostgreSQL only, not Vault")
 	}
 
 	log.Println("🚀 Starting ARC-Hawk Backend (Modular Monolith Architecture)")
@@ -326,28 +359,42 @@ func main() {
 		fmt.Fprintf(c.Writer, "arc_hawk_modules_count %d\n", len(registry.GetAll()))
 	})
 
-	// Health check — minimal response to avoid leaking architecture details
-	router.GET("/health", func(c *gin.Context) {
-		dbHealthy := true
-		if err := db.Ping(); err != nil {
-			dbHealthy = false
-		}
-
-		neo4jHealthy := true
-		if err := neo4jRepo.GetDriver().VerifyConnectivity(c.Request.Context()); err != nil {
-			neo4jHealthy = false
-		}
-
-		status := "healthy"
-		if !dbHealthy || !neo4jHealthy {
-			status = "unhealthy"
-		}
-
-		c.JSON(200, gin.H{
-			"status":  status,
-			"service": "arc-platform-backend",
-		})
+	// /livez — always 200 while process is up (Kubernetes liveness probe)
+	router.GET("/livez", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "alive", "service": "arc-platform-backend"})
 	})
+
+	// /readyz — 503 if critical dependencies are down (Kubernetes readiness probe)
+	readyzHandler := func(c *gin.Context) {
+		dbHealthy := db.Ping() == nil
+		neo4jHealthy := neo4jRepo.GetDriver().VerifyConnectivity(c.Request.Context()) == nil
+
+		if !dbHealthy || !neo4jHealthy {
+			c.JSON(503, gin.H{
+				"status":      "unavailable",
+				"service":     "arc-platform-backend",
+				"db_healthy":  dbHealthy,
+				"neo4j_healthy": neo4jHealthy,
+			})
+			return
+		}
+		c.JSON(200, gin.H{
+			"status":      "ready",
+			"service":     "arc-platform-backend",
+			"db_healthy":  true,
+			"neo4j_healthy": true,
+		})
+	}
+	router.GET("/readyz", readyzHandler)
+	// /health kept as back-compat alias for /readyz with correct status code
+	router.GET("/health", readyzHandler)
+
+	// Swagger UI — open in dev, admin-gated in release
+	if os.Getenv("GIN_MODE") == "release" {
+		router.GET("/swagger/*any", authMW.Authenticate(), authMW.RequireRole("admin"), ginSwagger.WrapHandler(swaggerFiles.Handler))
+	} else {
+		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// Register all module routes
 	log.Println("\n🛣️  Registering Module Routes...")
@@ -358,7 +405,7 @@ func main() {
 		module.RegisterRoutes(apiV1)
 	}
 
-	healthHandler := api.NewHealthHandler(db, neo4jRepo)
+	healthHandler := api.NewHealthHandler(db, neo4jRepo, vaultClient)
 	apiV1.GET("/health/components", healthHandler.GetComponentsHealth)
 
 	log.Println("\n✅ All routes registered")
@@ -452,7 +499,7 @@ func validateRequiredEnvVars() {
 		log.Println("⚠️  WARNING: POSTGRES_PASSWORD is a placeholder — set a strong password for production")
 	}
 
-	// B-12: Enforce strong secrets in release mode
+	// B-12 + P1-4: Enforce strong secrets and transport security in release mode
 	ginMode := os.Getenv("GIN_MODE")
 	encKey := os.Getenv("ENCRYPTION_KEY")
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -465,6 +512,48 @@ func validateRequiredEnvVars() {
 		}
 		if os.Getenv("DB_SSLMODE") == "disable" {
 			log.Fatal("FATAL: DB_SSLMODE=disable is not allowed in release mode")
+		}
+
+		// Vault integration: if enabled, require HTTPS and a non-dev token.
+		if strings.EqualFold(os.Getenv("VAULT_ENABLED"), "true") {
+			addr := os.Getenv("VAULT_ADDR")
+			if !strings.HasPrefix(addr, "https://") {
+				log.Fatal("FATAL: VAULT_ADDR must use https:// in release mode when VAULT_ENABLED=true")
+			}
+			token := os.Getenv("VAULT_TOKEN")
+			if len(token) < 32 {
+				log.Fatal("FATAL: VAULT_TOKEN must be at least 32 characters in release mode")
+			}
+			if token == "arc-hawk-dev-token" || strings.HasPrefix(token, "dev-") {
+				log.Fatal("FATAL: VAULT_TOKEN appears to be a dev token; rotate before release")
+			}
+		}
+
+		// Scanner service token: required in release mode so the backend →
+		// go-scanner channel is actually authenticated.
+		scannerToken := os.Getenv("SCANNER_SERVICE_TOKEN")
+		if scannerToken == "" || len(scannerToken) < 32 {
+			log.Fatal("FATAL: SCANNER_SERVICE_TOKEN must be at least 32 characters in release mode")
+		}
+		if scannerToken == "dev-scanner-token-change-me" {
+			log.Fatal("FATAL: SCANNER_SERVICE_TOKEN is still the default placeholder; rotate before release")
+		}
+
+		// P1-5: Neo4j Bolt TLS — bolt:// transmits credentials in plaintext.
+		neo4jURI := os.Getenv("NEO4J_URI")
+		if strings.HasPrefix(neo4jURI, "bolt://") {
+			log.Fatal("FATAL: NEO4J_URI must use bolt+ssc:// or neo4j+s:// in release mode (not plaintext bolt://)")
+		}
+
+		// P1-6: Temporal TLS — plaintext gRPC leaks workflow payloads.
+		if !strings.EqualFold(os.Getenv("TEMPORAL_TLS_ENABLED"), "true") {
+			log.Fatal("FATAL: TEMPORAL_TLS_ENABLED must be true in release mode")
+		}
+
+		// Remediation: warn if enabled, since connectors are stubs. Don't fail
+		// the boot — operators may have verified connectors — but make it loud.
+		if strings.EqualFold(os.Getenv("REMEDIATION_ENABLED"), "true") {
+			log.Println("⚠️  WARNING: REMEDIATION_ENABLED=true in release mode — verify that every connector actually mutates source data")
 		}
 	}
 }

@@ -415,6 +415,39 @@ Fixes #456
 
 ---
 
+## Agentic Development Toolchain
+
+This project ships four AI productivity tools used by the core team. Contributors are welcome to use them.
+
+| Tool | Location | Purpose |
+|------|----------|---------|
+| **Antigravity Skills** | `.agent/skills/` | 860+ expert markdown skills loaded via `@skill-name` |
+| **Ralph** | `.agent/ralph/` | Autonomous PRD iteration loop (`prd.json` + `ralph.sh`) |
+| **Hive** | `.agent/hive/` | Goal-driven multi-agent framework |
+| **gstack** | `.claude/` | Development workflow orchestrator (use skills like `/review`, `/qa`, `/ship`) |
+
+### Key skills for this stack
+
+| Working On | Skills to load |
+|---|---|
+| Go backend | `@golang-pro`, `@api-design-principles`, `@test-driven-development` |
+| Next.js frontend | `@nextjs-best-practices`, `@react-patterns` |
+| Security | `@api-security-best-practices` |
+| Architecture | `@senior-architect` |
+
+### OpenAPI spec
+
+After changing any handler in `apps/backend/modules/*/api/*.go`, regenerate the spec:
+
+```bash
+make openapi
+# or: cd apps/backend && swag init -g cmd/server/main.go -o ../../docs/openapi
+```
+
+Commit the updated `docs/openapi/openapi.yaml` alongside your code changes.
+
+---
+
 ## Questions?
 
 - **General Questions**: [GitHub Discussions](../../discussions)
@@ -423,4 +456,4 @@ Fixes #456
 
 ---
 
-Thank you for contributing to ARC-Hawk! 🎉
+Thank you for contributing to ARC-Hawk!

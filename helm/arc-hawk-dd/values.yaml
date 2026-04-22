@@ -26,6 +26,7 @@ backend:
     AUTH_REQUIRED: "true"
     LOG_LEVEL: "info"
     TEMPORAL_ENABLED: "true"
+    VAULT_ENABLED: "false"    # set to "true" when vault.enabled is true
   # Secrets — set via --set or external secrets manager
   secrets:
     DATABASE_URL: ""
@@ -37,11 +38,11 @@ backend:
     REDIS_URL: ""
     TEMPORAL_HOST: ""
   livenessProbe:
-    httpGet: { path: /health, port: 8080 }
+    httpGet: { path: /livez, port: 8080 }
     initialDelaySeconds: 15
     periodSeconds: 20
   readinessProbe:
-    httpGet: { path: /health, port: 8080 }
+    httpGet: { path: /readyz, port: 8080 }
     initialDelaySeconds: 10
     periodSeconds: 10
 
@@ -73,12 +74,12 @@ frontend:
     periodSeconds: 10
 
 # ---------------------------------------------------------------------------
-# Scanner (Python/Flask)
+# Scanner (Go — internal sidecar, not exposed externally)
 # ---------------------------------------------------------------------------
 scanner:
   enabled: true
   image:
-    repository: arc-platform/scanner
+    repository: arc-platform/go-scanner
     tag: "latest"
     pullPolicy: IfNotPresent
   replicaCount: 1
@@ -87,18 +88,20 @@ scanner:
     limits:   { cpu: "2",    memory: "2Gi" }
   service:
     type: ClusterIP
-    port: 8000
+    port: 8001              # internal only — no Ingress route to this port
   env:
-    REDIS_URL: ""
-    ANTHROPIC_API_KEY: ""
     BACKEND_URL: "http://backend:8080"
+    PRESIDIO_URL: "http://presidio-analyzer:5001"
+    SCAN_TIMEOUT_SECONDS: "1800"
+  secrets:
+    SCANNER_SERVICE_TOKEN: ""   # required — set via --set or external secrets manager
   livenessProbe:
-    httpGet: { path: /health, port: 8000 }
-    initialDelaySeconds: 30
+    httpGet: { path: /health, port: 8001 }
+    initialDelaySeconds: 15
     periodSeconds: 20
   readinessProbe:
-    httpGet: { path: /health, port: 8000 }
-    initialDelaySeconds: 20
+    httpGet: { path: /health, port: 8001 }
+    initialDelaySeconds: 10
     periodSeconds: 10
 
 # ---------------------------------------------------------------------------
@@ -297,49 +300,6 @@ ingress:
           pathType: Prefix
           service: frontend
   tls: []
-
-# ---------------------------------------------------------------------------
-# Celery Workers (per-queue configuration)
-# ---------------------------------------------------------------------------
-celeryWorkers:
-  enabled: true
-  defaults:
-    replicaCount: 2
-    concurrency: 4
-    imagePullPolicy: IfNotPresent
-    resources:
-      requests: { cpu: "500m", memory: "1Gi" }
-      limits:   { cpu: "2",    memory: "2Gi" }
-  keda:
-    enabled: true
-    pollingInterval: 15
-    cooldownPeriod: 120
-    minReplicaCount: 2
-    maxReplicaCount: 20
-    listLength: 50
-    redisAddress: "redis.hawk.svc.cluster.local:6379"
-  queues:
-    scan_default:
-      replicaCount: 2
-      concurrency: 4
-    classify:
-      replicaCount: 2
-      concurrency: 4
-    ingest_streaming:
-      replicaCount: 2
-      concurrency: 4
-    ingest_cloud:
-      replicaCount: 2
-      concurrency: 4
-    ingest_agent:
-      replicaCount: 2
-      concurrency: 4
-    remediation:
-      replicaCount: 2
-      concurrency: 4
-    escalation:
-      replicaCount: 2
-      concurrency: 2
 
 # ---------------------------------------------------------------------------
 # Network Policy

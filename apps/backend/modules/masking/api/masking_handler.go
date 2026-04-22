@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/arc-platform/backend/modules/masking/service"
@@ -68,6 +69,10 @@ func (h *MaskingHandler) MaskAsset(c *gin.Context) {
 		})
 		return
 	}
+
+	// Internal findings table updated. Source-system data is NOT redacted here.
+	// Operators must invoke RemediationService per-finding to reach the source system.
+	log.Printf("masking: asset %s masked in findings table (strategy=%s, by=%s) — source-system data unchanged", req.AssetID, req.Strategy, maskedBy)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "Asset masked successfully",

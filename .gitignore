@@ -125,6 +125,11 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 .venv
 env/
 venv/
@@ -239,3 +244,4 @@ graphify-out/
 apps/goScanner/scanner
 apps/frontend/tsconfig.tsbuildinfo
 .claire/
+.agent/agentsys/

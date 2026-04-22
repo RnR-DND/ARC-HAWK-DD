@@ -86,11 +86,46 @@ func (c *SalesforceConnector) StreamFields(ctx context.Context) (<-chan connecto
 		}
 
 		for _, obj := range objects {
-			query := fmt.Sprintf("SELECT %s FROM %s LIMIT 10000", strings.Join(obj.fields, ","), obj.name)
-			c.querySalesforce(ctx, query, obj.name, obj.fields, out)
+			// Validate object and field names before interpolating into SOQL.
+			// Salesforce identifiers are [A-Za-z][A-Za-z0-9_]*; anything else
+			// is either injection or a config error.
+			if !validSOQLIdent(obj.name) {
+				continue
+			}
+			safeFields := obj.fields[:0]
+			for _, f := range obj.fields {
+				if validSOQLIdent(f) {
+					safeFields = append(safeFields, f)
+				}
+			}
+			if len(safeFields) == 0 {
+				continue
+			}
+			query := fmt.Sprintf("SELECT %s FROM %s LIMIT 10000", strings.Join(safeFields, ","), obj.name)
+			c.querySalesforce(ctx, query, obj.name, safeFields, out)
 		}
 	}()
 	return out, errc
+}
+
+// validSOQLIdent reports whether s is a safe SOQL identifier (object or field
+// name). SOQL identifiers cannot contain whitespace, quotes, semicolons, or
+// other characters an attacker could use to break out of the identifier.
+func validSOQLIdent(s string) bool {
+	if s == "" || len(s) > 64 {
+		return false
+	}
+	for i, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z':
+		case r >= 'a' && r <= 'z':
+		case r == '_':
+		case r >= '0' && r <= '9' && i > 0:
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func (c *SalesforceConnector) querySalesforce(ctx context.Context, query, objName string, fields []string, out chan<- connectors.FieldRecord) {

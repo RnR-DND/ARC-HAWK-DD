@@ -7,8 +7,7 @@ metadata:
   labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  REDIS_URL: {{ .Values.scanner.env.REDIS_URL | quote }}
-  ANTHROPIC_API_KEY: {{ .Values.scanner.env.ANTHROPIC_API_KEY | quote }}
+  SCANNER_SERVICE_TOKEN: {{ .Values.scanner.secrets.SCANNER_SERVICE_TOKEN | quote }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -36,6 +35,10 @@ spec:
           env:
             - name: BACKEND_URL
               value: {{ .Values.scanner.env.BACKEND_URL | quote }}
+            - name: PRESIDIO_URL
+              value: {{ .Values.scanner.env.PRESIDIO_URL | quote }}
+            - name: SCAN_TIMEOUT_SECONDS
+              value: {{ .Values.scanner.env.SCAN_TIMEOUT_SECONDS | quote }}
           envFrom:
             - secretRef:
                 name: {{ include "arc-hawk-dd.fullname" . }}-scanner-secrets

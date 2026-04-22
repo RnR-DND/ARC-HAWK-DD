@@ -268,7 +268,8 @@ export default function AnalyticsPage() {
                         gap: '8px'
                     }}>
                         {trend && trend.timeline.map((point, i) => {
-                            const height = Math.max(10, Math.min(200, point.total_pii * 2)); // Scale logic placeholder
+                            const maxPii = Math.max(...trend.timeline.map((p: any) => p.total_pii), 1);
+                            const height = Math.max(10, Math.round((point.total_pii / maxPii) * 200));
                             return (
                                 <div key={point.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                     <div style={{

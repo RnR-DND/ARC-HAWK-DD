@@ -86,16 +86,15 @@ If a session pauses, use the handoff file at `.continue-here.md` to preserve con
 
 This project ships four integrated AI productivity tools. Use them.
 
-### 1. Antigravity Skills (`.agent/skills/`)
-860+ expert markdown skills. Load with `@skill-name` in your prompt. Key skills for this stack:
-- **Go backend**: `@golang-pro`, `@go-concurrency-patterns`, `@api-design-principles`, `@backend-security-coder`
-- **Frontend**: `@nextjs-best-practices`, `@nextjs-app-router-patterns`, `@react-best-practices`
-- **Scanner**: `@python-pro`, `@python-patterns`, `@python-testing-patterns`, `@async-python-patterns`
-- **Infra**: `@docker-expert`, `@postgres-best-practices`, `@postgresql`
-- **Security**: `@api-security-best-practices`, `@cc-skill-security-review`
-- **Testing**: `@test-driven-development`, `@e2e-testing-patterns`
+### 1. Awesome Claude Skills (`~/.claude/skills/`)
+860 skills from [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills), usable directly as `/skill-name`. Key skills for this stack:
+- **Dev tools**: `/changelog-generator`, `/artifacts-builder`, `/mcp-builder`, `/webapp-testing`
+- **Content**: `/content-research-writer`, `/tailored-resume-generator`, `/internal-comms`
+- **Productivity**: `/file-organizer`, `/meeting-insights-analyzer`, `/skill-creator`
+- **App automation** (500+ SaaS apps): `/slack-automation`, `/jira-automation`, `/github-automation`, `/notion-automation`, `/gmail-automation`
+- **Media**: `/video-downloader`, `/canvas-design`, `/theme-factory`, `/image-enhancer`
 
-Use these skills when implementing features to get expert-level patterns automatically applied.
+Use `/skill-name` directly — no `@` prefix needed.
 
 ### 2. Ralph — Autonomous PRD Loop (`.agent/ralph/`)
 Spec-driven autonomous iteration. To run:

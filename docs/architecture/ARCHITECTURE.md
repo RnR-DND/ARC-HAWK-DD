@@ -4,7 +4,7 @@
 
 The platform is an enterprise-grade Data Intelligence and Risk Management system designed to discover, classify, and track Personally Identifiable Information (PII) across heterogeneous data sources. Built on an **Event-Driven, Orchestrated Architecture**, the system ensures reliable, scalable, and resilient processing of scanning and remediation tasks.
 
-**Version**: 1.0.0 (Production Ready)  
+**Version**: 3.0.0 (Production Ready)  
 **Architecture Pattern**: Modular Monolith with Temporal Orchestration  
 **Deployment Model**: Hybrid (On-Premise / Cloud-Agnostic)
 
@@ -37,11 +37,13 @@ Long-running processes (Scans, Remediation) are managed by **Temporal Workflows*
 - Manage Remediation (Mask/Delete -> Verify)
 - Heartbeating & Retries
 
-### 2. Scanner Worker (Python)
+### 2. Go Scanner (Go)
 **Purpose**: High-performance PII detection engine.
-- **Input**: Configuration from Backend/Temporal.
-- **Processing**: spaCy NLP + Custom Validation Algorithms.
-- **Output**: Verified findings pushed to Backend API.
+- **Location**: `apps/goScanner/` — canonical scanner; Python scanner retired in v3.0.0.
+- **Input**: Scan job dispatched from Backend via `POST /scan` with `X-Scanner-Token`.
+- **Processing**: 36+ connectors, Presidio NLP + mathematical validation (Verhoeff, Luhn, Modulo-26).
+- **Output**: Verified findings streamed back to Backend API in batches.
+- **Port**: `:8001` (internal Docker network only — not exposed to host).
 
 ### 3. Backend API (Go)
 **Purpose**: Central management, persistence, and API layer.
@@ -71,7 +73,7 @@ Long-running processes (Scans, Remediation) are managed by **Temporal Workflows*
 graph LR
     User[Dashboard] -->|Trigger| API[Backend API]
     API -->|Start Workflow| Temporal[Temporal Server]
-    Temporal -->|Dispatch| Worker[Scanner Worker]
+    Temporal -->|Dispatch| Worker[Go Scanner :8001]
     Worker -->|Scan| Sources[Data Sources]
     Worker -->|Results| API
     API -->|Store| PG[(PostgreSQL)]
@@ -109,8 +111,8 @@ graph LR
     │  └──────────┐
     │             ▼
 ┌───▼────┐    ┌──────────┐
-│Temporal│◄──►│ Scanner  │
-│Server  │    │ Workers  │ (Scalable)
+│Temporal│◄──►│Go Scanner│
+│Server  │    │ :8001    │ (Scalable)
 └────────┘    └──────────┘
 ```
 

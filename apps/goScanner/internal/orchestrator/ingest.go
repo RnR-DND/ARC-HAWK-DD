@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/arc-platform/go-scanner/internal/classifier"
@@ -16,7 +17,13 @@ const (
 	ingestChunkSize     = 2000
 	ingestChunkPause    = 2 * time.Second
 	ingestProgressEvery = 500
+	ingestMaxAttempts   = 3
+	ingestBackoffBase   = 2 * time.Second
 )
+
+// scannerServiceToken is read at package init and reused across requests.
+// Empty string means no token; backend should then reject in release mode.
+var scannerServiceToken = os.Getenv("SCANNER_SERVICE_TOKEN")
 
 // ingestClient is reused across scans to keep the connection pool warm and
 // amortize TLS / keep-alive setup against the backend.
@@ -42,6 +49,7 @@ func IngestFindings(scanID, scanName, tenantID, backendURL string, findings []cl
 	var (
 		sent         int
 		failedChunks int
+		totalChunks  = (total + ingestChunkSize - 1) / ingestChunkSize
 	)
 	for i := 0; i < total; i += ingestChunkSize {
 		end := min(i+ingestChunkSize, total)
@@ -55,26 +63,10 @@ func IngestFindings(scanID, scanName, tenantID, backendURL string, findings []cl
 			continue
 		}
 
-		httpReq, err := http.NewRequest("POST", backendURL+"/api/v1/scans/ingest-verified", bytes.NewReader(data))
-		if err != nil {
-			log.Printf("WARN: ingest request build failed: %v", err)
+		if err := sendIngestChunkWithRetry(tenantID, backendURL, data, i, end); err != nil {
 			failedChunks++
 			continue
 		}
-		httpReq.Header.Set("Content-Type", "application/json")
-		if tenantID != "" {
-			httpReq.Header.Set("X-Tenant-ID", tenantID)
-		}
-		resp, err := ingestClient.Do(httpReq)
-		if err != nil {
-			if resp != nil {
-				_ = resp.Body.Close()
-			}
-			log.Printf("WARN: ingest chunk %d-%d failed: %v", i, end, err)
-			failedChunks++
-			continue
-		}
-		_ = resp.Body.Close()
 		sent = end
 
 		if sent%ingestProgressEvery == 0 || sent == total {
@@ -87,17 +79,104 @@ func IngestFindings(scanID, scanName, tenantID, backendURL string, findings []cl
 		}
 	}
 
-	log.Printf("Ingested %d/%d findings for scan %s (%d chunks failed)", sent, total, scanID, failedChunks)
-	if failedChunks > 0 {
-		// Still signal completion so the scan doesn't hang in "running" and
-		// later get flipped to "timeout" by the backend sweeper. Pass status
-		// "failed" with a diagnostic message — backend will record it.
+	log.Printf("Ingested %d/%d findings for scan %s (%d/%d chunks failed)", sent, total, scanID, failedChunks, totalChunks)
+	if failedChunks == totalChunks {
+		// All chunks failed — hard failure.
 		sendComplete(tenantID, backendURL, scanID, "failed",
-			fmt.Sprintf("%d of %d ingest chunks failed", failedChunks, (total+ingestChunkSize-1)/ingestChunkSize))
+			fmt.Sprintf("all %d ingest chunks failed after %d attempts each", totalChunks, ingestMaxAttempts))
+		return fmt.Errorf("ingest failed: all %d chunks failed", totalChunks)
+	}
+	if failedChunks > 0 {
+		// Partial success — mark scan partial so operators know not to trust
+		// the finding count as complete.
+		sendComplete(tenantID, backendURL, scanID, "partial",
+			fmt.Sprintf("%d of %d ingest chunks failed after %d retry attempts each (sent %d of %d findings)",
+				failedChunks, totalChunks, ingestMaxAttempts, sent, total))
 		return fmt.Errorf("ingest completed with %d failed chunks (sent %d/%d findings)", failedChunks, sent, total)
 	}
 	sendComplete(tenantID, backendURL, scanID, "completed", "")
 	return nil
+}
+
+// IngestFindingsBatch sends a batch of findings to the backend without
+// emitting a scan-complete signal. Used for per-source streaming to keep
+// peak memory proportional to max_concurrency * source_size rather than
+// total_all_sources. Returns (totalSent, failedChunks).
+func IngestFindingsBatch(scanID, scanName, tenantID, backendURL string, findings []classifier.ClassifiedFinding) (sent, failedChunks int) {
+	for i := 0; i < len(findings); i += ingestChunkSize {
+		end := min(i+ingestChunkSize, len(findings))
+		payload := buildPayload(scanID, scanName, findings[i:end])
+		data, err := json.Marshal(payload)
+		if err != nil {
+			log.Printf("WARN: batch marshal failed (chunk %d-%d): %v", i, end, err)
+			failedChunks++
+			continue
+		}
+		if err := sendIngestChunkWithRetry(tenantID, backendURL, data, i, end); err != nil {
+			failedChunks++
+			continue
+		}
+		sent += end - i
+	}
+	return
+}
+
+// SendScanComplete signals the backend that a scan has finished. Callers that
+// used IngestFindingsBatch for streaming must call this once after all batches
+// are sent so the scan transitions out of the "running" state.
+func SendScanComplete(scanID, tenantID, backendURL string, totalSent, totalFailed, totalChunks int) {
+	switch {
+	case totalFailed == totalChunks && totalChunks > 0:
+		sendComplete(tenantID, backendURL, scanID, "failed",
+			fmt.Sprintf("all %d ingest chunks failed", totalChunks))
+	case totalFailed > 0:
+		sendComplete(tenantID, backendURL, scanID, "partial",
+			fmt.Sprintf("%d of %d ingest chunks failed (sent %d findings)", totalFailed, totalChunks, totalSent))
+	default:
+		sendComplete(tenantID, backendURL, scanID, "completed", "")
+	}
+}
+
+// sendIngestChunkWithRetry posts one chunk, retrying transient failures with
+// exponential backoff (2s, 4s, 8s). Returns nil if the chunk eventually
+// succeeded, or the last error after ingestMaxAttempts.
+func sendIngestChunkWithRetry(tenantID, backendURL string, data []byte, startIdx, endIdx int) error {
+	var lastErr error
+	for attempt := 1; attempt <= ingestMaxAttempts; attempt++ {
+		req, err := http.NewRequest("POST", backendURL+"/api/v1/scans/ingest-verified", bytes.NewReader(data))
+		if err != nil {
+			return fmt.Errorf("build request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if tenantID != "" {
+			req.Header.Set("X-Tenant-ID", tenantID)
+		}
+		if scannerServiceToken != "" {
+			req.Header.Set("X-Scanner-Token", scannerServiceToken)
+		}
+		resp, err := ingestClient.Do(req)
+		if err != nil {
+			lastErr = err
+			log.Printf("WARN: ingest chunk %d-%d attempt %d/%d transport error: %v",
+				startIdx, endIdx, attempt, ingestMaxAttempts, err)
+		} else {
+			_ = resp.Body.Close()
+			// 2xx counts as success. 4xx is unlikely to resolve on retry
+			// (bad payload, bad auth), so fail fast instead of looping.
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return nil
+			}
+			if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+				return fmt.Errorf("ingest chunk %d-%d rejected by backend with status %d", startIdx, endIdx, resp.StatusCode)
+			}
+			lastErr = fmt.Errorf("ingest chunk %d-%d got status %d", startIdx, endIdx, resp.StatusCode)
+			log.Printf("WARN: %v (attempt %d/%d)", lastErr, attempt, ingestMaxAttempts)
+		}
+		if attempt < ingestMaxAttempts {
+			time.Sleep(time.Duration(1<<uint(attempt-1)) * ingestBackoffBase)
+		}
+	}
+	return lastErr
 }
 
 // sendComplete signals the backend that this scan is done. Without this call
@@ -119,6 +198,9 @@ func sendComplete(tenantID, backendURL, scanID, status, message string) {
 	req.Header.Set("Content-Type", "application/json")
 	if tenantID != "" {
 		req.Header.Set("X-Tenant-ID", tenantID)
+	}
+	if scannerServiceToken != "" {
+		req.Header.Set("X-Scanner-Token", scannerServiceToken)
 	}
 	resp, err := ingestClient.Do(req)
 	if err != nil {
@@ -187,6 +269,9 @@ func sendProgressEvent(client *http.Client, tenantID, backendURL, scanID string,
 	req.Header.Set("Content-Type", "application/json")
 	if tenantID != "" {
 		req.Header.Set("X-Tenant-ID", tenantID)
+	}
+	if scannerServiceToken != "" {
+		req.Header.Set("X-Scanner-Token", scannerServiceToken)
 	}
 	resp, err := client.Do(req)
 	if err != nil {

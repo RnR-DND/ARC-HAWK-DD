@@ -26,20 +26,31 @@ export const apiClient: AxiosInstance = axios.create({
 });
 
 // Response Interceptor
+// Global 401 handling: set a localStorage flag so the login page can display
+// "Your session expired". Debounced to avoid a redirect storm when many API
+// calls fail simultaneously.
+let sessionExpiredRedirectInFlight = false;
 apiClient.interceptors.response.use(
     (response: AxiosResponse) => response,
     async (error: AxiosError) => {
-        // Log Error
         console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
             status: error.response?.status,
             data: error.response?.data,
             message: error.message
         });
 
-        // Redirect to login on auth failure
         if (error.response?.status === 401 || error.response?.status === 403) {
-            if (typeof window !== 'undefined') {
-                window.location.href = '/login';
+            if (typeof window !== 'undefined' && !sessionExpiredRedirectInFlight) {
+                sessionExpiredRedirectInFlight = true;
+                try {
+                    window.localStorage.setItem('session_expired', '1');
+                } catch {
+                    /* localStorage blocked — carry on */
+                }
+                const current = window.location.pathname + window.location.search;
+                if (!window.location.pathname.startsWith('/login')) {
+                    window.location.href = `/login?redirect=${encodeURIComponent(current)}`;
+                }
             }
         }
 

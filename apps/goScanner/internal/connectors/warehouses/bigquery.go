@@ -11,11 +11,12 @@ import (
 )
 
 // BigQueryConnector scans BigQuery datasets and tables.
-// Config keys: project_id, credentials_json (optional), dataset (optional, scans all if empty)
+// Config keys: project_id, credentials_json (optional), dataset (optional, scans all if empty), sample_size (default 1000, max 50000)
 type BigQueryConnector struct {
-	client    *bigquery.Client
-	projectID string
-	dataset   string
+	client     *bigquery.Client
+	projectID  string
+	dataset    string
+	sampleSize int
 }
 
 func (c *BigQueryConnector) SourceType() string { return "bigquery" }
@@ -38,7 +39,11 @@ func (c *BigQueryConnector) Connect(ctx context.Context, cfg map[string]any) err
 
 	var err error
 	c.client, err = bigquery.NewClient(ctx, c.projectID, opts...)
-	return err
+	if err != nil {
+		return err
+	}
+	c.sampleSize = cfgInt(cfg, "sample_size", 1000, 50000)
+	return nil
 }
 
 func (c *BigQueryConnector) Close() error {
@@ -107,7 +112,7 @@ func (c *BigQueryConnector) scanDataset(ctx context.Context, datasetID string, o
 }
 
 func (c *BigQueryConnector) scanTable(ctx context.Context, datasetID, tableID string, out chan<- connectors.FieldRecord) error {
-	q := c.client.Query(fmt.Sprintf("SELECT * FROM `%s.%s.%s` LIMIT 10000", c.projectID, datasetID, tableID))
+	q := c.client.Query(fmt.Sprintf("SELECT * FROM `%s.%s.%s` LIMIT %d", c.projectID, datasetID, tableID, c.sampleSize))
 	it, err := q.Read(ctx)
 	if err != nil {
 		return err

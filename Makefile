@@ -22,7 +22,7 @@
 #   deploy-production - Deploy to production
 # =============================================================================
 
-.PHONY: start stop restart logs build rebuild clean status test test-backend test-frontend test-scanner deploy deploy-staging deploy-production
+.PHONY: start stop restart logs build rebuild clean status test test-backend test-frontend test-scanner deploy deploy-staging deploy-production openapi verify
 
 # Default target
 all: start
@@ -117,6 +117,29 @@ deploy-production:
 	else \
 		echo "Aborted!"; \
 	fi
+
+# Generate OpenAPI spec from swaggo annotations
+openapi:
+	@echo "Generating OpenAPI spec..."
+	@cd apps/backend && ~/go/bin/swag init -g cmd/server/main.go -o docs/openapi --parseDependency --parseInternal
+	@echo "✅ OpenAPI spec generated at apps/backend/docs/openapi/"
+
+# Run full verification suite (build + tests + lint + helm)
+verify:
+	@echo "=== ARC-Hawk Verification Suite ==="
+	@echo "--- Backend build ---"
+	cd apps/backend && go build ./...
+	@echo "--- Backend vet ---"
+	cd apps/backend && go vet ./...
+	@echo "--- Backend tests ---"
+	cd apps/backend && go test ./... -short
+	@echo "--- Scanner build ---"
+	cd apps/goScanner && go build ./...
+	@echo "--- Scanner vet ---"
+	cd apps/goScanner && go vet ./...
+	@echo "--- Helm lint ---"
+	helm lint helm/arc-hawk-dd/
+	@echo "=== ✅ Verification complete ==="
 
 # Help
 help:

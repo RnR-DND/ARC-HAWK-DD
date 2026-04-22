@@ -1,3 +1,9 @@
+# LEGACY: These manifests reference Python Celery workers that have no active
+# implementation in the current Go-based architecture. ARC-HAWK-DD's scanner
+# pipeline runs as Go services; these Kubernetes resources are placeholders.
+# Do NOT deploy without first implementing the backing Celery application code,
+# or replace with the Go-native worker pattern. See TODO.md (F-23).
+
 {{- if .Values.celeryWorkers.enabled }}
 {{- $root := . }}
 {{- range $queueName, $queueConfig := .Values.celeryWorkers.queues }}

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -350,7 +351,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 
 		decision, err := s.classifier.ClassifyMultiSignal(ctx, multiSignalInput)
 		if err != nil {
-			log.Printf("WARN: classification failed for %s: %v — skipping finding", hawkeyeFinding.PatternName, err)
+			slog.WarnContext(ctx, "classification failed, skipping finding", "pattern", hawkeyeFinding.PatternName, "error", err)
 			continue
 		}
 
@@ -576,7 +577,17 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 	// Recalculate asset risk AFTER commit so CountFindings sees committed rows
 	for _, assetID := range assetIDs {
 		if err := s.recalculateAssetRisk(ctx, assetID); err != nil {
-			log.Printf("Error recalculating risk for asset %s: %v", assetID, err)
+			slog.ErrorContext(ctx, "risk recalculation failed", "asset_id", assetID, "error", err)
+		}
+	}
+
+	// C4/C5: Sync PII categories to Neo4j for lineage graph (3-level contract: System → Asset → PII_Category)
+	// This runs after commit to avoid blocking the transaction. Failures are non-fatal (logged only).
+	if s.neo4jRepo != nil {
+		for assetID, piiTypes := range assetPIIMap {
+			if err := s.neo4jRepo.SyncFindingsToPIICategories(ctx, assetID.String(), piiTypes); err != nil {
+				slog.WarnContext(ctx, "neo4j PII category sync failed", "asset_id", assetID, "error", err)
+			}
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
+	"github.com/arc-platform/backend/modules/shared/scoring"
 	"github.com/google/uuid"
 )
 
@@ -140,6 +141,12 @@ func assetDisplayName(dataSource, cleanHost, rawHost string) string {
 // MapToFinding creates a Finding entity from SDK finding
 func (a *SDKAdapter) MapToFinding(vf *VerifiedFinding, scanRunID, assetID uuid.UUID) *entity.Finding {
 	severity := determineSeverity(vf.PIIType)
+	riskScore := int(scoring.ComputeRiskScore(scoring.RiskScoreParams{
+		PIIType:        vf.PIIType,
+		Confidence:     vf.MLConfidence,
+		PIIDensity:     1.0, // single-finding context; density unknown at this point
+		AccessExposure: 0.5, // default internal; enriched later when asset accessibility is known
+	}))
 
 	evidence := vf.EvidenceValue()
 	return &entity.Finding{
@@ -152,6 +159,7 @@ func (a *SDKAdapter) MapToFinding(vf *VerifiedFinding, scanRunID, assetID uuid.U
 		SampleText:          evidence,
 		Severity:            severity,
 		SeverityDescription: getSeverityDescription(severity),
+		RiskScore:           riskScore,
 		ConfidenceScore:     floatPtr(vf.MLConfidence),
 		Context: map[string]any{
 			"keywords":    vf.ContextKeywords,

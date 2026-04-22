@@ -76,9 +76,11 @@ services:
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.12
-    # Removed host port mapping - purely internal service
-    ports:
-      - "3001:3000"
+    # Internal-only — reachable from backend/scanner on the Docker network.
+    # No host port mapping: anonymous HTTP access from the host or wider
+    # network would expose the PII analyzer to unrestricted callers.
+    expose:
+      - "3000"
     environment:
       - LOG_LEVEL=INFO
     deploy:
@@ -126,8 +128,10 @@ services:
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.14
+    # Bind to loopback only — Temporal UI has no auth; do not expose to the
+    # wider network. Access via SSH tunnel in prod, or localhost in dev.
     ports:
-      - "8088:8080"
+      - "127.0.0.1:8088:8080"
     environment:
       - TEMPORAL_ADDRESS=${TEMPORAL_HOST_PORT}
       - TEMPORAL_CORS_ORIGINS=${ALLOWED_ORIGINS}
@@ -193,6 +197,12 @@ services:
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=${VAULT_DEV_ROOT_TOKEN:?VAULT_DEV_ROOT_TOKEN must be set — no insecure default permitted}
       - VAULT_SECRET_MOUNT=secret
+      # Remediation safety gate. Connectors are currently stubs that report
+      # success without mutating source data. Set to true ONLY after verified
+      # connector implementations are in place.
+      - REMEDIATION_ENABLED=${REMEDIATION_ENABLED:-false}
+      # Shared service token for backend ↔ go-scanner authentication (P0-2).
+      - SCANNER_SERVICE_TOKEN=${SCANNER_SERVICE_TOKEN:-dev-scanner-token-change-me}
       # Memory layer (supermemory.ai). Free tier: 1M tokens/mo + 10K queries/mo.
       # When SUPERMEMORY_ENABLED!=true or key missing, all memory calls become no-ops.
       - SUPERMEMORY_ENABLED=${SUPERMEMORY_ENABLED:-false}
@@ -247,13 +257,20 @@ services:
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.41
-    ports:
-      - "127.0.0.1:8001:8001"
+    # Port 8001 is NOT published to the host. Scanner is reachable only
+    # from the internal network (by backend). This prevents an attacker on
+    # the host network from bypassing scanner auth.
+    expose:
+      - "8001"
     environment:
       - PORT=8001
       - LOG_LEVEL=info
       - BACKEND_URL=http://backend:8080
       - PRESIDIO_URL=http://presidio-analyzer:3000
+      # Must match backend SCANNER_SERVICE_TOKEN. See P0-2 in system audit.
+      - SCANNER_SERVICE_TOKEN=${SCANNER_SERVICE_TOKEN:-dev-scanner-token-change-me}
+      # Wall-clock cap on any single scan (seconds).
+      - SCAN_TIMEOUT_SECONDS=${SCAN_TIMEOUT_SECONDS:-1800}
     deploy:
       resources:
         limits:

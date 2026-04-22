@@ -1,9 +1,13 @@
 package worker
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/arc-platform/backend/modules/scanning/activities"
 	"github.com/arc-platform/backend/modules/scanning/workflows"
@@ -13,6 +17,16 @@ import (
 	"go.temporal.io/sdk/worker"
 )
 
+// envInt reads an env var as int, falling back to def if unset or unparseable.
+func envInt(name string, def int) int {
+	if v := os.Getenv(name); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return def
+}
+
 // TemporalWorker manages the Temporal worker lifecycle
 type TemporalWorker struct {
 	client client.Client
@@ -21,16 +35,30 @@ type TemporalWorker struct {
 
 // NewTemporalWorker creates and starts a new Temporal worker
 func NewTemporalWorker(temporalAddress string, db *sql.DB, neo4jDriver neo4j.DriverWithContext, lineageSync interfaces.LineageSync, auditLogger interfaces.AuditLogger) (*TemporalWorker, error) {
-	// Create Temporal client
-	c, err := client.Dial(client.Options{
-		HostPort: temporalAddress,
-	})
+	// Create Temporal client. TLS is enabled when TEMPORAL_TLS_ENABLED=true
+	// (required in release mode — see validateRequiredEnvVars in main.go).
+	opts := client.Options{HostPort: temporalAddress}
+	if strings.EqualFold(os.Getenv("TEMPORAL_TLS_ENABLED"), "true") {
+		opts.ConnectionOptions = client.ConnectionOptions{
+			TLS: &tls.Config{MinVersion: tls.VersionTLS12},
+		}
+		log.Println("Temporal: TLS enabled")
+	}
+	c, err := client.Dial(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Temporal client: %w", err)
 	}
 
-	// Create worker
-	w := worker.New(c, "arc-hawk-task-queue", worker.Options{})
+	// Create worker with explicit concurrency caps. Defaults override the
+	// Temporal SDK's implicit values (which are low, single-activity) and
+	// prevent stall under parallel scan load. Tune via env:
+	//   TEMPORAL_MAX_ACTIVITIES, TEMPORAL_MAX_WORKFLOW_TASKS,
+	//   TEMPORAL_MAX_LOCAL_ACTIVITIES
+	w := worker.New(c, "arc-hawk-task-queue", worker.Options{
+		MaxConcurrentActivityExecutionSize:     envInt("TEMPORAL_MAX_ACTIVITIES", 100),
+		MaxConcurrentWorkflowTaskExecutionSize: envInt("TEMPORAL_MAX_WORKFLOW_TASKS", 50),
+		MaxConcurrentLocalActivityExecutionSize: envInt("TEMPORAL_MAX_LOCAL_ACTIVITIES", 50),
+	})
 
 	// Register workflows
 	w.RegisterWorkflow(workflows.ScanLifecycleWorkflow)

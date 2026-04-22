@@ -2,7 +2,7 @@
 
 import React, { ReactNode, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sidebar } from './Sidebar';
+import { Sidebar, MobileSidebarContent } from './Sidebar';
 import { ScanContextBar } from './ScanContextBar';
 import { Plus, Play, FileText, Bell, User, Shield, Settings, Menu } from 'lucide-react';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import ErrorBoundary from '../ErrorBoundary';
 
 interface GlobalLayoutProps {
@@ -34,18 +35,29 @@ export function GlobalLayout({ children }: GlobalLayoutProps) {
                 <motion.header
                     className="bg-white border-b border-slate-200 sticky top-0 z-50"
                 >
-                    <div className="flex items-center justify-between px-6 py-3">
-                        {/* Mobile nav toggle — hidden on desktop */}
-                        <button
-                            data-testid="mobile-nav-toggle-btn"
-                            className="md:hidden p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg mr-2"
-                            onClick={() => setIsMobileNavOpen(o => !o)}
-                            aria-label="Toggle navigation"
-                        >
-                            <Menu className="w-5 h-5" />
-                        </button>
-                        {/* Left: Brand & Title */}
-                        <div className="flex items-center gap-6">
+                    <div className="flex items-center justify-between px-4 md:px-6 py-3">
+                        {/* Left: Hamburger (mobile) + Brand */}
+                        <div className="flex items-center gap-3">
+                            {/* Mobile hamburger */}
+                            <Sheet>
+                                <SheetTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="md:hidden h-9 w-9 shrink-0"
+                                        aria-label="Open navigation"
+                                    >
+                                        <Menu className="h-5 w-5" />
+                                    </Button>
+                                </SheetTrigger>
+                                <SheetContent side="left" className="p-0 w-72">
+                                    <SheetHeader className="px-4 py-3">
+                                        <SheetTitle>Navigation</SheetTitle>
+                                    </SheetHeader>
+                                    <MobileSidebarContent />
+                                </SheetContent>
+                            </Sheet>
+
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-blue-600 rounded-lg">
                                     <Shield className="w-5 h-5 text-white" />

@@ -4,13 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 	_ "github.com/lib/pq"
 )
 
 // PostgresConnector scans a PostgreSQL database.
-type PostgresConnector struct{ db *sql.DB }
+type PostgresConnector struct {
+	db         *sql.DB
+	sampleSize int
+}
 
 func (c *PostgresConnector) SourceType() string { return "postgresql" }
 
@@ -23,16 +27,27 @@ func (c *PostgresConnector) Connect(ctx context.Context, config map[string]any) 
 	if port == "" {
 		port = "5432"
 	}
-	sslMode := cfgString(config, "ssl_mode", "sslmode")
-	if sslMode == "" {
-		sslMode = "require"
+	// sslmode is configurable per-source; defaults to "prefer" (opportunistic
+	// TLS) to avoid plaintext when the server supports it, while still
+	// allowing connection to dev/test databases without certs. Override with
+	// sslmode in the connection config, or set DB_SSLMODE_DEFAULT for a
+	// stricter default (e.g. "verify-full") in release environments.
+	sslmode := cfgString(config, "sslmode")
+	if sslmode == "" {
+		if v := os.Getenv("DB_SSLMODE_DEFAULT"); v != "" {
+			sslmode = v
+		} else {
+			sslmode = "prefer"
+		}
 	}
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", host, user, pass, dbname, port, sslMode)
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", host, user, pass, dbname, port, sslmode)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return err
 	}
+	applyPoolDefaults(db)
 	c.db = db
+	c.sampleSize = cfgInt(config, "sample_size", 1000, 50000)
 	return db.PingContext(ctx)
 }
 
@@ -80,7 +95,7 @@ func (c *PostgresConnector) StreamFields(ctx context.Context) (<-chan connectors
 			}
 		}
 		for _, t := range tables {
-			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT 10000`, t.schema, t.name)
+			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT %d`, t.schema, t.name, c.sampleSize)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue

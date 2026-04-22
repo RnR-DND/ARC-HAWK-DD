@@ -1,6 +1,7 @@
 # ARC-Hawk Microservice Integration Guide
 
 > Integration contract for consuming ARC-Hawk as PII discovery/governance microservice.
+> For the complete end-to-end walkthrough, see [docs/INTEGRATION_GUIDE.md](../INTEGRATION_GUIDE.md).
 
 ---
 
@@ -16,7 +17,7 @@ graph LR
     subgraph ARC["ARC-Hawk Microservice"]
         API[REST API :8080]
         WS[WebSocket /ws]
-        SC[Scanner Flask :5000]
+        SC[Go Scanner :8001\ninternal only]
     end
 
     subgraph Data["Data Layer"]
@@ -25,7 +26,7 @@ graph LR
     end
 
     O -->|REST| API
-    O -->|Trigger Scans| SC
+    API -->|X-Scanner-Token| SC
     UI -->|Live Updates| WS
     API --> PG
     API --> N4
@@ -38,7 +39,9 @@ graph LR
 
 ### Health Check
 ```bash
-GET /health → { "status": "UP" }
+GET /livez  → 200 { "status": "alive" }        # liveness probe
+GET /readyz → 200 { "status": "ready" }         # readiness probe (503 on dep failure)
+GET /health → alias for /readyz (back-compat)
 ```
 
 ### Required Environment
@@ -46,9 +49,10 @@ GET /health → { "status": "UP" }
 |----------|---------|
 | `DATABASE_URL` | PostgreSQL connection |
 | `NEO4J_URI` | Neo4j bolt for lineage |
-| `SCANNER_URL` | Scanner Flask endpoint |
+| `SCANNER_URL` | Go scanner endpoint (`http://go-scanner:8001`) |
+| `SCANNER_SERVICE_TOKEN` | Shared secret for backend ↔ scanner auth (min 32 chars) |
 | `JWT_SECRET` | Auth token signing |
-| `ENCRYPTION_KEY` | Credential encryption |
+| `ENCRYPTION_KEY` | Credential encryption (exactly 32 bytes) |
 
 ---
 
@@ -318,13 +322,20 @@ arc-hawk-backend:
         - DATABASE_URL=postgres://...
         - NEO4J_URI=bolt://neo4j:7687
         - JWT_SECRET=${SHARED_JWT_SECRET}
-
-arc-hawk-scanner:
-    image: arc-hawk/scanner:latest
-    ports:
-        - "5000:5000"
+        - SCANNER_URL=http://arc-hawk-go-scanner:8001
+        - SCANNER_SERVICE_TOKEN=${SCANNER_SERVICE_TOKEN}
     depends_on:
-        - arc-hawk-backend
+        - arc-hawk-go-scanner
+
+arc-hawk-go-scanner:
+    image: arc-hawk/go-scanner:latest
+    # Port 8001 is internal only — do NOT add host port mapping
+    expose:
+        - "8001"
+    environment:
+        - SCANNER_SERVICE_TOKEN=${SCANNER_SERVICE_TOKEN}
+        - BACKEND_URL=http://arc-hawk-backend:8080
+        - PRESIDIO_URL=http://presidio-analyzer:3000
 ```
 
 ### Health & Readiness Probes
@@ -332,14 +343,14 @@ arc-hawk-scanner:
 ```yaml
 livenessProbe:
     httpGet:
-        path: /health
+        path: /livez
         port: 8080
     initialDelaySeconds: 10
     periodSeconds: 30
 
 readinessProbe:
     httpGet:
-        path: /health
+        path: /readyz
         port: 8080
     initialDelaySeconds: 5
     periodSeconds: 10
