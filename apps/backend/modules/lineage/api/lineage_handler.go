@@ -10,22 +10,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// LineageHandlerV2 handles lineage-related requests
+// LineageHandler handles lineage-related requests
 // Phase 3: Unified Neo4j-Only Lineage
-type LineageHandlerV2 struct {
+type LineageHandler struct {
 	semanticLineageService *service.SemanticLineageService
 }
 
-// NewLineageHandlerV2 creates a new lineage handler
-func NewLineageHandlerV2(semanticLineageService *service.SemanticLineageService) *LineageHandlerV2 {
-	return &LineageHandlerV2{
+// NewLineageHandler creates a new lineage handler
+func NewLineageHandler(semanticLineageService *service.SemanticLineageService) *LineageHandler {
+	return &LineageHandler{
 		semanticLineageService: semanticLineageService,
 	}
 }
 
 // GetLineage handles GET /api/v1/lineage
 // Returns the complete 3-level hierarchy (System → Asset → PII_Category)
-func (h *LineageHandlerV2) GetLineage(c *gin.Context) {
+func (h *LineageHandler) GetLineage(c *gin.Context) {
 	// Parse filters from query params
 	systemFilter := c.Query("system")
 	riskFilter := c.Query("risk") // Critical, High, Medium, Low
@@ -92,7 +92,7 @@ func (h *LineageHandlerV2) GetLineage(c *gin.Context) {
 
 // GetLineageStats handles GET /api/v1/lineage/stats
 // Returns aggregated statistics from the graph
-func (h *LineageHandlerV2) GetLineageStats(c *gin.Context) {
+func (h *LineageHandler) GetLineageStats(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	graph, err := h.semanticLineageService.GetSemanticGraph(ctx, service.SemanticGraphFilters{})
@@ -131,7 +131,7 @@ func countNodesByType(nodes []service.SemanticNode, nodeType string) int {
 
 // SyncLineage handles POST /api/v1/lineage/sync
 // Triggers full sync from PostgreSQL to Neo4j
-func (h *LineageHandlerV2) SyncLineage(c *gin.Context) {
+func (h *LineageHandler) SyncLineage(c *gin.Context) {
 	// Carry tenant ID from the request context into the detached background context.
 	// context.Background() is needed because request context cancels on response send,
 	// but we still need the tenant ID for all downstream DB queries.

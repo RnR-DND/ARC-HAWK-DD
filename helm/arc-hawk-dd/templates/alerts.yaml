@@ -8,19 +8,6 @@ metadata:
     release: {{ .Values.monitoring.alerts.releaseLabel | default "prometheus" }}
 spec:
   groups:
-    - name: arc-hawk-dd.celery
-      rules:
-        - alert: DLQDepthHigh
-          expr: |
-            celery_queue_length{queue=~".*\\.dlq"} > {{ .Values.monitoring.alerts.thresholds.dlqDepth }}
-          for: 5m
-          labels:
-            severity: warning
-            team: hawk
-          annotations:
-            summary: "Dead-letter queue depth exceeds {{ .Values.monitoring.alerts.thresholds.dlqDepth }}"
-            description: "Queue {{`{{ $labels.queue }}`}} has {{`{{ $value }}`}} messages in the DLQ for more than 5 minutes."
-
     - name: arc-hawk-dd.scanning
       rules:
         - alert: ScanFailureRateHigh
@@ -40,7 +27,7 @@ spec:
 
         - alert: ScannerAPILatencyP99High
           expr: |
-            histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service="scanner"}[5m])) by (le))
+            histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service="go-scanner"}[5m])) by (le))
             > {{ .Values.monitoring.alerts.thresholds.scannerLatencyP99Seconds }}
           for: 5m
           labels:
@@ -49,6 +36,47 @@ spec:
           annotations:
             summary: "Scanner API P99 latency exceeds {{ .Values.monitoring.alerts.thresholds.scannerLatencyP99Seconds }}s"
             description: "Scanner API P99 latency is {{`{{ $value }}`}}s over the last 5 minutes."
+
+        - alert: ScanDurationHigh
+          expr: |
+            histogram_quantile(0.95, sum(rate(hawk_scan_duration_seconds_bucket[5m])) by (le, connector_type))
+            > 300
+          for: 15m
+          labels:
+            severity: warning
+            team: hawk
+          annotations:
+            summary: "Scan P95 latency exceeds 5 minutes for {{ `{{ $labels.connector_type }}` }}"
+            description: "P95 scan duration for connector {{`{{ $labels.connector_type }}`}} is {{`{{ $value }}`}}s."
+
+    - name: arc-hawk-dd.api
+      rules:
+        - alert: BackendAPILatencyP99High
+          expr: |
+            histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service="arc-backend"}[5m])) by (le))
+            > 5
+          for: 10m
+          labels:
+            severity: warning
+            team: hawk
+          annotations:
+            summary: "Backend API P99 latency exceeds 5s"
+            description: "P99 API response time is {{`{{ $value }}`}}s. Check database performance and connection pool."
+
+        - alert: BackendAPIErrorRateHigh
+          expr: |
+            (
+              sum(rate(http_requests_total{service="arc-backend", status=~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total{service="arc-backend"}[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            team: hawk
+          annotations:
+            summary: "Backend API 5xx error rate exceeds 5%"
+            description: "{{`{{ $value | humanizePercentage }}`}} of API requests are returning 5xx errors."
 
     - name: arc-hawk-dd.agents
       rules:
@@ -63,6 +91,17 @@ spec:
             summary: "Agent offline for more than 24 hours"
             description: "Agent {{`{{ $labels.agent_id }}`}} has not sent a heartbeat in {{`{{ $value | humanizeDuration }}`}}."
 
+        - alert: AgentOfflineCritical
+          expr: |
+            time() - max(agent_last_heartbeat_timestamp) by (agent_id) > 259200
+          for: 1h
+          labels:
+            severity: critical
+            team: hawk
+          annotations:
+            summary: "Agent {{`{{ $labels.agent_id }}`}} offline > 72h"
+            description: "Agent {{`{{ $labels.agent_id }}`}} has not reported in {{`{{ $value | humanizeDuration }}`}}. Likely requires manual intervention."
+
     - name: arc-hawk-dd.risk
       rules:
         - alert: RiskTierChange
@@ -74,6 +113,17 @@ spec:
           annotations:
             summary: "Risk tier change detected"
             description: "Asset {{`{{ $labels.asset_id }}`}} risk tier changed to {{`{{ $labels.risk_tier }}`}}."
+
+        - alert: CriticalRiskSourcesHigh
+          expr: |
+            hawk_risk_sources_by_tier{tier="critical"} > 10
+          for: 5m
+          labels:
+            severity: critical
+            team: hawk
+          annotations:
+            summary: "More than 10 critical risk sources"
+            description: "{{`{{ $value }}`}} sources are rated as critical risk. Immediate remediation review recommended."
 
     - name: arc-hawk-dd.pods
       rules:
@@ -87,4 +137,44 @@ spec:
           annotations:
             summary: "Pod restarting frequently"
             description: "Pod {{`{{ $labels.namespace }}`}}/{{`{{ $labels.pod }}`}} has restarted {{`{{ $value }}`}} times in the last 15 minutes."
+
+        - alert: PodCrashLooping
+          expr: |
+            max_over_time(kube_pod_container_status_waiting_reason{namespace="{{ .Release.Namespace }}", reason="CrashLoopBackOff"}[5m]) == 1
+          for: 5m
+          labels:
+            severity: critical
+            team: hawk
+          annotations:
+            summary: "Pod {{`{{ $labels.pod }}`}} is in CrashLoopBackOff"
+            description: "Container {{`{{ $labels.container }}`}} in pod {{`{{ $labels.pod }}`}} is crash-looping."
+
+    - name: arc-hawk-dd.classification
+      rules:
+        - alert: ClassificationLatencyHigh
+          expr: |
+            histogram_quantile(0.95, sum(rate(hawk_classification_duration_seconds_bucket[5m])) by (le, layer))
+            > 30
+          for: 10m
+          labels:
+            severity: warning
+            team: hawk
+          annotations:
+            summary: "Classification P95 latency exceeds 30s on layer {{`{{ $labels.layer }}`}}"
+            description: "Layer {{`{{ $labels.layer }}`}} P95 classification duration is {{`{{ $value }}`}}s."
+
+        - alert: LLMFallbackRateHigh
+          expr: |
+            (
+              sum(rate(hawk_llm_fallback_total[5m]))
+              /
+              sum(rate(hawk_llm_requests_total[5m]))
+            ) > 0.30
+          for: 15m
+          labels:
+            severity: warning
+            team: hawk
+          annotations:
+            summary: "LLM fallback rate exceeds 30%"
+            description: "{{`{{ $value | humanizePercentage }}`}} of LLM requests are falling back. Check Presidio/LLM connectivity."
 {{- end }}

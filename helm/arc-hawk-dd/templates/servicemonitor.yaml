@@ -41,4 +41,52 @@ spec:
       path: /metrics
       interval: {{ .Values.monitoring.serviceMonitors.interval }}
       scrapeTimeout: {{ .Values.monitoring.serviceMonitors.scrapeTimeout }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-frontend
+  labels:
+    {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+    release: {{ .Values.monitoring.serviceMonitors.releaseLabel | default "prometheus" }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitors.interval }}
+      scrapeTimeout: {{ .Values.monitoring.serviceMonitors.scrapeTimeout }}
+      honorLabels: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-postgres
+  labels:
+    {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+    {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "postgresql") | nindent 4 }}
+    release: {{ .Values.monitoring.serviceMonitors.releaseLabel | default "prometheus" }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "arc-hawk-dd.selectorLabels" (dict "root" . "component" "postgresql") | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitors.interval }}
+      scrapeTimeout: {{ .Values.monitoring.serviceMonitors.scrapeTimeout }}
+      honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "pg_.*"
+          action: keep
 {{- end }}

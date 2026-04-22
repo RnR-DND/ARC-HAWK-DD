@@ -15,7 +15,7 @@ type LineageModule struct {
 	semanticLineageService *service.SemanticLineageService
 
 	graphHandler   *api.GraphHandler
-	lineageHandler *api.LineageHandlerV2
+	lineageHandler *api.LineageHandler
 
 	deps *interfaces.ModuleDependencies
 }
@@ -45,7 +45,7 @@ func (m *LineageModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	)
 
 	m.graphHandler = api.NewGraphHandler(m.semanticLineageService)
-	m.lineageHandler = api.NewLineageHandlerV2(m.semanticLineageService)
+	m.lineageHandler = api.NewLineageHandler(m.semanticLineageService)
 
 	log.Printf("✅ Lineage Module initialized")
 	return nil

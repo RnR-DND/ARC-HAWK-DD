@@ -243,3 +243,4 @@ graphify-out/
 apps/goScanner/scanner
 apps/frontend/tsconfig.tsbuildinfo
 .claire/
+.agent/agentsys/
