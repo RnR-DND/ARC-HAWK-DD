@@ -55,6 +55,11 @@ type ScanConfig struct {
 	PIITypesPerSource  map[string][]string // profile_name → frontend PII names
 	ClassificationMode ClassificationMode
 	Presidio           *presidio.Client
+	// OnBatch, when non-nil, is called with each source's findings immediately
+	// after that source completes rather than accumulating all findings first.
+	// This bounds peak RSS to max_concurrency * largest_single_source instead of
+	// sum of all sources. The callback must be goroutine-safe.
+	OnBatch func([]classifier.ClassifiedFinding)
 }
 
 // SourceSpec describes one data source to scan.
@@ -114,7 +119,11 @@ func (o *Orchestrator) runSequential(ctx context.Context, cfg ScanConfig) ([]cla
 			log.Printf("WARN: sequential source %s/%s failed: %v", src.SourceType, src.ProfileName, err)
 			continue
 		}
-		all = append(all, findings...)
+		if cfg.OnBatch != nil && len(findings) > 0 {
+			cfg.OnBatch(findings)
+		} else {
+			all = append(all, findings...)
+		}
 	}
 	return all, nil
 }
@@ -142,9 +151,13 @@ func (o *Orchestrator) runParallel(ctx context.Context, cfg ScanConfig) ([]class
 				return nil // non-fatal: continue other sources
 			}
 			if len(findings) > 0 {
-				mu.Lock()
-				all = append(all, findings...)
-				mu.Unlock()
+				if cfg.OnBatch != nil {
+					cfg.OnBatch(findings)
+				} else {
+					mu.Lock()
+					all = append(all, findings...)
+					mu.Unlock()
+				}
 			}
 			return nil
 		})

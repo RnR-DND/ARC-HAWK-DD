@@ -32,14 +32,14 @@ func (r *PostgresRepository) CreateFinding(ctx context.Context, finding *entity.
 
 	query := `
 		INSERT INTO findings (id, tenant_id, scan_run_id, asset_id, pattern_id, pattern_name,
-			matches, sample_text, normalized_value_hash, severity, severity_description, confidence_score, environment, context)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+			matches, sample_text, normalized_value_hash, severity, severity_description, confidence_score, risk_score, environment, context)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING created_at, updated_at`
 
 	return r.db.QueryRowContext(ctx, query,
 		finding.ID, finding.TenantID, finding.ScanRunID, finding.AssetID, finding.PatternID, finding.PatternName,
 		pq.Array(finding.Matches), finding.SampleText, finding.NormalizedValueHash, finding.Severity, finding.SeverityDescription,
-		finding.ConfidenceScore, finding.Environment, contextJSON,
+		finding.ConfidenceScore, finding.RiskScore, finding.Environment, contextJSON,
 	).Scan(&finding.CreatedAt, &finding.UpdatedAt)
 }
 
@@ -50,8 +50,8 @@ func (r *PostgresRepository) GetFindingByID(ctx context.Context, id uuid.UUID) (
 	}
 
 	query := `
-		SELECT id, tenant_id, scan_run_id, asset_id, pattern_id, pattern_name, matches, sample_text, 
-			severity, severity_description, confidence_score, environment, context, created_at, updated_at
+		SELECT id, tenant_id, scan_run_id, asset_id, pattern_id, pattern_name, matches, sample_text,
+			severity, severity_description, confidence_score, risk_score, environment, context, created_at, updated_at
 		FROM findings WHERE id = $1 AND tenant_id = $2`
 
 	finding := &entity.Finding{}
@@ -60,7 +60,7 @@ func (r *PostgresRepository) GetFindingByID(ctx context.Context, id uuid.UUID) (
 	err = r.db.QueryRowContext(ctx, query, id, tenantID).Scan(
 		&finding.ID, &finding.TenantID, &finding.ScanRunID, &finding.AssetID, &finding.PatternID, &finding.PatternName,
 		pq.Array(&finding.Matches), &finding.SampleText, &finding.Severity, &finding.SeverityDescription,
-		&finding.ConfidenceScore, &finding.Environment, &contextJSON, &finding.CreatedAt, &finding.UpdatedAt,
+		&finding.ConfidenceScore, &finding.RiskScore, &finding.Environment, &contextJSON, &finding.CreatedAt, &finding.UpdatedAt,
 	)
 
 	if err != nil {
@@ -87,7 +87,7 @@ func (r *PostgresRepository) ListFindingsByScanRun(ctx context.Context, scanRunI
 
 	query := `
 		SELECT f.id, f.tenant_id, f.scan_run_id, f.asset_id, f.pattern_id, f.pattern_name, f.matches, f.sample_text, 
-			f.severity, f.severity_description, f.confidence_score, f.environment, f.context, f.created_at, f.updated_at
+			f.severity, f.severity_description, f.confidence_score, f.risk_score, f.environment, f.context, f.created_at, f.updated_at
 		FROM findings f
 		LEFT JOIN classifications c ON f.id = c.finding_id
 		WHERE f.scan_run_id = $1 AND f.tenant_id = $2 AND (c.classification_type IS NULL OR c.classification_type != 'Non-PII')
@@ -105,7 +105,7 @@ func (r *PostgresRepository) ListFindingsByAsset(ctx context.Context, assetID uu
 
 	query := `
 		SELECT f.id, f.tenant_id, f.scan_run_id, f.asset_id, f.pattern_id, f.pattern_name, f.matches, f.sample_text, 
-			f.severity, f.severity_description, f.confidence_score, f.environment, f.context, f.created_at, f.updated_at
+			f.severity, f.severity_description, f.confidence_score, f.risk_score, f.environment, f.context, f.created_at, f.updated_at
 		FROM findings f
 		LEFT JOIN classifications c ON f.id = c.finding_id
 		WHERE f.asset_id = $1 AND f.tenant_id = $2 AND (c.classification_type IS NULL OR c.classification_type != 'Non-PII')
@@ -143,7 +143,7 @@ func (r *PostgresRepository) ListFindings(ctx context.Context, filters repositor
 	// Join review_states for status filter
 	query := `
 		SELECT DISTINCT f.id, f.tenant_id, f.scan_run_id, f.asset_id, f.pattern_id, f.pattern_name, f.matches, f.sample_text,
-			f.severity, f.severity_description, f.confidence_score, f.environment, f.context, f.created_at, f.updated_at
+			f.severity, f.severity_description, f.confidence_score, f.risk_score, f.environment, f.context, f.created_at, f.updated_at
 		FROM findings f
 		LEFT JOIN classifications c ON f.id = c.finding_id
 		LEFT JOIN assets a ON f.asset_id = a.id
@@ -222,7 +222,7 @@ func (r *PostgresRepository) ListFindings(ctx context.Context, filters repositor
 func (r *PostgresRepository) ListGlobalFindings(ctx context.Context, limit, offset int) ([]*entity.Finding, error) {
 	query := `
 		SELECT DISTINCT f.id, f.tenant_id, f.scan_run_id, f.asset_id, f.pattern_id, f.pattern_name, f.matches, f.sample_text, 
-			f.severity, f.severity_description, f.confidence_score, f.environment, f.context, f.created_at, f.updated_at
+			f.severity, f.severity_description, f.confidence_score, f.risk_score, f.environment, f.context, f.created_at, f.updated_at
 		FROM findings f
 		LEFT JOIN classifications c ON f.id = c.finding_id
 		WHERE (c.classification_type IS NULL OR c.classification_type != 'Non-PII')
@@ -327,7 +327,7 @@ func (r *PostgresRepository) scanFindingsFromRows(rows *sql.Rows) ([]*entity.Fin
 		err := rows.Scan(
 			&finding.ID, &finding.TenantID, &finding.ScanRunID, &finding.AssetID, &finding.PatternID, &finding.PatternName,
 			pq.Array(&finding.Matches), &finding.SampleText, &finding.Severity, &finding.SeverityDescription,
-			&finding.ConfidenceScore, &finding.Environment, &contextJSON, &finding.CreatedAt, &finding.UpdatedAt,
+			&finding.ConfidenceScore, &finding.RiskScore, &finding.Environment, &contextJSON, &finding.CreatedAt, &finding.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err

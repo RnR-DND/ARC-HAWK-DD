@@ -98,6 +98,45 @@ func IngestFindings(scanID, scanName, tenantID, backendURL string, findings []cl
 	return nil
 }
 
+// IngestFindingsBatch sends a batch of findings to the backend without
+// emitting a scan-complete signal. Used for per-source streaming to keep
+// peak memory proportional to max_concurrency * source_size rather than
+// total_all_sources. Returns (totalSent, failedChunks).
+func IngestFindingsBatch(scanID, scanName, tenantID, backendURL string, findings []classifier.ClassifiedFinding) (sent, failedChunks int) {
+	for i := 0; i < len(findings); i += ingestChunkSize {
+		end := min(i+ingestChunkSize, len(findings))
+		payload := buildPayload(scanID, scanName, findings[i:end])
+		data, err := json.Marshal(payload)
+		if err != nil {
+			log.Printf("WARN: batch marshal failed (chunk %d-%d): %v", i, end, err)
+			failedChunks++
+			continue
+		}
+		if err := sendIngestChunkWithRetry(tenantID, backendURL, data, i, end); err != nil {
+			failedChunks++
+			continue
+		}
+		sent += end - i
+	}
+	return
+}
+
+// SendScanComplete signals the backend that a scan has finished. Callers that
+// used IngestFindingsBatch for streaming must call this once after all batches
+// are sent so the scan transitions out of the "running" state.
+func SendScanComplete(scanID, tenantID, backendURL string, totalSent, totalFailed, totalChunks int) {
+	switch {
+	case totalFailed == totalChunks && totalChunks > 0:
+		sendComplete(tenantID, backendURL, scanID, "failed",
+			fmt.Sprintf("all %d ingest chunks failed", totalChunks))
+	case totalFailed > 0:
+		sendComplete(tenantID, backendURL, scanID, "partial",
+			fmt.Sprintf("%d of %d ingest chunks failed (sent %d findings)", totalFailed, totalChunks, totalSent))
+	default:
+		sendComplete(tenantID, backendURL, scanID, "completed", "")
+	}
+}
+
 // sendIngestChunkWithRetry posts one chunk, retrying transient failures with
 // exponential backoff (2s, 4s, 8s). Returns nil if the chunk eventually
 // succeeded, or the last error after ingestMaxAttempts.
