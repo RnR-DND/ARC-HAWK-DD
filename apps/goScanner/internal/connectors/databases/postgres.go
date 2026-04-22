@@ -95,7 +95,8 @@ func (c *PostgresConnector) StreamFields(ctx context.Context) (<-chan connectors
 			}
 		}
 		for _, t := range tables {
-			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT %d`, t.schema, t.name, c.sampleSize)
+			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" TABLESAMPLE BERNOULLI(%g) LIMIT %d`,
+				t.schema, t.name, float64(c.sampleSize)/1000.0*100, c.sampleSize)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue

@@ -126,6 +126,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/segmentio/encoding v0.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/sony/gobreaker v1.0.0 // indirect
 	github.com/trivago/tgo v1.0.7 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect

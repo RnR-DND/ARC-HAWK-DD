@@ -34,6 +34,7 @@ type ScanningModule struct {
 	dashboardHandler      *api.DashboardHandler
 	patternsHandler       *api.PatternsHandler
 	agentSyncHandler      *api.AgentSyncHandler
+	feedbackHandler       *api.FeedbackHandler
 
 	// Dependencies
 	deps *interfaces.ModuleDependencies
@@ -123,6 +124,10 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	// Agent sync (idempotent batch ingestion from EDR agents)
 	m.agentSyncHandler = api.NewAgentSyncHandler(repo)
 
+	// PII feedback loop — Bayesian confidence adjustment from analyst corrections
+	feedbackSvc := service.NewFeedbackService(deps.DB)
+	m.feedbackHandler = api.NewFeedbackHandler(feedbackSvc)
+
 	// Start background ticker to check for stuck/timed-out scans every 5 minutes
 	m.stopTimeout = make(chan struct{})
 	go func() {
@@ -199,9 +204,16 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		patterns.DELETE("/:id", m.patternsHandler.DeletePattern)
 		// Stats, false-positive feedback, and test-suite sub-resources.
 		// Static sub-paths must be registered before generic /:id to prevent router conflicts.
+		patterns.GET("/precision", m.feedbackHandler.GetPatternPrecision)
 		patterns.GET("/:id/stats", m.patternsHandler.GetPatternStats)
 		patterns.POST("/:id/false-positive", m.patternsHandler.RecordFalsePositive)
 		patterns.POST("/:id/test", m.patternsHandler.TestPattern)
+	}
+
+	// PII feedback loop
+	findings := router.Group("/findings")
+	{
+		findings.POST("/:id/feedback", m.feedbackHandler.SubmitFeedback)
 	}
 
 	// Dashboard

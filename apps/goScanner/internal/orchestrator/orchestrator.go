@@ -346,7 +346,7 @@ func (o *Orchestrator) runPresidio(
 		AdHocRecognizers: adHoc,
 	}
 	t0 := time.Now()
-	results := client.Analyze(ctx, rec.Value, opts)
+	results := analyzeWithBreaker(ctx, client, rec.Value, opts)
 	presidioLatency.Observe(time.Since(t0).Seconds())
 	if len(results) == 0 {
 		return nil

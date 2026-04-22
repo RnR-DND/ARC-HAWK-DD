@@ -67,7 +67,7 @@ func (c *MySQLConnector) StreamFields(ctx context.Context) (<-chan connectors.Fi
 			}
 		}
 		for _, t := range tables {
-			query := fmt.Sprintf("SELECT * FROM `%s`.`%s` LIMIT %d", t.schema, t.name, c.sampleSize)
+			query := fmt.Sprintf("SELECT * FROM `%s`.`%s` ORDER BY RAND() LIMIT %d", t.schema, t.name, c.sampleSize)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue
