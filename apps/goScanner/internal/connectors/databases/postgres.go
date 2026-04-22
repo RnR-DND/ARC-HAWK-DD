@@ -23,7 +23,11 @@ func (c *PostgresConnector) Connect(ctx context.Context, config map[string]any) 
 	if port == "" {
 		port = "5432"
 	}
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", host, user, pass, dbname, port)
+	sslMode := cfgString(config, "ssl_mode", "sslmode")
+	if sslMode == "" {
+		sslMode = "require"
+	}
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s", host, user, pass, dbname, port, sslMode)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return err

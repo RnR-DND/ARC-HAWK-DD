@@ -137,7 +137,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 				c.Request = c.Request.WithContext(ctx)
 				c.Set("user_id", uuid.Nil)
 				c.Set("user_email", "anonymous@dev.local")
-				c.Set("user_role", "admin")
+				c.Set("user_role", "viewer")
 				c.Set("tenant_id", tenantID)
 				c.Set("authenticated", false)
 				c.Next()

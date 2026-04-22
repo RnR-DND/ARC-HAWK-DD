@@ -25,6 +25,7 @@ backend:
   env:
     AUTH_REQUIRED: "true"
     LOG_LEVEL: "info"
+    TEMPORAL_ENABLED: "true"
   # Secrets — set via --set or external secrets manager
   secrets:
     DATABASE_URL: ""

@@ -3,6 +3,7 @@ package workflows
 import (
 	"time"
 
+	"github.com/arc-platform/backend/modules/scanning/activities"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -41,8 +42,10 @@ func ScanLifecycleWorkflow(ctx workflow.Context, scanID string) error {
 		return err
 	}
 
-	// Async Neo4j sync (fire and forget - won't block completion)
-	workflow.ExecuteActivity(ctx, "SyncToNeo4j", scanID)
+	// Sync Neo4j — .Get() ensures Temporal's retry policy applies on failure
+	if syncErr := workflow.ExecuteActivity(ctx, "SyncToNeo4j", scanID).Get(ctx, nil); syncErr != nil {
+		logger.Error("Neo4j sync failed after retries — lineage may be incomplete", "scanID", scanID, "error", syncErr)
+	}
 
 	// State: RUNNING → COMPLETED
 	err = workflow.ExecuteActivity(ctx, "TransitionScanState", scanID, "RUNNING", "COMPLETED").Get(ctx, nil)
@@ -74,8 +77,8 @@ func RemediationWorkflow(ctx workflow.Context, findingIDs []string, actionType s
 
 	// Execute remediation for each finding
 	for i, findingID := range findingIDs {
-		var actionID string
-		err := workflow.ExecuteActivity(ctx, "ExecuteRemediation", findingID, actionType, userID).Get(ctx, &actionID)
+		var result activities.RemediationResult
+		err := workflow.ExecuteActivity(ctx, "ExecuteRemediation", findingID, actionType, userID).Get(ctx, &result)
 
 		if err != nil {
 			logger.Error("Remediation failed, rolling back", "findingID", findingID, "error", err)
@@ -91,8 +94,8 @@ func RemediationWorkflow(ctx workflow.Context, findingIDs []string, actionType s
 			return err
 		}
 
-		executedActions = append(executedActions, actionID)
-		logger.Info("Remediation executed", "progress", i+1, "total", len(findingIDs), "actionID", actionID)
+		executedActions = append(executedActions, result.ActionID)
+		logger.Info("Remediation executed", "progress", i+1, "total", len(findingIDs), "actionID", result.ActionID)
 
 		// Close exposure window in Neo4j
 		workflow.ExecuteActivity(ctx, "CloseExposureWindow", findingID, time.Now())

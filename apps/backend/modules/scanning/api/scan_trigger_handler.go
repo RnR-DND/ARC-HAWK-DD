@@ -261,6 +261,9 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 			break // No point retrying a request construction error
 		}
 		reqHttp.Header.Set("Content-Type", "application/json")
+		if token := os.Getenv("SCANNER_SERVICE_TOKEN"); token != "" {
+			reqHttp.Header.Set("X-Service-Token", token)
+		}
 
 		resp, err := client.Do(reqHttp)
 		if err != nil {

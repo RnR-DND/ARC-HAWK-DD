@@ -255,7 +255,11 @@ func main() {
 			log.Println("✅ Temporal Worker started")
 		}
 	} else {
-		log.Println("ℹ️  Temporal disabled (set TEMPORAL_ENABLED=true to enable)")
+		if os.Getenv("GIN_MODE") == "release" {
+			log.Printf("WARNING: TEMPORAL_ENABLED is not set — running without durable workflow orchestration. Scan failures will not be retried and remediation rollbacks are unavailable.")
+		} else {
+			log.Println("ℹ️  Temporal disabled (set TEMPORAL_ENABLED=true to enable)")
+		}
 	}
 
 	log.Println(strings.Repeat("=", 70))
@@ -294,8 +298,8 @@ func main() {
 	// Initialize struct-based auth middleware (B-05)
 	authMW := authmiddleware.NewAuthMiddleware(auditRepo, db)
 
-	// Prometheus Metrics endpoint (behind auth middleware)
-	router.GET("/metrics", authMW.Authenticate(), authMW.RequireRole("admin"), func(c *gin.Context) {
+	// Prometheus Metrics endpoint — unauthenticated so Prometheus can scrape without credentials
+	router.GET("/metrics", func(c *gin.Context) {
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
 

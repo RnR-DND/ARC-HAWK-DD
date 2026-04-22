@@ -11,7 +11,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/google/uuid"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	"github.com/redis/go-redis/v9"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // ScanActivities contains all scan-related Temporal activities
@@ -20,6 +20,7 @@ type ScanActivities struct {
 	neo4j       neo4j.DriverWithContext
 	lineageSync interfaces.LineageSync
 	auditLogger interfaces.AuditLogger
+	rdb         *goredis.Client
 }
 
 // NewScanActivities creates a new ScanActivities instance
@@ -27,11 +28,16 @@ func NewScanActivities(db *sql.DB, neo4jDriver neo4j.DriverWithContext, lineageS
 	if lineageSync == nil {
 		lineageSync = &interfaces.NoOpLineageSync{}
 	}
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
 	return &ScanActivities{
 		db:          db,
 		neo4j:       neo4jDriver,
 		lineageSync: lineageSync,
 		auditLogger: auditLogger,
+		rdb:         goredis.NewClient(&goredis.Options{Addr: redisAddr}),
 	}
 }
 
@@ -266,22 +272,17 @@ func (a *ScanActivities) RollbackRemediation(ctx context.Context, actionID strin
 
 // GetFinding retrieves finding details
 func (a *ScanActivities) GetFinding(ctx context.Context, findingID string) (map[string]interface{}, error) {
-	var finding map[string]interface{}
-	// TODO: Implement finding retrieval
-	return finding, nil
+	return nil, fmt.Errorf("not implemented: GetFinding — PolicyEvaluationWorkflow requires database wiring before production use")
 }
 
 // GetActivePolicies retrieves active policies of a specific type
 func (a *ScanActivities) GetActivePolicies(ctx context.Context, policyType string) ([]map[string]interface{}, error) {
-	var policies []map[string]interface{}
-	// TODO: Implement policy retrieval
-	return policies, nil
+	return nil, fmt.Errorf("not implemented: GetActivePolicies — PolicyEvaluationWorkflow requires database wiring before production use")
 }
 
 // EvaluatePolicyConditions evaluates if a policy matches a finding
 func (a *ScanActivities) EvaluatePolicyConditions(ctx context.Context, policy map[string]interface{}, finding map[string]interface{}) (bool, error) {
-	// TODO: Implement policy condition evaluation
-	return false, nil
+	return false, fmt.Errorf("not implemented: EvaluatePolicyConditions — PolicyEvaluationWorkflow requires database wiring before production use")
 }
 
 // ExecutePolicyActions executes actions defined in a policy
@@ -306,23 +307,14 @@ type StreamCheckpoint struct {
 // RunStreamingWindowActivity reads a batch of messages from a Redis stream.
 // Temporal calls this once per micro-batch window.
 func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueName string, windowSec int) ([]StreamMessage, error) {
-	redisAddr := func() string {
-		if v := os.Getenv("REDIS_ADDR"); v != "" {
-			return v
-		}
-		return "localhost:6379"
-	}()
-	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
-	defer rdb.Close()
-
 	// XREAD with a short block timeout equal to the window duration
 	deadline := time.Duration(windowSec) * time.Second
-	streams, err := rdb.XRead(ctx, &redis.XReadArgs{
+	streams, err := a.rdb.XRead(ctx, &goredis.XReadArgs{
 		Streams: []string{queueName, "0"},
 		Count:   500,
 		Block:   deadline,
 	}).Result()
-	if err != nil && err != redis.Nil {
+	if err != nil && err != goredis.Nil {
 		return nil, fmt.Errorf("redis XREAD error on %s: %w", queueName, err)
 	}
 
@@ -367,17 +359,8 @@ func (a *ScanActivities) IngestStreamingFindings(ctx context.Context, msgs []Str
 
 // PersistStreamingCheckpoints saves the last-processed stream position to Redis.
 func (a *ScanActivities) PersistStreamingCheckpoints(ctx context.Context, cp StreamCheckpoint) error {
-	redisAddr := func() string {
-		if v := os.Getenv("REDIS_ADDR"); v != "" {
-			return v
-		}
-		return "localhost:6379"
-	}()
-	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
-	defer rdb.Close()
-
 	key := fmt.Sprintf("arc-hawk:stream:checkpoint:%s", cp.QueueName)
-	if err := rdb.HSet(ctx, key,
+	if err := a.rdb.HSet(ctx, key,
 		"last_id", cp.LastID,
 		"window_count", cp.WindowCount,
 		"updated_at", time.Now().UTC().Format(time.RFC3339),

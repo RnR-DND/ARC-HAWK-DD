@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	scannerapi "github.com/arc-platform/go-scanner/api"
@@ -26,6 +27,18 @@ func main() {
 	}
 
 	r := gin.Default()
+
+	serviceToken := os.Getenv("SCANNER_SERVICE_TOKEN")
+	if serviceToken != "" {
+		r.Use(func(c *gin.Context) {
+			if c.GetHeader("X-Service-Token") != serviceToken {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			c.Next()
+		})
+	}
+
 	r.POST("/scan", scannerapi.ScanHandler)
 	r.GET("/health", scannerapi.HealthHandler)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
