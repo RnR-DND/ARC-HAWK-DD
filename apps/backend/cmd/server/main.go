@@ -479,6 +479,17 @@ func validateRequiredEnvVars() {
 			log.Fatal("FATAL: SCANNER_SERVICE_TOKEN is still the default placeholder; rotate before release")
 		}
 
+		// P1-5: Neo4j Bolt TLS — bolt:// transmits credentials in plaintext.
+		neo4jURI := os.Getenv("NEO4J_URI")
+		if strings.HasPrefix(neo4jURI, "bolt://") {
+			log.Fatal("FATAL: NEO4J_URI must use bolt+ssc:// or neo4j+s:// in release mode (not plaintext bolt://)")
+		}
+
+		// P1-6: Temporal TLS — plaintext gRPC leaks workflow payloads.
+		if !strings.EqualFold(os.Getenv("TEMPORAL_TLS_ENABLED"), "true") {
+			log.Fatal("FATAL: TEMPORAL_TLS_ENABLED must be true in release mode")
+		}
+
 		// Remediation: warn if enabled, since connectors are stubs. Don't fail
 		// the boot — operators may have verified connectors — but make it loud.
 		if strings.EqualFold(os.Getenv("REMEDIATION_ENABLED"), "true") {

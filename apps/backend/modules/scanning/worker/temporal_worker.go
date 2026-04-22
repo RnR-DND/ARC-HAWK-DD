@@ -1,11 +1,13 @@
 package worker
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/arc-platform/backend/modules/scanning/activities"
 	"github.com/arc-platform/backend/modules/scanning/workflows"
@@ -33,10 +35,16 @@ type TemporalWorker struct {
 
 // NewTemporalWorker creates and starts a new Temporal worker
 func NewTemporalWorker(temporalAddress string, db *sql.DB, neo4jDriver neo4j.DriverWithContext, lineageSync interfaces.LineageSync, auditLogger interfaces.AuditLogger) (*TemporalWorker, error) {
-	// Create Temporal client
-	c, err := client.Dial(client.Options{
-		HostPort: temporalAddress,
-	})
+	// Create Temporal client. TLS is enabled when TEMPORAL_TLS_ENABLED=true
+	// (required in release mode — see validateRequiredEnvVars in main.go).
+	opts := client.Options{HostPort: temporalAddress}
+	if strings.EqualFold(os.Getenv("TEMPORAL_TLS_ENABLED"), "true") {
+		opts.ConnectionOptions = client.ConnectionOptions{
+			TLS: &tls.Config{MinVersion: tls.VersionTLS12},
+		}
+		log.Println("Temporal: TLS enabled")
+	}
+	c, err := client.Dial(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Temporal client: %w", err)
 	}
