@@ -1,3 +1,27 @@
+// @title           ARC-HAWK-DD API
+// @version         3.0.0
+// @description     Enterprise PII Discovery, Classification, and Lineage Tracking Platform.
+// @termsOfService  https://arc-hawk.io/terms
+
+// @contact.name   ARC-Hawk Security Team
+// @contact.email  security@arc-hawk.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT Bearer token. Format: "Bearer <token>"
+
+// @securityDefinitions.apikey APIKeyAuth
+// @in header
+// @name X-API-Key
+// @description Tenant API key for service-to-service authentication
+
 package main
 
 import (
@@ -11,6 +35,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	_ "github.com/arc-platform/backend/docs/openapi"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	swaggerFiles "github.com/swaggo/files"
 
 	"github.com/arc-platform/backend/modules/analytics"
 	"github.com/arc-platform/backend/modules/assets"
@@ -345,6 +373,13 @@ func main() {
 	router.GET("/readyz", readyzHandler)
 	// /health kept as back-compat alias for /readyz with correct status code
 	router.GET("/health", readyzHandler)
+
+	// Swagger UI — open in dev, admin-gated in release
+	if os.Getenv("GIN_MODE") == "release" {
+		router.GET("/swagger/*any", authMW.Authenticate(), authMW.RequireRole("admin"), ginSwagger.WrapHandler(swaggerFiles.Handler))
+	} else {
+		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// Register all module routes
 	log.Println("\n🛣️  Registering Module Routes...")
