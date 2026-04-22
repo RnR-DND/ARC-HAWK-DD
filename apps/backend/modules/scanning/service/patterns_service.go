@@ -148,7 +148,9 @@ func NewPatternsService(repo *persistence.PostgresRepository) *PatternsService {
 
 // ListPatterns returns all active patterns for the given tenant.
 func (s *PatternsService) ListPatterns(ctx context.Context, tenantID uuid.UUID) ([]*CustomPattern, error) {
-	rows, err := s.db.QueryContext(ctx,
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	rows, err := s.db.QueryContext(queryCtx,
 		`SELECT id, tenant_id, name, display_name, regex, category, description,
 		        is_active, created_by, created_at, updated_at,
 		        COALESCE(context_keywords, '{}'), COALESCE(negative_keywords, '{}')
@@ -199,7 +201,9 @@ func (s *PatternsService) CreatePattern(ctx context.Context, tenantID uuid.UUID,
 	if p.NegativeKeywords == nil {
 		p.NegativeKeywords = []string{}
 	}
-	err := s.db.QueryRowContext(ctx,
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	err := s.db.QueryRowContext(queryCtx,
 		`INSERT INTO custom_patterns
 		   (tenant_id, name, display_name, regex, category, description,
 		    is_active, created_by, validation_status, backtrack_safe,
@@ -232,8 +236,10 @@ func (s *PatternsService) UpdatePattern(ctx context.Context, tenantID, id uuid.U
 	if p.NegativeKeywords == nil {
 		p.NegativeKeywords = []string{}
 	}
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	var updated CustomPattern
-	err := s.db.QueryRowContext(ctx,
+	err := s.db.QueryRowContext(queryCtx,
 		`UPDATE custom_patterns
 		    SET display_name=$3, regex=$4, category=$5, description=$6, is_active=$7,
 		        validation_status='valid', backtrack_safe=TRUE, updated_at=NOW(),
@@ -263,7 +269,9 @@ func (s *PatternsService) UpdatePattern(ctx context.Context, tenantID, id uuid.U
 
 // DeletePattern removes a pattern owned by tenantID.
 func (s *PatternsService) DeletePattern(ctx context.Context, tenantID, id uuid.UUID) error {
-	res, err := s.db.ExecContext(ctx,
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	res, err := s.db.ExecContext(queryCtx,
 		`DELETE FROM custom_patterns WHERE id=$1 AND tenant_id=$2`, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("delete pattern: %w", err)
@@ -279,7 +287,9 @@ func (s *PatternsService) DeletePattern(ctx context.Context, tenantID, id uuid.U
 // the regex locally with keyword-aware scoring and forward the pattern to
 // Presidio as an ad-hoc recognizer with context.
 func (s *PatternsService) GetActivePatterns(ctx context.Context, tenantID uuid.UUID) ([]*CustomPattern, error) {
-	rows, err := s.db.QueryContext(ctx,
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	rows, err := s.db.QueryContext(queryCtx,
 		`SELECT id, name, display_name, regex, category, description,
 		        COALESCE(context_keywords, '{}'), COALESCE(negative_keywords, '{}')
 		   FROM custom_patterns
@@ -309,8 +319,10 @@ func (s *PatternsService) GetActivePatterns(ctx context.Context, tenantID uuid.U
 // recalculates the false_positive_rate, and then calls CheckAndAutoDeactivate.
 // It is idempotent with respect to the counter — each call adds exactly 1.
 func (s *PatternsService) RecordFalsePositive(ctx context.Context, tenantID, patternID uuid.UUID) (*CustomPattern, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	var p CustomPattern
-	err := s.db.QueryRowContext(ctx,
+	err := s.db.QueryRowContext(queryCtx,
 		`UPDATE custom_patterns
 		    SET false_positive_count = false_positive_count + 1,
 		        false_positive_rate  = (false_positive_count + 1)::NUMERIC
@@ -335,12 +347,12 @@ func (s *PatternsService) RecordFalsePositive(ctx context.Context, tenantID, pat
 	}
 
 	// Trigger auto-deactivation check after updating the rate.
-	if err := s.CheckAndAutoDeactivate(ctx, patternID); err != nil {
+	if err := s.CheckAndAutoDeactivate(queryCtx, patternID); err != nil {
 		// Log but don't surface — the increment itself succeeded.
 		log.Printf("WARN: CheckAndAutoDeactivate(%s) failed: %v", patternID, err)
 	}
 	// Refresh pattern state in case auto-deactivation just fired.
-	return s.getPatternByID(ctx, tenantID, patternID)
+	return s.getPatternByID(queryCtx, tenantID, patternID)
 }
 
 // CheckAndAutoDeactivate reads the current false_positive_rate for the given pattern
@@ -348,9 +360,11 @@ func (s *PatternsService) RecordFalsePositive(ctx context.Context, tenantID, pat
 // It is safe to call repeatedly — it is a no-op if the pattern is already deactivated
 // or if the rate is within the acceptable threshold.
 func (s *PatternsService) CheckAndAutoDeactivate(ctx context.Context, patternID uuid.UUID) error {
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	var rate float64
 	var isActive bool
-	err := s.db.QueryRowContext(ctx,
+	err := s.db.QueryRowContext(queryCtx,
 		`SELECT false_positive_rate, is_active FROM custom_patterns WHERE id=$1`,
 		patternID,
 	).Scan(&rate, &isActive)
@@ -365,7 +379,7 @@ func (s *PatternsService) CheckAndAutoDeactivate(ctx context.Context, patternID 
 		return nil // Already inactive or rate is acceptable.
 	}
 
-	_, err = s.db.ExecContext(ctx,
+	_, err = s.db.ExecContext(queryCtx,
 		`UPDATE custom_patterns
 		    SET is_active=FALSE, auto_deactivated=TRUE, updated_at=NOW()
 		  WHERE id=$1`,
@@ -380,8 +394,10 @@ func (s *PatternsService) CheckAndAutoDeactivate(ctx context.Context, patternID 
 
 // getPatternByID is an internal helper that fetches a single pattern by id + tenantID.
 func (s *PatternsService) getPatternByID(ctx context.Context, tenantID, id uuid.UUID) (*CustomPattern, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	var p CustomPattern
-	err := s.db.QueryRowContext(ctx,
+	err := s.db.QueryRowContext(queryCtx,
 		`SELECT id, tenant_id, name, display_name, regex, category, description,
 		        is_active, created_by, created_at, updated_at,
 		        validation_status, backtrack_safe, match_count_lifetime, last_matched_at,
@@ -413,14 +429,16 @@ func (s *PatternsService) getPatternByID(ctx context.Context, tenantID, id uuid.
 // single pattern. match_rate_per_scan is a convenience metric derived by dividing
 // total_matches by the number of completed scan_runs for this tenant (min 1).
 func (s *PatternsService) GetPatternStats(ctx context.Context, tenantID, patternID uuid.UUID) (*PatternStats, error) {
-	p, err := s.getPatternByID(ctx, tenantID, patternID)
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	p, err := s.getPatternByID(queryCtx, tenantID, patternID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Count completed scans for the tenant to compute match_rate_per_scan.
 	var scanCount int64
-	_ = s.db.QueryRowContext(ctx,
+	_ = s.db.QueryRowContext(queryCtx,
 		`SELECT COUNT(*) FROM scan_runs WHERE tenant_id=$1 AND status='completed'`,
 		tenantID,
 	).Scan(&scanCount)
