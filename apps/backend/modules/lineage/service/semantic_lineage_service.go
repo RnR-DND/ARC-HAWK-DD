@@ -13,6 +13,14 @@ import (
 	neo4jDriver "github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
+// classificationScore safely dereferences a *float64 confidence score, returning 0 for nil.
+func classificationScore(f *float64) float64 {
+	if f == nil {
+		return 0
+	}
+	return *f
+}
+
 // getConfidenceThreshold reads LINEAGE_CONFIDENCE_THRESHOLD from env, defaults to 0.45
 func getConfidenceThreshold() float64 {
 	if val := os.Getenv("LINEAGE_CONFIDENCE_THRESHOLD"); val != "" {
@@ -153,8 +161,14 @@ func (s *SemanticLineageService) SyncAssetToNeo4j(ctx context.Context, assetID u
 
 		classification := classifications[0]
 
+		// Safe dereference — entity.Classification.ConfidenceScore is *float64
+		confScore := 0.0
+		if classification.ConfidenceScore != nil {
+			confScore = *classification.ConfidenceScore
+		}
+
 		// Filter low-confidence findings (configurable via LINEAGE_CONFIDENCE_THRESHOLD)
-		if classification.ConfidenceScore < getConfidenceThreshold() {
+		if confScore < getConfidenceThreshold() {
 			lowConfidenceCount++
 			continue
 		}
@@ -171,7 +185,7 @@ func (s *SemanticLineageService) SyncAssetToNeo4j(ctx context.Context, assetID u
 				PIIType:         piiType,
 				DPDPACategory:   classification.DPDPACategory,
 				RequiresConsent: classification.RequiresConsent,
-				ConfidenceScore: classification.ConfidenceScore,
+				ConfidenceScore: confScore,
 			}
 		}
 
@@ -181,11 +195,11 @@ func (s *SemanticLineageService) SyncAssetToNeo4j(ctx context.Context, assetID u
 		// FindingCount undercount (e.g. asset reported 7 PANs, lineage showed 1).
 		// FindingCount must reflect every finding row; confidence averaging
 		// already handles low-quality findings via TotalConfidence / FindingCount.
-		if classification.ConfidenceScore > agg.ConfidenceScore {
-			agg.ConfidenceScore = classification.ConfidenceScore
+		if confScore > agg.ConfidenceScore {
+			agg.ConfidenceScore = confScore
 		}
 		agg.FindingCount++
-		agg.TotalConfidence += classification.ConfidenceScore
+		agg.TotalConfidence += confScore
 
 		findingAgg := FindingAggregate{
 			PatternName: finding.PatternName,

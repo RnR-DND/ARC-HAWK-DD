@@ -28,6 +28,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Auth safety gate
+        run: |
+          if grep -r "AUTH_REQUIRED=false" apps/backend/.env* 2>/dev/null | grep -q "AUTH_REQUIRED=false"; then
+            if grep -r "GIN_MODE=release" apps/backend/.env* 2>/dev/null | grep -q "GIN_MODE=release"; then
+              echo "FATAL: AUTH_REQUIRED=false with GIN_MODE=release" && exit 1
+            fi
+          fi
+          echo "Auth safety gate passed"
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:

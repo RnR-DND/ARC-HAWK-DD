@@ -20,4 +20,6 @@ type ScanRun struct {
 	Metadata        map[string]interface{} `json:"metadata,omitempty"`
 	CreatedAt       time.Time              `json:"created_at"`
 	UpdatedAt       time.Time              `json:"updated_at"`
+	CancelledAt     *time.Time             `json:"cancelled_at,omitempty"`
+	CancelledBy     *string                `json:"cancelled_by,omitempty"`
 }

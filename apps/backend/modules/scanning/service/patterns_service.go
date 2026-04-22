@@ -465,12 +465,15 @@ func (s *PatternsService) TestPattern(ctx context.Context, tenantID, patternID u
 	passed := 0
 	failed := 0
 
+	sem := make(chan struct{}, 10) // bound concurrent regex goroutines to prevent unbounded spawning
 	for _, tc := range cases {
 		// Run each match inside a goroutine with a 2s deadline to prevent ReDoS
 		// via adversarial test inputs.
 		matchCh := make(chan bool, 1)
 		input := tc.Input // capture loop var
+		sem <- struct{}{}
 		go func() {
+			defer func() { <-sem }()
 			matchCh <- re.MatchString(input)
 		}()
 

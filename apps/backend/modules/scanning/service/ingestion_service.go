@@ -187,12 +187,18 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	// Ensure rollback on panic — use named returns so recover can propagate the error
+	committed := false
+	// Deferred rollback covers error returns and panics so explicit tx.Rollback()
+	// calls at each error site are no longer load-bearing.
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			log.Printf("PANIC during ingestion, transaction rolled back: %v", r)
 			retErr = fmt.Errorf("panic during ingestion: %v", r)
+			return
+		}
+		if !committed {
+			_ = tx.Rollback()
 		}
 	}()
 
@@ -492,12 +498,13 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		findingsIngestedTotal.WithLabelValues(detectorType).Inc()
 
 		// Save Classification
+		finalScore := decision.FinalScore
 		classification := &entity.Classification{
 			ID:                 uuid.New(),
 			FindingID:          finding.ID,
 			ClassificationType: decision.Classification,
 			SubCategory:        decision.SubCategory,
-			ConfidenceScore:    decision.FinalScore,
+			ConfidenceScore:    &finalScore,
 			Justification:      decision.Justification,
 			DPDPACategory:      decision.DPDPACategory,
 			RequiresConsent:    decision.RequiresConsent,
@@ -546,6 +553,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	committed = true
 
 	// Recalculate asset risk AFTER commit so CountFindings sees committed rows
 	for _, assetID := range assetIDs {

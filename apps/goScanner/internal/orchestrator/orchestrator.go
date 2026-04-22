@@ -128,6 +128,9 @@ func (o *Orchestrator) runParallel(ctx context.Context, cfg ScanConfig) ([]class
 
 	for _, src := range cfg.Sources {
 		src := src
+		if gctx.Err() != nil {
+			break
+		}
 		g.Go(func() error {
 			if err := sem.Acquire(gctx, 1); err != nil {
 				return err

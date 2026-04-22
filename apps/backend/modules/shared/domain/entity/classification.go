@@ -12,7 +12,7 @@ type Classification struct {
 	FindingID          uuid.UUID              `json:"finding_id"`
 	ClassificationType string                 `json:"classification_type"`
 	SubCategory        string                 `json:"sub_category,omitempty"`
-	ConfidenceScore    float64                `json:"confidence_score"`
+	ConfidenceScore    *float64               `json:"confidence_score,omitempty"`
 	Justification      string                 `json:"justification"`
 	DPDPACategory      string                 `json:"dpdpa_category,omitempty"`
 	RequiresConsent    bool                   `json:"requires_consent"`

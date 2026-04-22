@@ -67,11 +67,14 @@ func IngestFindings(scanID, scanName, tenantID, backendURL string, findings []cl
 		}
 		resp, err := ingestClient.Do(httpReq)
 		if err != nil {
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
 			log.Printf("WARN: ingest chunk %d-%d failed: %v", i, end, err)
 			failedChunks++
 			continue
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		sent = end
 
 		if sent%ingestProgressEvery == 0 || sent == total {
@@ -119,10 +122,13 @@ func sendComplete(tenantID, backendURL, scanID, status, message string) {
 	}
 	resp, err := ingestClient.Do(req)
 	if err != nil {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		log.Printf("WARN: scan complete signal failed for %s: %v", scanID, err)
 		return
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }
 
 // buildPayload constructs the VerifiedScanInput envelope expected by
@@ -184,7 +190,10 @@ func sendProgressEvent(client *http.Client, tenantID, backendURL, scanID string,
 	}
 	resp, err := client.Do(req)
 	if err != nil {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		return
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }

@@ -195,7 +195,7 @@ func (a *SDKAdapter) MapToClassification(vf *VerifiedFinding, findingID uuid.UUI
 		FindingID:          findingID,
 		ClassificationType: classificationType,
 		SubCategory:        vf.PIIType, // CRITICAL: Must be PII type for lineage (IN_AADHAAR, CREDIT_CARD, etc.)
-		ConfidenceScore:    finalScore,
+		ConfidenceScore:    &finalScore,
 		Justification:      generateJustification(vf),
 		DPDPACategory:      dpdpaCategory,
 		RequiresConsent:    requiresConsent(vf.PIIType),

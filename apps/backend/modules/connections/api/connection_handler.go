@@ -48,8 +48,13 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "profile_name must contain only letters, digits, underscores, or hyphens"})
 		return
 	}
-	// TODO: Get user from auth context (Phase 2 - Authentication)
-	createdBy := "system"
+	createdBy := c.GetString("user_email")
+	if createdBy == "" {
+		createdBy = c.GetString("user_id")
+	}
+	if createdBy == "" {
+		createdBy = "system"
+	}
 
 	conn, err := h.service.AddConnection(c.Request.Context(), req.SourceType, req.ProfileName, req.Config, createdBy)
 	if err != nil {

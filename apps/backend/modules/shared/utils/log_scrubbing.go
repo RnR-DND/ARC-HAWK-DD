@@ -89,6 +89,9 @@ func ScrubPII(input string, config *ScrubConfig) string {
 	return result
 }
 
+const maxScrubDepth = 20
+const maxScrubInputBytes = 1 << 18 // 256 KB
+
 var sensitiveKeys = map[string]bool{
 	"password": true, "token": true, "secret": true, "key": true,
 	"credential": true, "api_key": true, "aadhaar": true, "pan": true,
@@ -97,11 +100,14 @@ var sensitiveKeys = map[string]bool{
 }
 
 func ScrubJSONLog(jsonStr string) string {
+	if len(jsonStr) > maxScrubInputBytes {
+		return "[input too large to scrub]"
+	}
 	var obj interface{}
 	if err := json.Unmarshal([]byte(jsonStr), &obj); err != nil {
 		return "[invalid json]"
 	}
-	scrubbed := scrubValue(obj)
+	scrubbed := scrubValue(obj, 0)
 	out, err := json.Marshal(scrubbed)
 	if err != nil {
 		return "[marshal error]"
@@ -109,20 +115,23 @@ func ScrubJSONLog(jsonStr string) string {
 	return string(out)
 }
 
-func scrubValue(v interface{}) interface{} {
+func scrubValue(v interface{}, depth int) interface{} {
+	if depth > maxScrubDepth {
+		return "[max depth exceeded]"
+	}
 	switch val := v.(type) {
 	case map[string]interface{}:
 		for k := range val {
 			if sensitiveKeys[strings.ToLower(k)] {
 				val[k] = "[REDACTED]"
 			} else {
-				val[k] = scrubValue(val[k])
+				val[k] = scrubValue(val[k], depth+1)
 			}
 		}
 		return val
 	case []interface{}:
 		for i, item := range val {
-			val[i] = scrubValue(item)
+			val[i] = scrubValue(item, depth+1)
 		}
 		return val
 	default:

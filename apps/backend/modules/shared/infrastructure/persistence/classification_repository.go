@@ -45,13 +45,15 @@ func (r *PostgresRepository) GetClassificationsByFindingID(ctx context.Context, 
 	for rows.Next() {
 		c := &entity.Classification{}
 		var retentionPeriod *string // Use pointer to handle NULL
+		var confidenceScore float64
 
 		err := rows.Scan(
 			&c.ID, &c.FindingID, &c.ClassificationType, &c.SubCategory,
-			&c.ConfidenceScore, &c.Justification, &c.DPDPACategory,
+			&confidenceScore, &c.Justification, &c.DPDPACategory,
 			&c.RequiresConsent, &retentionPeriod,
 			&c.CreatedAt, &c.UpdatedAt,
 		)
+		c.ConfidenceScore = &confidenceScore
 		if err != nil {
 			return nil, err
 		}

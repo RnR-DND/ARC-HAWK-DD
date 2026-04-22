@@ -275,7 +275,9 @@ func (r *Neo4jRepository) CreateFindingNode(ctx context.Context, finding *entity
 		confidence := 0.0
 		if classification != nil {
 			classificationType = classification.ClassificationType
-			confidence = classification.ConfidenceScore
+			if classification.ConfidenceScore != nil {
+				confidence = *classification.ConfidenceScore
+			}
 		}
 
 		riskScore := calculateFindingRiskScore(finding.Severity)

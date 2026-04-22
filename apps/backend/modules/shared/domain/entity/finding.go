@@ -28,4 +28,6 @@ type Finding struct {
 	EnrichmentFailed    bool                   `json:"enrichment_failed"`
 	CreatedAt           time.Time              `json:"created_at"`
 	UpdatedAt           time.Time              `json:"updated_at"`
+	DeletedAt           *time.Time             `json:"deleted_at,omitempty"`
+	OccurrenceCount     int                    `json:"occurrence_count"`
 }
