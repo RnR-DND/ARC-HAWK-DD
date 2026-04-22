@@ -14,5 +14,4 @@ func init() {
 	connectors.Register("avro", func() connectors.Connector { return &AvroConnector{} })
 	connectors.Register("parquet", func() connectors.Connector { return &ParquetConnector{} })
 	connectors.Register("orc", func() connectors.Connector { return &ORCConnector{} })
-	connectors.Register("scanned_images", func() connectors.Connector { return &ImagesConnector{} })
 }

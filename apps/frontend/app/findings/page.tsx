@@ -185,6 +185,7 @@ export default function FindingsPage() {
                 </div>
                 {findingsData && findingsData.findings.length > 0 && (
                     <button
+                        data-testid="export-findings-btn"
                         onClick={() => {
                             const { exportToCSV } = require('@/utils/export');
                             exportToCSV(findingsData.findings, 'findings');
@@ -205,6 +206,7 @@ export default function FindingsPage() {
 
                 {/* PII Type Filter */}
                 <select
+                    data-testid="pii-type-filter"
                     className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={piiTypeFilter}
                     onChange={(e) => setPiiTypeFilter(e.target.value)}
@@ -225,6 +227,7 @@ export default function FindingsPage() {
 
                 {/* Risk Filter */}
                 <select
+                    data-testid="severity-filter"
                     className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={severityFilter}
                     onChange={(e) => setSeverityFilter(e.target.value)}
@@ -249,6 +252,7 @@ export default function FindingsPage() {
                 <div className="ml-auto relative">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
+                        data-testid="findings-search-input"
                         type="text"
                         placeholder="Search path/field..."
                         value={searchTerm}

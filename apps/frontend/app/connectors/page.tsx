@@ -351,7 +351,7 @@ function ConnectorModal({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                <form data-testid="add-connector-form" onSubmit={handleSubmit} className="p-6 space-y-5">
                     {/* Source type picker */}
                     <div className="space-y-2">
                         <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
@@ -428,6 +428,7 @@ function ConnectorModal({
                     {form.source_type && (
                         <div className="space-y-2">
                             <button
+                                data-testid="test-connection-btn"
                                 type="button"
                                 onClick={handleTest}
                                 disabled={testing}
@@ -448,10 +449,11 @@ function ConnectorModal({
                     )}
 
                     <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+                        <button data-testid="cancel-connector-btn" type="button" onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
                             Cancel
                         </button>
                         <button
+                            data-testid="submit-connector-btn"
                             type="submit"
                             disabled={saving}
                             className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -628,6 +630,7 @@ export default function ConnectorsSettingsPage() {
                                         <td className="px-5 py-3">
                                             <div className="flex items-center justify-end gap-1">
                                                 <button
+                                                    data-testid="test-connection-btn"
                                                     onClick={() => handleTest(c)}
                                                     disabled={testingId === c.id}
                                                     className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50"
@@ -636,6 +639,7 @@ export default function ConnectorsSettingsPage() {
                                                     Test
                                                 </button>
                                                 <button
+                                                    data-testid="edit-connector-btn"
                                                     onClick={() => setEditTarget(c)}
                                                     className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md"
                                                     title="Edit"
@@ -643,6 +647,7 @@ export default function ConnectorsSettingsPage() {
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
                                                 <button
+                                                    data-testid="delete-connector-btn"
                                                     onClick={() => setDeleteConfirmId(c.id)}
                                                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md"
                                                     title="Delete"

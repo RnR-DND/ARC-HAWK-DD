@@ -155,6 +155,7 @@ export default function ScansPage() {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
+                        data-testid="scan-all-sources-btn"
                         onClick={handleScanAll}
                         disabled={scanAllLoading}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg font-medium transition-colors"
@@ -167,6 +168,7 @@ export default function ScansPage() {
                         <span>Scan All Sources</span>
                     </button>
                     <button
+                        data-testid="new-scan-btn"
                         onClick={() => setShowScanConfigModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
                     >
@@ -263,6 +265,7 @@ export default function ScansPage() {
                                     </td>
                                     <td className="px-3 py-4 text-center">
                                         <button
+                                            data-testid="delete-scan-btn"
                                             onClick={(e) => handleDeleteScan(e, scan.id)}
                                             disabled={deletingId === scan.id}
                                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"

@@ -1,3 +1,5 @@
+//go:build connector_stub
+
 package files
 
 import (

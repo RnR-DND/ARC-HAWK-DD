@@ -8,7 +8,6 @@ func init() {
 	connectors.Register("mongodb", func() connectors.Connector { return &MongoDBConnector{} })
 	connectors.Register("redis", func() connectors.Connector { return &RedisConnector{} })
 	connectors.Register("sqlite", func() connectors.Connector { return &SQLiteConnector{} })
-	connectors.Register("oracle", func() connectors.Connector { return &OracleConnector{} })
 	connectors.Register("mssql", func() connectors.Connector { return &MSSQLConnector{} })
 	connectors.Register("firebase", func() connectors.Connector { return &FirebaseConnector{} })
 	connectors.Register("couchdb", func() connectors.Connector { return &CouchDBConnector{} })

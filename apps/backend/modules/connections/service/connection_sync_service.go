@@ -33,10 +33,12 @@ func (s *ConnectionSyncService) SyncToYAML(ctx context.Context) error {
 
 // SyncSingleConnection is a no-op. The Go scanner reads connections from the database directly.
 func (s *ConnectionSyncService) SyncSingleConnection(ctx context.Context, sourceType, profileName string) error {
+	log.Printf("INFO: ConnectionSyncService.SyncSingleConnection called — no-op (source=%s profile=%s; Go scanner reads from DB)", sourceType, profileName)
 	return nil
 }
 
 // ValidateSync always returns true. YAML sync is no longer used.
 func (s *ConnectionSyncService) ValidateSync(ctx context.Context) (bool, error) {
+	log.Printf("INFO: ConnectionSyncService.ValidateSync called — always true (YAML sync removed)")
 	return true, nil
 }
