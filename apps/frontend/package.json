@@ -23,7 +23,7 @@
         "axios": "^1.6.2",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
-        "cytoscape": "^3.33.1",
+        "cytoscape": "^3.33.2",
         "dagre": "^0.8.5",
         "date-fns": "^4.1.0",
         "framer-motion": "^12.28.1",
