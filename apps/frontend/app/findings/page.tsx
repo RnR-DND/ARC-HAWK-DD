@@ -8,10 +8,12 @@ import { findingsApi } from '@/services/findings.api';
 import { RemediationConfirmationModal } from '@/components/remediation/RemediationConfirmationModal';
 import { remediationApi } from '@/services/remediation.api';
 import { authApi } from '@/services/auth.api';
+import { useToast } from '@/contexts/ToastContext';
 
 import type { FindingWithDetails, FindingsResponse } from '@/types';
 
 export default function FindingsPage() {
+    const { showToast } = useToast();
     const [currentUserId, setCurrentUserId] = useState<string>('');
     const [findingsData, setFindingsData] = useState<FindingsResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -163,6 +165,7 @@ export default function FindingsPage() {
             fetchFindings();
         } catch (error) {
             console.error('Remediation failed:', error);
+            showToast('Failed to execute remediation', 'error');
             setError('Failed to execute remediation');
         }
     };
@@ -173,9 +176,11 @@ export default function FindingsPage() {
                 feedback_type: 'FALSE_POSITIVE',
                 comments: 'Marked via UI'
             });
+            showToast('Finding marked as false positive', 'success');
             fetchFindings();
         } catch (error) {
             console.error('Failed to mark false positive:', error);
+            showToast('Failed to update finding', 'error');
             setError('Failed to update finding');
         }
     };

@@ -186,8 +186,12 @@ export default function AuditPage() {
                     {error}
                 </div>
             ) : filtered.length === 0 ? (
-                <div className="p-12 text-center text-slate-400 bg-slate-50 rounded-lg border border-slate-100">
-                    No audit log entries match your filters.
+                <div className="flex flex-col items-center justify-center p-12 bg-slate-50 rounded-lg border border-slate-100">
+                    <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                        <Shield className="w-7 h-7 text-slate-400" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-600 mb-1">No matching entries</p>
+                    <p className="text-xs text-slate-400">Try adjusting your filters or date range.</p>
                 </div>
             ) : (
                 <div className="border border-slate-200 rounded-lg overflow-hidden">

@@ -3,6 +3,29 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, AlertTriangle, Database, File, ExternalLink, ChevronDown, ChevronUp, Search, Filter, X, Shield } from 'lucide-react';
 import { RemediationConfirmationModal } from '@/components/remediation/RemediationConfirmationModal';
 import { remediationApi } from '@/services/remediation.api';
+import Tooltip from '@/components/Tooltip';
+
+const PII_TYPE_LABELS: Record<string, string> = {
+    IN_AADHAAR:       'Indian Aadhaar — 12-digit government identity number',
+    IN_PAN:           'Indian PAN — 10-character income tax identifier',
+    CREDIT_CARD:      'Credit / debit card number',
+    EMAIL_ADDRESS:    'Email address',
+    PHONE_NUMBER:     'Phone / mobile number',
+    IP_ADDRESS:       'IP address (v4 or v6)',
+    DATE_OF_BIRTH:    'Date of birth',
+    PERSON:           'Person name (NER-detected)',
+    LOCATION:         'Geographic location (NER-detected)',
+    MEDICAL_LICENSE:  'Medical license or registration number',
+    US_SSN:           'US Social Security Number',
+    US_PASSPORT:      'US passport number',
+    IBAN_CODE:        'International Bank Account Number (IBAN)',
+    CRYPTO:           'Cryptocurrency wallet address',
+    NRP:              'Nationality, religion, or political affiliation',
+    URL:              'URL or web address',
+    IN_VOTER:         'Indian Voter ID number',
+    IN_VEHICLE:       'Indian vehicle registration number',
+    IN_PASSPORT:      'Indian passport number',
+};
 
 interface Finding {
     id: string;
@@ -279,24 +302,37 @@ export default function FindingsTable({ findings, loading = false }: FindingsTab
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                            <Tooltip
+                                                content={PII_TYPE_LABELS[finding.piiType] ?? finding.piiType}
+                                                placement="bottom"
+                                            >
+                                                <div className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 cursor-help w-fit">
                                                     {finding.piiType}
                                                 </div>
-                                            </div>
+                                            </Tooltip>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-1.5 w-12 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full ${finding.confidence > 0.9 ? 'bg-emerald-500' : finding.confidence > 0.7 ? 'bg-blue-500' : 'bg-orange-500'}`}
-                                                        style={{ width: `${finding.confidence * 100}%` }}
-                                                    />
+                                            <Tooltip
+                                                content={
+                                                    finding.confidence > 0.9
+                                                        ? 'High confidence — pattern matched a format validator (e.g. checksum, regex).'
+                                                        : finding.confidence > 0.7
+                                                        ? 'Medium confidence — pattern match without full format validation.'
+                                                        : 'Low confidence — weak signal; review before acting.'
+                                                }
+                                            >
+                                                <div className="flex items-center gap-2 cursor-help">
+                                                    <div className="h-1.5 w-12 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full ${finding.confidence > 0.9 ? 'bg-emerald-500' : finding.confidence > 0.7 ? 'bg-blue-500' : 'bg-orange-500'}`}
+                                                            style={{ width: `${finding.confidence * 100}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-slate-700 font-medium text-sm">
+                                                        {Math.round(finding.confidence * 100)}%
+                                                    </span>
                                                 </div>
-                                                <span className="text-slate-700 font-medium text-sm">
-                                                    {Math.round(finding.confidence * 100)}%
-                                                </span>
-                                            </div>
+                                            </Tooltip>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${riskConfig[finding.risk].color}`}>

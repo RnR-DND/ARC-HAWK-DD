@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Clock, CheckCircle, AlertCircle, Calendar, Loader2, Trash2, Zap } from 'lucide-react';
+import { Play, Clock, CheckCircle, AlertCircle, Calendar, Loader2, Trash2, Zap, AlertTriangle } from 'lucide-react';
 import { scansApi } from '@/services/scans.api';
 import { format } from 'date-fns';
-
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/contexts/ToastContext';
 import { ScanConfigModal } from '@/components/scans/ScanConfigModal';
 
 function LiveDuration({ startedAt }: { startedAt: string | null }) {
@@ -25,55 +26,46 @@ function LiveDuration({ startedAt }: { startedAt: string | null }) {
     const h = Math.floor(elapsed / 3600);
     const m = Math.floor((elapsed % 3600) / 60);
     const s = elapsed % 60;
-
-    const fmt = h > 0
-        ? `${h}h ${m}m ${s}s`
-        : m > 0
-        ? `${m}m ${s}s`
-        : `${s}s`;
-
+    const fmt = h > 0 ? `${h}h ${m}m ${s}s` : m > 0 ? `${m}m ${s}s` : `${s}s`;
     return <span className="text-yellow-600 font-mono">{fmt}</span>;
 }
 
 export default function ScansPage() {
     const router = useRouter();
+    const { showToast } = useToast();
     const [scans, setScans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showScanConfigModal, setShowScanConfigModal] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [hasRunningScans, setHasRunningScans] = useState(false);
     const [scanAllLoading, setScanAllLoading] = useState(false);
-    const [scanAllToast, setScanAllToast] = useState<string | null>(null);
+    const [scanAllConfirm, setScanAllConfirm] = useState(false);
 
     const handleScanAll = async () => {
-        if (!confirm('Scan all connected data sources? This may take several minutes.')) return;
+        setScanAllConfirm(false);
         setScanAllLoading(true);
         try {
             await scansApi.scanAll();
-            setScanAllToast('Scan initiated for all sources');
-            setTimeout(() => {
-                setScanAllToast(null);
-                fetchScans();
-            }, 2000);
+            showToast('Scan initiated for all sources', 'success');
+            setTimeout(fetchScans, 2000);
         } catch (error) {
             console.error('Failed to trigger scan-all:', error);
-            setScanAllToast('Failed to initiate scan');
-            setTimeout(() => setScanAllToast(null), 3000);
+            showToast('Failed to initiate scan', 'error');
         } finally {
             setScanAllLoading(false);
         }
     };
 
-    const handleDeleteScan = async (e: React.MouseEvent, scanId: string) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!confirm('Delete this scan and all its findings?')) return;
+    const handleDeleteScan = async (scanId: string) => {
+        setDeleteConfirmId(null);
         setDeletingId(scanId);
         try {
             await scansApi.deleteScan(scanId);
             setScans(prev => prev.filter(s => s.id !== scanId));
         } catch (error) {
             console.error('Failed to delete scan:', error);
+            showToast('Failed to delete scan', 'error');
         } finally {
             setDeletingId(null);
         }
@@ -83,11 +75,11 @@ export default function ScansPage() {
         try {
             const data = await scansApi.getScans();
             setScans(data);
-            // Poll every 5s if any scan is still running
             const hasRunning = data.some((s: any) => s.status === 'running' || s.status === 'pending');
             setHasRunningScans(hasRunning);
         } catch (error) {
             console.error('Failed to load scans', error);
+            showToast('Failed to load scans', 'error');
         } finally {
             setLoading(false);
         }
@@ -97,7 +89,6 @@ export default function ScansPage() {
         fetchScans();
     }, []);
 
-    // Poll every 5s while any scan is running or pending
     useEffect(() => {
         if (!hasRunningScans) return;
         const id = setInterval(fetchScans, 5000);
@@ -114,16 +105,13 @@ export default function ScansPage() {
 
     const getDuration = (start: string, end?: string, status?: string) => {
         if (!start || start.startsWith('0001-01-01')) return '-';
-        
         const startTime = new Date(start).getTime();
         let endTime = new Date().getTime();
-        
         if (end && !end.startsWith('0001-01-01')) {
             endTime = new Date(end).getTime();
         } else if (status === 'completed' || status === 'failed') {
-            return 'Unknown'; // Old scan missing end time
+            return 'Unknown';
         }
-        
         const diffSeconds = Math.floor((endTime - startTime) / 1000);
         if (diffSeconds < 60) return `${diffSeconds}s`;
         const minutes = Math.floor(diffSeconds / 60);
@@ -136,15 +124,44 @@ export default function ScansPage() {
             <ScanConfigModal
                 isOpen={showScanConfigModal}
                 onClose={() => setShowScanConfigModal(false)}
-                onRunScan={() => {
-                    // Update list shortly after scan starts
-                    setTimeout(fetchScans, 1000);
-                }}
+                onRunScan={() => setTimeout(fetchScans, 1000)}
             />
 
-            {scanAllToast && (
-                <div className="fixed top-5 right-5 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white bg-blue-600 animate-in slide-in-from-right">
-                    {scanAllToast}
+            {/* Scan-all confirmation banner */}
+            {scanAllConfirm && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="scan-all-title"
+                    className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/20"
+                    onClick={() => setScanAllConfirm(false)}
+                >
+                    <div
+                        className="bg-white border border-slate-200 rounded-xl shadow-2xl p-5 flex items-start gap-4 w-[480px]"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <div id="scan-all-title" className="font-semibold text-slate-900">Scan all data sources?</div>
+                            <div className="text-sm text-slate-500 mt-1">
+                                Queues a scan on every connected source. This may take several minutes.
+                            </div>
+                            <div className="flex items-center gap-2 mt-4 justify-end">
+                                <button
+                                    onClick={() => setScanAllConfirm(false)}
+                                    className="px-3 py-1.5 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleScanAll}
+                                    className="px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                                >
+                                    Scan All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -156,7 +173,7 @@ export default function ScansPage() {
                 <div className="flex items-center gap-3">
                     <button
                         data-testid="scan-all-sources-btn"
-                        onClick={handleScanAll}
+                        onClick={() => setScanAllConfirm(true)}
                         disabled={scanAllLoading}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-lg font-medium transition-colors"
                     >
@@ -180,9 +197,10 @@ export default function ScansPage() {
 
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                 {loading ? (
-                    <div className="flex items-center justify-center p-12 text-slate-500">
-                        <Loader2 className="w-8 h-8 animate-spin mr-3" />
-                        <span>Loading scan history...</span>
+                    <div className="p-6 space-y-3">
+                        {[...Array(5)].map((_, i) => (
+                            <Skeleton key={i} className="h-14 w-full" />
+                        ))}
                     </div>
                 ) : scans.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-12 text-slate-500">
@@ -190,7 +208,14 @@ export default function ScansPage() {
                             <Clock className="w-8 h-8 text-slate-400" />
                         </div>
                         <h3 className="text-lg font-medium text-slate-900 mb-1">No Scans Found</h3>
-                        <p className="text-sm text-slate-500">Run your first scan to see results here.</p>
+                        <p className="text-sm text-slate-500 mb-4">Run your first scan to see results here.</p>
+                        <button
+                            onClick={() => setShowScanConfigModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
+                            <Play className="w-4 h-4" />
+                            New Scan
+                        </button>
                     </div>
                 ) : (
                     <table className="w-full text-left text-sm">
@@ -206,79 +231,100 @@ export default function ScansPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {scans.map((scan) => (
-                                <tr
-                                    key={scan.id}
-                                    onClick={() => router.push(`/scans/${scan.id}`)}
-                                    className="group hover:bg-slate-50 transition-colors cursor-pointer"
-                                >
-                                    <td className="px-6 py-4">
-                                        <div className="font-semibold text-blue-600 group-hover:text-blue-700 transition-colors">
-                                            {scan.profile_name || 'Unnamed Scan'}
-                                        </div>
-                                        <div className="text-xs text-slate-500 mt-0.5">{scan.id}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600">
-                                        <div className="flex items-center gap-2">
-                                            <Calendar className="w-4 h-4 text-slate-400" />
-                                            {formatDate(scan.scan_started_at)}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-1">
-                                            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border w-fit ${scan.status === 'completed'
-                                                ? 'bg-green-50 text-green-700 border-green-200'
-                                                : scan.status === 'failed'
-                                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                                    : scan.status === 'running'
-                                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                                        : 'bg-slate-50 text-slate-600 border-slate-200'
-                                                }`}>
-                                                {scan.status === 'completed' ? (
-                                                    <CheckCircle className="w-3 h-3" />
-                                                ) : scan.status === 'failed' ? (
-                                                    <AlertCircle className="w-3 h-3" />
-                                                ) : scan.status === 'running' ? (
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                ) : (
-                                                    <Clock className="w-3 h-3" />
-                                                )}
-                                                <span className="capitalize">{scan.status}</span>
+                                <React.Fragment key={scan.id}>
+                                    <tr
+                                        onClick={() => router.push(`/scans/${scan.id}`)}
+                                        className="group hover:bg-slate-50 transition-colors cursor-pointer"
+                                    >
+                                        <td className="px-6 py-4">
+                                            <div className="font-semibold text-blue-600 group-hover:text-blue-700 transition-colors">
+                                                {scan.profile_name || 'Unnamed Scan'}
                                             </div>
-                                            {scan.status === 'failed' && (
-                                                <span className="text-[10px] text-slate-400 leading-tight">
-                                                    Scanner timeout (10 min). Check source connectivity.
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="w-4 h-4 text-slate-400" />
-                                            {(scan.status === 'running' || scan.status === 'pending')
-                                                ? <LiveDuration startedAt={scan.scan_started_at} />
-                                                : getDuration(scan.scan_started_at, scan.scan_completed_at, scan.status)
-                                            }
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-mono text-slate-700">
-                                        {scan.total_findings?.toLocaleString() || 0}
-                                    </td>
-                                    <td className="px-3 py-4 text-center">
-                                        <button
-                                            data-testid="delete-scan-btn"
-                                            onClick={(e) => handleDeleteScan(e, scan.id)}
-                                            disabled={deletingId === scan.id}
-                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                                            title="Delete scan"
-                                        >
-                                            {deletingId === scan.id ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <Trash2 className="w-4 h-4" />
-                                            )}
-                                        </button>
-                                    </td>
-                                </tr>
+                                            <div className="text-xs text-slate-500 mt-0.5">{scan.id}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="w-4 h-4 text-slate-400" />
+                                                {formatDate(scan.scan_started_at)}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1">
+                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border w-fit ${
+                                                    scan.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200'
+                                                    : scan.status === 'failed' ? 'bg-red-50 text-red-700 border-red-200'
+                                                    : scan.status === 'running' ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                    : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                }`}>
+                                                    {scan.status === 'completed' ? <CheckCircle className="w-3 h-3" />
+                                                     : scan.status === 'failed' ? <AlertCircle className="w-3 h-3" />
+                                                     : scan.status === 'running' ? <Loader2 className="w-3 h-3 animate-spin" />
+                                                     : <Clock className="w-3 h-3" />}
+                                                    <span className="capitalize">{scan.status}</span>
+                                                </div>
+                                                {scan.status === 'failed' && (
+                                                    <span className="text-[10px] text-slate-400 leading-tight">
+                                                        Scanner timeout (10 min). Check source connectivity.
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600">
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="w-4 h-4 text-slate-400" />
+                                                {(scan.status === 'running' || scan.status === 'pending')
+                                                    ? <LiveDuration startedAt={scan.scan_started_at} />
+                                                    : getDuration(scan.scan_started_at, scan.scan_completed_at, scan.status)
+                                                }
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-mono text-slate-700">
+                                            {scan.total_findings?.toLocaleString() || 0}
+                                        </td>
+                                        <td className="px-3 py-4 text-center">
+                                            <button
+                                                data-testid="delete-scan-btn"
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirmId(scan.id); }}
+                                                disabled={deletingId === scan.id}
+                                                aria-label={`Delete scan ${scan.profile_name || scan.id}`}
+                                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                                title="Delete scan"
+                                            >
+                                                {deletingId === scan.id ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="w-4 h-4" />
+                                                )}
+                                            </button>
+                                        </td>
+                                    </tr>
+
+                                    {/* Inline delete confirmation row */}
+                                    {deleteConfirmId === scan.id && (
+                                        <tr>
+                                            <td colSpan={6} className="px-5 py-3 bg-red-50 border-t border-red-100">
+                                                <div className="flex items-center gap-4 text-sm">
+                                                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                                                    <span className="text-red-700 font-medium flex-1">
+                                                        Delete <strong>{scan.profile_name || 'this scan'}</strong> and all its findings?
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setDeleteConfirmId(null)}
+                                                        className="px-3 py-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteScan(scan.id)}
+                                                        className="px-3 py-1.5 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>

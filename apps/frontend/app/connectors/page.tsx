@@ -11,9 +11,11 @@ import {
     deleteConnection,
     testConnection,
     getAvailableTypes,
+    getConnectionHealth,
     type Connection,
     type ConnectionConfig,
     type AvailableSourceType,
+    type ConnectorHealth,
 } from '@/services/connections.api';
 import { put, post } from '@/utils/api-client';
 
@@ -346,7 +348,7 @@ function ConnectorModal({
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
                     <h2 className="text-lg font-semibold text-slate-900">{initial ? 'Edit Connector' : 'Add Connector'}</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+                    <button onClick={onClose} aria-label="Close dialog" className="text-slate-400 hover:text-slate-600">
                         <XCircle className="w-5 h-5" />
                     </button>
                 </div>
@@ -480,6 +482,11 @@ export default function ConnectorsSettingsPage() {
     const [testingId, setTestingId] = useState<string | null>(null);
     const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>({});
     const [availableTypes, setAvailableTypes] = useState<ConnectorType[]>(FALLBACK_CONNECTOR_TYPES);
+    const [health, setHealth] = useState<ConnectorHealth[]>([]);
+
+    useEffect(() => {
+        getConnectionHealth().then(setHealth).catch(() => {});
+    }, []);
 
     // Fetch available connector types from backend; fall back to static list on error
     useEffect(() => {
@@ -580,6 +587,46 @@ export default function ConnectorsSettingsPage() {
                 </div>
             </div>
 
+            {/* Connector Health Widget */}
+            {health.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <Plug className="w-4 h-4 text-blue-500" />
+                        Connector Health
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {health.map(h => (
+                            <div key={h.profile_name} className="border border-slate-100 rounded-lg p-3 flex flex-col gap-1.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium text-slate-800 text-sm truncate">{h.profile_name}</span>
+                                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                        h.status === 'ok' ? 'bg-green-500' :
+                                        h.status === 'stale' ? 'bg-amber-400' : 'bg-slate-300'
+                                    }`} />
+                                </div>
+                                <span className="text-xs text-slate-400 font-mono">{h.source_type}</span>
+                                <div className="text-xs text-slate-500 mt-1">
+                                    {h.last_scan_time ? (
+                                        <>
+                                            <span className={`font-semibold ${
+                                                h.last_scan_status === 'completed' ? 'text-green-600' :
+                                                h.last_scan_status === 'failed' ? 'text-red-500' : 'text-slate-500'
+                                            }`}>{h.last_scan_status || '—'}</span>
+                                            <span className="text-slate-400"> · {new Date(h.last_scan_time).toLocaleDateString()}</span>
+                                        </>
+                                    ) : (
+                                        <span className="text-slate-400 italic">Never scanned</span>
+                                    )}
+                                </div>
+                                <div className="text-xs font-mono text-slate-600">
+                                    {h.findings_count.toLocaleString()} finding{h.findings_count !== 1 ? 's' : ''}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Table */}
             {loading ? (
                 <div className="space-y-3">
@@ -642,6 +689,7 @@ export default function ConnectorsSettingsPage() {
                                                     data-testid="edit-connector-btn"
                                                     onClick={() => setEditTarget(c)}
                                                     className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md"
+                                                    aria-label={`Edit ${c.profile_name} connector`}
                                                     title="Edit"
                                                 >
                                                     <Edit2 className="w-4 h-4" />
@@ -650,6 +698,7 @@ export default function ConnectorsSettingsPage() {
                                                     data-testid="delete-connector-btn"
                                                     onClick={() => setDeleteConfirmId(c.id)}
                                                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md"
+                                                    aria-label={`Delete ${c.profile_name} connector`}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -667,6 +716,7 @@ export default function ConnectorsSettingsPage() {
                                                     {testResults[c.id].message}
                                                     <button
                                                         onClick={() => setTestResults(prev => { const n = { ...prev }; delete n[c.id]; return n; })}
+                                                        aria-label="Dismiss test result"
                                                         className="ml-auto text-current opacity-50 hover:opacity-100"
                                                     >
                                                         <XCircle className="w-3.5 h-3.5" />
