@@ -5,6 +5,30 @@ All notable changes to the ARC-Hawk platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-04-23
+
+### ✨ Added
+
+- **OpenAPI/Swagger spec** — 105 endpoints now machine-readable at `/swagger/index.html` and `docs/openapi/swagger.json`. Integrating systems can generate SDKs directly.
+- **Real PDF reports** — `GET /discovery/reports/:id/download` with `format=pdf` now returns actual PDF bytes (`application/pdf`) with title, KPI summary, source breakdown table, and risk hotspot table. Previously returned HTML.
+- **36 connectors fully implemented** — all connector types now perform real connectivity checks (TCP dial, file stat, API endpoint reachability) instead of returning "unsupported". Includes SQLite, Oracle, MSSQL, Azure Blob, BigQuery, Snowflake, Redshift, Kafka, Kinesis, 10 file formats, Salesforce, HubSpot, Jira, and MS Teams.
+- **Redis classify pipeline** — `POST /agent/sync` now publishes batches to Redis `classify` list via `LPUSH`. Set `REDIS_ADDR` env var to enable. Gracefully skips if Redis is not configured (data is safe in PostgreSQL).
+- **API documentation** — `docs/API.md` now covers Auth Endpoints, FP Learning API, Masking API, Memory API, and Health API with request/response examples.
+
+### 🔒 Security
+
+- **CI/CD hardening** — security scanning workflow added; Go 1.25 enforced in CI; dependency vulnerability scanning enabled.
+- **DB integrity** — DPDPA audit trail enforced; findings audit trail; immutable migration versioning rules applied.
+- **Scanner connector timeouts** — all connectors now have explicit dial/read timeouts; DB connections are closed after use.
+
+### 🐛 Fixed
+
+- **Remediation saga** — Neo4j rollback now executes correctly on saga failure.
+- **Prometheus metric registration** — duplicate metric registration panic resolved.
+- Go version in docs updated from 1.21 to 1.25 to match `go.mod`.
+
+---
+
 ## [3.0.0] - 2026-04-09
 
 ### 🎯 Major Changes

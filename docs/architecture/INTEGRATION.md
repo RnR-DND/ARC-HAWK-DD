@@ -56,6 +56,15 @@ GET /health → alias for /readyz (back-compat)
 
 ---
 
+## Machine-Readable API Spec
+
+The full OpenAPI 3.0 spec is available at:
+- **Interactive UI:** `GET /swagger/index.html` (admin auth required in release mode)
+- **JSON:** `docs/openapi/swagger.json` — 105 documented paths, use to generate client SDKs
+- **YAML:** `docs/openapi/swagger.yaml`
+
+---
+
 ## API Reference (v1)
 
 All endpoints under `/api/v1/`. Auth via `Authorization: Bearer <JWT>`.

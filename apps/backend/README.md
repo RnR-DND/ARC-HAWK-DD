@@ -1,6 +1,6 @@
 # ARC-Hawk Backend
 
-The core API and business logic layer for the ARC-Hawk platform, built with **Go 1.21+** following Clean Architecture principles.
+The core API and business logic layer for the ARC-Hawk platform, built with **Go 1.25+** following Clean Architecture principles.
 
 ## 🌟 Features
 
@@ -159,7 +159,7 @@ PII masking operations and policies.
 
 ### Prerequisites
 
-- **Go 1.21+**
+- **Go 1.25+**
 - **PostgreSQL 15+**
 - **Neo4j 5.15+**
 - **Temporal Server** (or use Docker Compose)

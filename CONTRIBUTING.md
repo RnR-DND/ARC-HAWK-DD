@@ -35,7 +35,7 @@ Before you begin, ensure you have the following installed:
 
 - **Git**
 - **Docker** & **Docker Compose**
-- **Go 1.21+** (for backend)
+- **Go 1.25+** (for backend)
 - **Node.js 18+** (for frontend)
 - **Python 3.9+** (for scanner)
 

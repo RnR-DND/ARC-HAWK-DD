@@ -20,7 +20,7 @@ Complete guide for setting up and developing the ARC-Hawk platform locally.
 
 - **Docker Desktop** 4.0+ (for infrastructure services)
 - **Git** 2.30+
-- **Go** 1.21+ (backend)
+- **Go** 1.25+ (backend)
 - **Node.js** 18+ (frontend)
 - **Python** 3.9+ (scanner)
 
