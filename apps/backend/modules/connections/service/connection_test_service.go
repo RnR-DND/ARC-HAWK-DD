@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -102,6 +103,52 @@ func (s *TestConnectionService) TestConnection(ctx context.Context, connID strin
 		result, err = s.testGDrive(ctx, config, conn.SourceType)
 	case "text":
 		result, err = s.testText(ctx, config)
+	case "sqlite":
+		result, err = s.testSQLite(ctx, config)
+	case "oracle":
+		result, err = s.testOracle(ctx, config)
+	case "mssql":
+		result, err = s.testMSSQL(ctx, config)
+	case "azure_blob":
+		result, err = s.testAzureBlob(ctx, config)
+	case "bigquery":
+		result, err = s.testBigQuery(ctx, config)
+	case "snowflake":
+		result, err = s.testSnowflake(ctx, config)
+	case "redshift":
+		result, err = s.testRedshift(ctx, config)
+	case "kafka":
+		result, err = s.testKafka(ctx, config)
+	case "kinesis":
+		result, err = s.testKinesis(ctx, config)
+	case "csv_excel":
+		result, err = s.testFileSource(ctx, config, "csv_excel", "CSV/Excel")
+	case "pdf":
+		result, err = s.testFileSource(ctx, config, "pdf", "PDF")
+	case "docx":
+		result, err = s.testFileSource(ctx, config, "docx", "Word Document")
+	case "pptx":
+		result, err = s.testFileSource(ctx, config, "pptx", "PowerPoint")
+	case "html_files":
+		result, err = s.testFileSource(ctx, config, "html_files", "HTML Files")
+	case "email_files":
+		result, err = s.testFileSource(ctx, config, "email_files", "Email Files")
+	case "parquet":
+		result, err = s.testFileSource(ctx, config, "parquet", "Parquet")
+	case "orc":
+		result, err = s.testFileSource(ctx, config, "orc", "ORC")
+	case "avro":
+		result, err = s.testFileSource(ctx, config, "avro", "Avro")
+	case "scanned_images":
+		result, err = s.testFileSource(ctx, config, "scanned_images", "Scanned Images")
+	case "salesforce":
+		result, err = s.testSalesforce(ctx, config)
+	case "hubspot":
+		result, err = s.testHubSpot(ctx, config)
+	case "jira":
+		result, err = s.testJira(ctx, config)
+	case "ms_teams":
+		result, err = s.testMSTeams(ctx, config)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", conn.SourceType)
 	}
@@ -154,6 +201,52 @@ func (s *TestConnectionService) TestConnectionByConfig(ctx context.Context, sour
 		result, err = s.testGDrive(ctx, config, sourceType)
 	case "text":
 		result, err = s.testText(ctx, config)
+	case "sqlite":
+		result, err = s.testSQLite(ctx, config)
+	case "oracle":
+		result, err = s.testOracle(ctx, config)
+	case "mssql":
+		result, err = s.testMSSQL(ctx, config)
+	case "azure_blob":
+		result, err = s.testAzureBlob(ctx, config)
+	case "bigquery":
+		result, err = s.testBigQuery(ctx, config)
+	case "snowflake":
+		result, err = s.testSnowflake(ctx, config)
+	case "redshift":
+		result, err = s.testRedshift(ctx, config)
+	case "kafka":
+		result, err = s.testKafka(ctx, config)
+	case "kinesis":
+		result, err = s.testKinesis(ctx, config)
+	case "csv_excel":
+		result, err = s.testFileSource(ctx, config, "csv_excel", "CSV/Excel")
+	case "pdf":
+		result, err = s.testFileSource(ctx, config, "pdf", "PDF")
+	case "docx":
+		result, err = s.testFileSource(ctx, config, "docx", "Word Document")
+	case "pptx":
+		result, err = s.testFileSource(ctx, config, "pptx", "PowerPoint")
+	case "html_files":
+		result, err = s.testFileSource(ctx, config, "html_files", "HTML Files")
+	case "email_files":
+		result, err = s.testFileSource(ctx, config, "email_files", "Email Files")
+	case "parquet":
+		result, err = s.testFileSource(ctx, config, "parquet", "Parquet")
+	case "orc":
+		result, err = s.testFileSource(ctx, config, "orc", "ORC")
+	case "avro":
+		result, err = s.testFileSource(ctx, config, "avro", "Avro")
+	case "scanned_images":
+		result, err = s.testFileSource(ctx, config, "scanned_images", "Scanned Images")
+	case "salesforce":
+		result, err = s.testSalesforce(ctx, config)
+	case "hubspot":
+		result, err = s.testHubSpot(ctx, config)
+	case "jira":
+		result, err = s.testJira(ctx, config)
+	case "ms_teams":
+		result, err = s.testMSTeams(ctx, config)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -615,4 +708,407 @@ func getHostPort(endpoint, region string) string {
 		return endpoint
 	}
 	return fmt.Sprintf("s3.%s.amazonaws.com:443", region)
+}
+
+func (s *TestConnectionService) testSQLite(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "sqlite"}
+	path := getString(config, "path")
+	if path == "" {
+		result.Success = false
+		result.Message = "Missing database path"
+		result.ErrorDetails = "path is required for SQLite source"
+		return result, nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		result.Success = false
+		result.Message = "SQLite database file not accessible"
+		result.ErrorDetails = "Cannot access the specified file. Please verify the path exists and is readable."
+		fmt.Printf("[SECURITY] SQLite file check failed - %v\n", err)
+		return result, nil
+	}
+	result.Success = true
+	result.Message = "SQLite database file accessible"
+	result.DatabaseInfo = fmt.Sprintf("Path: %s", path)
+	return result, nil
+}
+
+func (s *TestConnectionService) testOracle(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "oracle"}
+	host := getString(config, "host")
+	port := getInt(config, "port", 1521)
+	serviceName := getString(config, "service_name")
+	if host == "" {
+		result.Success = false
+		result.Message = "Missing host"
+		result.ErrorDetails = "host is required for Oracle source"
+		return result, nil
+	}
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to connect to Oracle database"
+		result.ErrorDetails = "Unable to reach Oracle listener. Please verify hostname, port, and network access."
+		fmt.Printf("[SECURITY] Oracle connection failed for %s - %v\n", addr, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Connection successful"
+	result.ServerVersion = "Oracle Database"
+	if serviceName != "" {
+		result.DatabaseInfo = fmt.Sprintf("Service: %s", serviceName)
+	}
+	return result, nil
+}
+
+func (s *TestConnectionService) testMSSQL(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "mssql"}
+	host := getString(config, "host")
+	port := getInt(config, "port", 1433)
+	dbname := getString(config, "database")
+	if host == "" {
+		result.Success = false
+		result.Message = "Missing host"
+		result.ErrorDetails = "host is required for SQL Server source"
+		return result, nil
+	}
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to connect to SQL Server"
+		result.ErrorDetails = "Unable to reach SQL Server. Please verify hostname, port, and network access."
+		fmt.Printf("[SECURITY] MSSQL connection failed for %s - %v\n", addr, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Connection successful"
+	result.ServerVersion = "Microsoft SQL Server"
+	if dbname != "" {
+		result.DatabaseInfo = fmt.Sprintf("Database: %s", dbname)
+	}
+	return result, nil
+}
+
+func (s *TestConnectionService) testAzureBlob(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "azure_blob"}
+	accountName := getString(config, "account_name")
+	containerName := getString(config, "container_name")
+	if accountName == "" {
+		result.Success = false
+		result.Message = "Missing account_name"
+		result.ErrorDetails = "account_name is required for Azure Blob Storage source"
+		return result, nil
+	}
+	endpoint := fmt.Sprintf("%s.blob.core.windows.net:443", accountName)
+	conn, err := net.DialTimeout("tcp", endpoint, 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach Azure Blob Storage"
+		result.ErrorDetails = "Unable to connect to Azure Blob Storage. Please verify account name and network access."
+		fmt.Printf("[SECURITY] Azure Blob connection failed for %s - %v\n", endpoint, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Azure Blob Storage endpoint reachable"
+	result.ServerVersion = "Azure Blob Storage"
+	result.DatabaseInfo = fmt.Sprintf("Account: %s, Container: %s", accountName, containerName)
+	return result, nil
+}
+
+func (s *TestConnectionService) testBigQuery(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "bigquery"}
+	projectID := getString(config, "project_id")
+	dataset := getString(config, "dataset")
+	if projectID == "" {
+		result.Success = false
+		result.Message = "Missing project_id"
+		result.ErrorDetails = "project_id is required for BigQuery source"
+		return result, nil
+	}
+	conn, err := net.DialTimeout("tcp", "bigquery.googleapis.com:443", 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach BigQuery"
+		result.ErrorDetails = "Unable to connect to BigQuery. Please verify network access and credentials."
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "BigQuery endpoint reachable"
+	result.ServerVersion = "Google BigQuery"
+	info := fmt.Sprintf("Project: %s", projectID)
+	if dataset != "" {
+		info += fmt.Sprintf(", Dataset: %s", dataset)
+	}
+	result.DatabaseInfo = info
+	return result, nil
+}
+
+func (s *TestConnectionService) testSnowflake(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "snowflake"}
+	account := getString(config, "account")
+	warehouse := getString(config, "warehouse")
+	dbname := getString(config, "database")
+	if account == "" {
+		result.Success = false
+		result.Message = "Missing account"
+		result.ErrorDetails = "account is required for Snowflake source (e.g. myorg-myaccount)"
+		return result, nil
+	}
+	endpoint := fmt.Sprintf("%s.snowflakecomputing.com:443", account)
+	conn, err := net.DialTimeout("tcp", endpoint, 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach Snowflake"
+		result.ErrorDetails = "Unable to connect to Snowflake. Please verify account identifier and network access."
+		fmt.Printf("[SECURITY] Snowflake connection failed for %s - %v\n", endpoint, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Snowflake endpoint reachable"
+	result.ServerVersion = "Snowflake"
+	info := fmt.Sprintf("Account: %s", account)
+	if warehouse != "" {
+		info += fmt.Sprintf(", Warehouse: %s", warehouse)
+	}
+	if dbname != "" {
+		info += fmt.Sprintf(", Database: %s", dbname)
+	}
+	result.DatabaseInfo = info
+	return result, nil
+}
+
+func (s *TestConnectionService) testRedshift(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "redshift"}
+	host := getString(config, "host")
+	port := getInt(config, "port", 5439)
+	dbname := getString(config, "database")
+	if host == "" {
+		result.Success = false
+		result.Message = "Missing host"
+		result.ErrorDetails = "host is required for Redshift source"
+		return result, nil
+	}
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to connect to Redshift"
+		result.ErrorDetails = "Unable to reach Redshift cluster. Please verify endpoint, port, and network access."
+		fmt.Printf("[SECURITY] Redshift connection failed for %s - %v\n", addr, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Connection successful"
+	result.ServerVersion = "Amazon Redshift"
+	result.DatabaseInfo = fmt.Sprintf("Host: %s, Database: %s", host, dbname)
+	return result, nil
+}
+
+func (s *TestConnectionService) testKafka(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "kafka"}
+	brokers := getString(config, "brokers")
+	if brokers == "" {
+		result.Success = false
+		result.Message = "Missing brokers"
+		result.ErrorDetails = "brokers is required for Kafka source (comma-separated host:port list)"
+		return result, nil
+	}
+	broker := strings.TrimSpace(strings.SplitN(brokers, ",", 2)[0])
+	conn, err := net.DialTimeout("tcp", broker, 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to connect to Kafka broker"
+		result.ErrorDetails = "Unable to reach Kafka broker. Please verify broker addresses and network access."
+		fmt.Printf("[SECURITY] Kafka connection failed for %s - %v\n", broker, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Kafka broker reachable"
+	result.ServerVersion = "Apache Kafka"
+	result.DatabaseInfo = fmt.Sprintf("Broker: %s", broker)
+	return result, nil
+}
+
+func (s *TestConnectionService) testKinesis(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "kinesis"}
+	region := getString(config, "region")
+	streamName := getString(config, "stream_name")
+	if region == "" {
+		result.Success = false
+		result.Message = "Missing region"
+		result.ErrorDetails = "region is required for Kinesis source"
+		return result, nil
+	}
+	endpoint := fmt.Sprintf("kinesis.%s.amazonaws.com:443", region)
+	conn, err := net.DialTimeout("tcp", endpoint, 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach AWS Kinesis"
+		result.ErrorDetails = "Unable to connect to Kinesis endpoint. Please verify region and network access."
+		fmt.Printf("[SECURITY] Kinesis connection failed for %s - %v\n", endpoint, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Kinesis endpoint reachable"
+	result.ServerVersion = "AWS Kinesis"
+	info := fmt.Sprintf("Region: %s", region)
+	if streamName != "" {
+		info += fmt.Sprintf(", Stream: %s", streamName)
+	}
+	result.DatabaseInfo = info
+	return result, nil
+}
+
+func (s *TestConnectionService) testFileSource(_ context.Context, config map[string]any, sourceType, displayName string) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: sourceType}
+	path := getString(config, "path")
+	if path == "" {
+		result.Success = false
+		result.Message = "Missing path"
+		result.ErrorDetails = fmt.Sprintf("path is required for %s source", displayName)
+		return result, nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		// Remote or network path — treat as configured but unverified locally
+		result.Success = true
+		result.Message = fmt.Sprintf("%s path configured", displayName)
+		result.DatabaseInfo = fmt.Sprintf("Path: %s", path)
+		return result, nil
+	}
+	if info.IsDir() {
+		result.Message = fmt.Sprintf("%s directory accessible", displayName)
+		result.DatabaseInfo = fmt.Sprintf("Directory: %s", path)
+	} else {
+		result.Message = fmt.Sprintf("%s file accessible", displayName)
+		result.DatabaseInfo = fmt.Sprintf("File: %s (%d bytes)", path, info.Size())
+	}
+	result.Success = true
+	return result, nil
+}
+
+func (s *TestConnectionService) testSalesforce(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "salesforce"}
+	instanceURL := getString(config, "instance_url")
+	token := getString(config, "access_token")
+	if token == "" && getString(config, "client_id") == "" {
+		result.Success = false
+		result.Message = "Missing credentials"
+		result.ErrorDetails = "access_token or client_id/client_secret are required for Salesforce source"
+		return result, nil
+	}
+	host := "login.salesforce.com"
+	if instanceURL != "" {
+		trimmed := strings.TrimPrefix(strings.TrimPrefix(instanceURL, "https://"), "http://")
+		host = strings.Split(trimmed, "/")[0]
+	}
+	conn, err := net.DialTimeout("tcp", host+":443", 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach Salesforce"
+		result.ErrorDetails = "Unable to connect to Salesforce. Please verify instance URL and network access."
+		fmt.Printf("[SECURITY] Salesforce connection failed for %s - %v\n", host, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Salesforce endpoint reachable"
+	result.ServerVersion = "Salesforce API"
+	result.DatabaseInfo = fmt.Sprintf("Instance: %s", host)
+	return result, nil
+}
+
+func (s *TestConnectionService) testHubSpot(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "hubspot"}
+	apiKey := getString(config, "api_key")
+	accessToken := getString(config, "access_token")
+	if apiKey == "" && accessToken == "" {
+		result.Success = false
+		result.Message = "Missing credentials"
+		result.ErrorDetails = "api_key or access_token is required for HubSpot source"
+		return result, nil
+	}
+	conn, err := net.DialTimeout("tcp", "api.hubapi.com:443", 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach HubSpot API"
+		result.ErrorDetails = "Unable to connect to HubSpot. Please verify network access."
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "HubSpot API endpoint reachable"
+	result.ServerVersion = "HubSpot API v3"
+	return result, nil
+}
+
+func (s *TestConnectionService) testJira(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "jira"}
+	jiraURL := getString(config, "url")
+	token := getString(config, "api_token")
+	if jiraURL == "" {
+		result.Success = false
+		result.Message = "Missing Jira URL"
+		result.ErrorDetails = "url is required for Jira source (e.g. https://yourorg.atlassian.net)"
+		return result, nil
+	}
+	if token == "" {
+		result.Success = false
+		result.Message = "Missing API token"
+		result.ErrorDetails = "api_token is required for Jira source"
+		return result, nil
+	}
+	trimmed := strings.TrimPrefix(strings.TrimPrefix(jiraURL, "https://"), "http://")
+	host := strings.Split(trimmed, "/")[0]
+	conn, err := net.DialTimeout("tcp", host+":443", 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach Jira"
+		result.ErrorDetails = "Unable to connect to Jira. Please verify your URL and network access."
+		fmt.Printf("[SECURITY] Jira connection failed for %s - %v\n", host, err)
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Jira endpoint reachable"
+	result.ServerVersion = "Jira REST API"
+	result.DatabaseInfo = fmt.Sprintf("Host: %s", host)
+	return result, nil
+}
+
+func (s *TestConnectionService) testMSTeams(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
+	result := &ConnectionTestResult{SourceType: "ms_teams"}
+	webhookURL := getString(config, "webhook_url")
+	tenantID := getString(config, "tenant_id")
+	clientID := getString(config, "client_id")
+	if webhookURL == "" && (tenantID == "" || clientID == "") {
+		result.Success = false
+		result.Message = "Missing credentials"
+		result.ErrorDetails = "webhook_url or tenant_id + client_id are required for Microsoft Teams source"
+		return result, nil
+	}
+	conn, err := net.DialTimeout("tcp", "graph.microsoft.com:443", 10*time.Second)
+	if err != nil {
+		result.Success = false
+		result.Message = "Failed to reach Microsoft Graph API"
+		result.ErrorDetails = "Unable to connect to Microsoft services. Please verify network access."
+		return result, nil
+	}
+	conn.Close()
+	result.Success = true
+	result.Message = "Microsoft Teams endpoint reachable"
+	result.ServerVersion = "Microsoft Graph API"
+	if tenantID != "" {
+		result.DatabaseInfo = fmt.Sprintf("Tenant: %s", tenantID)
+	}
+	return result, nil
 }
