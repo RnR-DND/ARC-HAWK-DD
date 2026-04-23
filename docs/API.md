@@ -1768,6 +1768,61 @@ Updates tenant settings. Requires `admin` role.
 
 ---
 
+
+### Connector Config Examples
+
+Each connector type requires a `config` object. Examples for the most common types:
+
+**PostgreSQL:**
+```json
+{ "host": "db.example.com", "port": 5432, "database": "mydb", "user": "scanner", "password": "secret", "sslmode": "require" }
+```
+
+**MySQL:**
+```json
+{ "host": "db.example.com", "port": 3306, "database": "mydb", "user": "scanner", "password": "secret" }
+```
+
+**MongoDB:**
+```json
+{ "host": "mongo.example.com", "port": 27017, "database": "mydb", "user": "scanner", "password": "secret", "auth_source": "admin" }
+```
+
+**AWS S3:**
+```json
+{ "region": "us-east-1", "bucket": "my-bucket", "access_key": "AKIA...", "secret_key": "..." }
+```
+
+**Google Cloud Storage:**
+```json
+{ "bucket": "my-gcs-bucket" }
+```
+
+**Snowflake:**
+```json
+{ "account": "myorg-myaccount", "database": "MYDB", "warehouse": "COMPUTE_WH", "user": "scanner", "password": "secret" }
+```
+
+**BigQuery:**
+```json
+{ "project_id": "my-gcp-project", "dataset": "my_dataset" }
+```
+
+**Kafka:**
+```json
+{ "brokers": "kafka1.example.com:9092,kafka2.example.com:9092" }
+```
+
+**Jira:**
+```json
+{ "url": "https://yourorg.atlassian.net", "api_token": "your-token", "email": "scanner@example.com" }
+```
+
+**Salesforce:**
+```json
+{ "instance_url": "https://yourorg.my.salesforce.com", "access_token": "your-token" }
+```
+
 ## FP Learning API
 
 Base path: `/api/v1/fp`

@@ -244,6 +244,19 @@ func (h *ScanTriggerHandler) executeScan(scanID uuid.UUID, req *service.TriggerS
 	// Apply a 35-minute context timeout so this goroutine cannot run forever
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Minute)
 	defer cancel()
+
+	// Recover from panics so a bug in scan execution doesn't leave the scan
+	// stuck in "running" state with no terminal audit record.
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("ERROR: panic in executeScan for scan %s: %v", scanID, r)
+			_ = h.scanService.UpdateScanStatus(context.Background(), scanID, "failed")
+			h.recordAudit(context.Background(), "SCAN_FAILED", "scan", scanID.String(), map[string]interface{}{
+				"reason": "panic", "detail": fmt.Sprintf("%v", r),
+			})
+		}
+	}()
+
 	log.Printf("Starting scan execution: %s", scanID.String())
 
 	// Audit the scan lifecycle. SCAN_STARTED captures actor, tenant, and

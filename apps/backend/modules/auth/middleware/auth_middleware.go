@@ -18,6 +18,16 @@ import (
 	"github.com/google/uuid"
 )
 
+type contextKey string
+
+const (
+	ctxKeyUserID    contextKey = "user_id"
+	ctxKeyUserEmail contextKey = "user_email"
+	ctxKeyUserRole  contextKey = "user_role"
+	ctxKeyTenantID  contextKey = "tenant_id"
+	ctxKeySessionID contextKey = "session_id"
+)
+
 type AuthMiddleware struct {
 	jwtService    *service.JWTService
 	userService   *service.UserService
@@ -147,7 +157,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 						tenantID = parsed
 					}
 				}
-				ctx := context.WithValue(c.Request.Context(), "tenant_id", tenantID)
+				ctx := context.WithValue(c.Request.Context(), ctxKeyTenantID, tenantID)
 				c.Request = c.Request.WithContext(ctx)
 				c.Set("user_id", uuid.Nil)
 				c.Set("user_email", "anonymous@dev.local")
@@ -219,10 +229,10 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 		}
 
 		ctx := context.WithValue(c.Request.Context(), "user_id", userID)
-		ctx = context.WithValue(ctx, "user_email", claims.Email)
-		ctx = context.WithValue(ctx, "user_role", claims.Role)
-		ctx = context.WithValue(ctx, "tenant_id", claims.TenantID)
-		ctx = context.WithValue(ctx, "session_id", claims.SessionID)
+		ctx = context.WithValue(ctx, ctxKeyUserEmail, claims.Email)
+		ctx = context.WithValue(ctx, ctxKeyUserRole, claims.Role)
+		ctx = context.WithValue(ctx, ctxKeyTenantID, claims.TenantID)
+		ctx = context.WithValue(ctx, ctxKeySessionID, claims.SessionID)
 
 		c.Request = c.Request.WithContext(ctx)
 		c.Set("user_id", userID)

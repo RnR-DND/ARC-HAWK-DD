@@ -489,6 +489,12 @@ func (s *TestConnectionService) testRedis(ctx context.Context, config map[string
 
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
+	if isPrivateOrReservedHost(host) {
+		result.Success = false
+		result.Message = "Invalid host"
+		result.ErrorDetails = "Host resolves to a private or reserved address"
+		return result, nil
+	}
 	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
 	if err != nil {
 		result.Success = false
@@ -569,6 +575,12 @@ func (s *TestConnectionService) testCouchDB(ctx context.Context, config map[stri
 	port := getInt(config, "port", 5984)
 
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+	if isPrivateOrReservedHost(host) {
+		result.Success = false
+		result.Message = "Invalid host"
+		result.ErrorDetails = "Host resolves to a private or reserved address"
+		return result, nil
+	}
 	conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
 	if err != nil {
 		result.Success = false
@@ -710,6 +722,39 @@ func getHostPort(endpoint, region string) string {
 	return fmt.Sprintf("s3.%s.amazonaws.com:443", region)
 }
 
+// isPrivateOrReservedHost resolves host and returns true if any resolved IP
+// falls in a private, loopback, or link-local range — blocking SSRF attacks
+// where an attacker supplies an internal address to probe the network.
+func isPrivateOrReservedHost(host string) bool {
+	if host == "" {
+		return true
+	}
+	// Strip port if present
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	ips, err := net.LookupHost(host)
+	if err != nil {
+		// Unresolvable host: block as a precaution
+		return true
+	}
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			continue
+		}
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+			return true
+		}
+		// Block 169.254.0.0/16 (AWS IMDS) explicitly in case IsLinkLocalUnicast misses it
+		if ip4 := ip.To4(); ip4 != nil && ip4[0] == 169 && ip4[1] == 254 {
+			return true
+		}
+	}
+	return false
+}
+
+
 func (s *TestConnectionService) testSQLite(_ context.Context, config map[string]any) (*ConnectionTestResult, error) {
 	result := &ConnectionTestResult{SourceType: "sqlite"}
 	path := getString(config, "path")
@@ -743,6 +788,12 @@ func (s *TestConnectionService) testOracle(_ context.Context, config map[string]
 		result.ErrorDetails = "host is required for Oracle source"
 		return result, nil
 	}
+	if isPrivateOrReservedHost(host) {
+		result.Success = false
+		result.Message = "Invalid host"
+		result.ErrorDetails = "Host resolves to a private or reserved address"
+		return result, nil
+	}
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 	if err != nil {
@@ -771,6 +822,12 @@ func (s *TestConnectionService) testMSSQL(_ context.Context, config map[string]a
 		result.Success = false
 		result.Message = "Missing host"
 		result.ErrorDetails = "host is required for SQL Server source"
+		return result, nil
+	}
+	if isPrivateOrReservedHost(host) {
+		result.Success = false
+		result.Message = "Invalid host"
+		result.ErrorDetails = "Host resolves to a private or reserved address"
 		return result, nil
 	}
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
@@ -894,6 +951,12 @@ func (s *TestConnectionService) testRedshift(_ context.Context, config map[strin
 		result.ErrorDetails = "host is required for Redshift source"
 		return result, nil
 	}
+	if isPrivateOrReservedHost(host) {
+		result.Success = false
+		result.Message = "Invalid host"
+		result.ErrorDetails = "Host resolves to a private or reserved address"
+		return result, nil
+	}
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 	if err != nil {
@@ -921,6 +984,16 @@ func (s *TestConnectionService) testKafka(_ context.Context, config map[string]a
 		return result, nil
 	}
 	broker := strings.TrimSpace(strings.SplitN(brokers, ",", 2)[0])
+	brokerHost, _, _ := net.SplitHostPort(broker)
+	if brokerHost == "" {
+		brokerHost = broker
+	}
+	if isPrivateOrReservedHost(brokerHost) {
+		result.Success = false
+		result.Message = "Invalid broker address"
+		result.ErrorDetails = "Broker host resolves to a private or reserved address"
+		return result, nil
+	}
 	conn, err := net.DialTimeout("tcp", broker, 10*time.Second)
 	if err != nil {
 		result.Success = false
@@ -1011,6 +1084,12 @@ func (s *TestConnectionService) testSalesforce(_ context.Context, config map[str
 		trimmed := strings.TrimPrefix(strings.TrimPrefix(instanceURL, "https://"), "http://")
 		host = strings.Split(trimmed, "/")[0]
 	}
+	if isPrivateOrReservedHost(host) {
+		result.Success = false
+		result.Message = "Invalid instance URL"
+		result.ErrorDetails = "Instance host resolves to a private or reserved address"
+		return result, nil
+	}
 	conn, err := net.DialTimeout("tcp", host+":443", 10*time.Second)
 	if err != nil {
 		result.Success = false
@@ -1069,6 +1148,12 @@ func (s *TestConnectionService) testJira(_ context.Context, config map[string]an
 	}
 	trimmed := strings.TrimPrefix(strings.TrimPrefix(jiraURL, "https://"), "http://")
 	host := strings.Split(trimmed, "/")[0]
+	if isPrivateOrReservedHost(host) {
+		result.Success = false
+		result.Message = "Invalid Jira URL"
+		result.ErrorDetails = "Jira host resolves to a private or reserved address"
+		return result, nil
+	}
 	conn, err := net.DialTimeout("tcp", host+":443", 10*time.Second)
 	if err != nil {
 		result.Success = false

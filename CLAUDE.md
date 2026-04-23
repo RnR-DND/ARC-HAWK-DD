@@ -7,36 +7,121 @@
 - Database: PostgreSQL with versioned migrations
 - Architecture: Modular design with separate services
 
-## gstack Integration
+## Tool Stack Architecture
 
-This project uses **gstack** as the primary development workflow orchestrator. All team members should use gstack skills for development.
+```
+Layer 0: TOKEN ECONOMICS (always on, automatic)
+  Caveman → -75% output tokens, auto-activates each session
+  Claude-Mem compress → -46% context tokens (run /caveman:compress CLAUDE.md)
 
-### Web Browsing
-- Use **`/browse`** skill from gstack for all web browsing and research
-- NEVER use `mcp__claude-ai-chrome__*` tools or MCP browser tools
-- The /browse skill provides a more integrated browsing experience
+Layer 1: SESSION MEMORY (automatic, cross-session)
+  Claude-Mem → SQLite + Chroma vector, port 37777, /mem-search
+  Built-in memory → ~/.claude/projects/.../memory/ (explicit notes)
 
-### Key gstack Skills for This Project
+Layer 1.5: STRUCTURAL MEMORY (rebuild after major changes)
+  Graphify → codebase knowledge graph, /graphify query/path/explain
+  Push to Neo4j: /graphify . --neo4j-push bolt://localhost:7687
+  MCP server for agents: /graphify . --mcp
+
+Layer 2: SKILLS LIBRARY (860 skills, invoke with /)
+  Awesome-Claude-Skills → domain tasks, 500+ SaaS automations
+
+Layer 3: WORKFLOW ENGINE (daily driver)
+  Gstack → /browse /qa /ship /review /investigate /autoplan /checkpoint
+
+Layer 4: AUTONOMOUS EXECUTION (situational)
+  Ralph → known stories from prd.json (batch implementation)
+  GSD → phase planning for large unknown features
+```
+
+## Workflow Rules
+
+1. **Web browsing**: Always use `/browse` (Gstack), never MCP browser tools
+2. **Daily work**: Route to Gstack skills first (see routing table below)
+3. **Batch features**: Use Ralph with prd.json — run `bash .agent/ralph/ralph.sh`
+4. **Big new feature planning**: Use `gsd:plan-phase` or `gsd:discuss-phase`
+5. **Skills**: Use `/skill-name` for any of the 860+ domain skills
+6. **Memory search**: Use `/mem-search` to query past session work
+7. **Never**: Use Hive (retired — Ralph + AgentSys cover its use cases)
+
+## Gstack — Daily Workflow Skills
 
 | Skill | Purpose | When to Use |
 |-------|---------|-------------|
-| `/plan-eng-review` | Engineering design review | Planning backend changes, architecture decisions |
-| `/review` | Code review | After implementing features or fixes |
-| `/ship` | Deploy and release | Before merging to main |
-| `/land-and-deploy` | Landing and deployment | Production deployments |
-| `/qa` | Quality assurance testing | Before releases, testing user flows |
-| `/investigate` | Investigation and debugging | Troubleshooting issues, analyzing logs |
+| `/browse` | Headless Chromium browser | Research, docs, web tasks |
+| `/qa` | QA testing with Playwright | Before releases, testing flows |
+| `/review` | Code review | After implementing features |
+| `/ship` | Deploy and release workflow | Before merging to main |
+| `/land-and-deploy` | Production deployment | Production releases |
+| `/investigate` | Systematic debugging | Errors, 500s, broken things |
 | `/autoplan` | Automatic planning | Feature planning and breakdown |
-| `/browse` | Web browsing | Research, documentation lookup |
+| `/checkpoint` | Save/resume context | Before complex multi-step work |
+| `/plan-eng-review` | Architecture review | Backend changes, architecture decisions |
+| `/design-review` | Visual/UI audit | UI polish, design check |
+| `/health` | Code quality dashboard | Before releases |
+| `/document-release` | Update docs | After shipping |
 
-**Full list of available skills:** `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/design-html`, `/design-review`, `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`, `/qa`, `/qa-only`, `/investigate`, `/document-release`, `/retro`, `/codex`, `/cso`, `/autoplan`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`, `/learn`, `/checkpoint`, `/browse`, `/setup-browser-cookies`, `/setup-deploy`, `/connect-chrome`
+**All Gstack skills:** `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/design-html`, `/design-review`, `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`, `/qa`, `/qa-only`, `/investigate`, `/document-release`, `/retro`, `/codex`, `/cso`, `/autoplan`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`, `/learn`, `/checkpoint`, `/browse`, `/setup-browser-cookies`, `/setup-deploy`, `/connect-chrome`
 
-## Project Workflow Rules
+## Awesome Claude Skills — Domain Skills
 
-1. **Always use gstack skills** for development workflows
-2. **Never use ecc (everything-claude-code) orchestrators** — use gstack instead
-3. **Never use gsd orchestrators** — use gstack instead
-4. **Web browsing**: Always use `/browse` skill, never mcp browser tools
+860 skills installed globally at `~/.claude/skills/`. Use any with `/skill-name`.
+
+Key skills for this stack:
+- **Dev**: `/changelog-generator`, `/artifacts-builder`, `/mcp-builder`, `/webapp-testing`
+- **Content**: `/content-research-writer`, `/tailored-resume-writer`, `/internal-comms`
+- **Productivity**: `/file-organizer`, `/meeting-insights-analyzer`, `/skill-creator`
+- **SaaS automation**: `/slack-automation`, `/jira-automation`, `/notion-automation`, `/gmail-automation`
+- **Media**: `/video-downloader`, `/canvas-design`, `/theme-factory`, `/image-enhancer`
+
+## Claude-Mem — Persistent Memory
+
+Automatic cross-session memory. No manual action needed — it captures everything.
+
+```bash
+npx claude-mem start          # start the worker (port 37777)
+```
+
+- Web UI: http://localhost:37777
+- Search past work: `/mem-search` in Claude Code
+- Compress context: `/caveman:compress CLAUDE.md` (run once per session)
+
+## Caveman — Token Compression
+
+Auto-activates every session (installed via hooks). Saves ~75% output tokens.
+
+```
+/caveman          # toggle on/off
+/caveman lite     # light compression
+/caveman ultra    # maximum compression
+/caveman:compress CLAUDE.md   # compress this file to cut input tokens
+```
+
+## Ralph — Autonomous PRD Loop
+
+Spec-driven batch implementation. Use when you have multiple clear stories.
+
+```bash
+# Edit .agent/ralph/prd.arc-hawk-dd.json — set passes: false for stories to implement
+bash .agent/ralph/ralph.sh
+# Ralph picks highest-priority story → implements → tests → commits → repeats
+```
+
+## GSD — Phase Planning (planning only, not execution)
+
+Use for planning large features. Skip gsd:execute-phase — use Gstack for execution.
+
+```
+/gsd:plan-phase       # plan a new phase
+/gsd:discuss-phase    # clarify requirements before planning
+/gsd:code-review      # systematic code review
+/gsd:secure-phase     # security audit of a phase
+```
+
+## AgentSys
+
+Modular agent runtime at `.agent/agentsys/`. 19 plugins, 49 specialized agents.
+Use for structured pipeline work where phase gates matter (security reviews, audits).
 
 ## Tech Stack
 
@@ -75,54 +160,37 @@ Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 - `apps/goScanner/` — Main scanner service (Go) — connectors, classifier, orchestrator, Presidio integration
 - `apps/frontend/components/ui/` — Shared UI primitives (MetricCards, Loading indicators, etc.)
 - `infra/k8s/monitoring/` — Kubernetes ServiceMonitors + NetworkPolicy
-- `.continue-here.md` — Session handoff file for context preservation
+- `.agent/ralph/prd.arc-hawk-dd.json` — Active PRD for Ralph autonomous loop
 - `graphify-out/` — Knowledge graph (run `/graphify .` to rebuild after major changes)
 
-## Session Continuity
+## Knowledge Graph (Graphify — Layer 1.5: Structural Memory)
 
-If a session pauses, use the handoff file at `.continue-here.md` to preserve context and resume work efficiently.
+Graphify maps how the codebase is wired — which modules depend on what, cross-module relationships,
+architectural clusters. Complements Claude-Mem (which captures what happened in sessions).
 
-## Agentic Toolchain
+ALWAYS query before: deep refactors, architectural decisions, touching unfamiliar modules.
+ALWAYS rebuild after: major feature additions, module restructuring.
 
-This project ships four integrated AI productivity tools. Use them.
-
-### 1. Awesome Claude Skills (`~/.claude/skills/`)
-860 skills from [ComposioHQ/awesome-claude-skills](https://github.com/ComposioHQ/awesome-claude-skills), usable directly as `/skill-name`. Key skills for this stack:
-- **Dev tools**: `/changelog-generator`, `/artifacts-builder`, `/mcp-builder`, `/webapp-testing`
-- **Content**: `/content-research-writer`, `/tailored-resume-generator`, `/internal-comms`
-- **Productivity**: `/file-organizer`, `/meeting-insights-analyzer`, `/skill-creator`
-- **App automation** (500+ SaaS apps): `/slack-automation`, `/jira-automation`, `/github-automation`, `/notion-automation`, `/gmail-automation`
-- **Media**: `/video-downloader`, `/canvas-design`, `/theme-factory`, `/image-enhancer`
-
-Use `/skill-name` directly — no `@` prefix needed.
-
-### 2. Ralph — Autonomous PRD Loop (`.agent/ralph/`)
-Spec-driven autonomous iteration. To run:
 ```bash
-# 1. Create prd.json from prd.json.example — define user stories with passes: false
-# 2. Run the loop:
-bash .agent/ralph/ralph.sh
-# Ralph picks highest-priority failing story, implements it, tests, commits, repeats
-```
-Use Ralph for: batch feature implementation, migrations, test coverage improvements.
+# Query (uses graphify CLI directly — fast, no LLM needed)
+graphify query "how does the scan pipeline connect to neo4j?"
+graphify path "IngestionService" "Neo4jRepository"
+graphify explain "SharedAnalyzerEngine"
 
-### 3. Hive — Goal-Driven Agent Framework (`.agent/hive/`)
-Define a goal in natural language → auto-generates and runs an agent graph.
-```bash
-cd .agent/hive && node hive.js "add DPDPA compliance report export to PDF"
-```
-Use Hive for: complex multi-step features that need parallel sub-agents.
+# Rebuild via skill (LLM-powered extraction — run in Claude Code)
+# Type in prompt: /graphify .            ← full rebuild
+# Type in prompt: /graphify . --update  ← incremental (changed files only)
 
-### 4. Knowledge Graph (graphify)
-Always query the graph before deep refactors or architectural decisions:
-```
-/graphify query "how does the scan pipeline connect to neo4j?"
-/graphify path "IngestionService" "Neo4jRepository"
-/graphify explain "SharedAnalyzerEngine"
-```
-Rebuild after major changes: `/graphify . --update`
+# Push to Neo4j (ARC-HAWK-DD already runs Neo4j)
+# Type in prompt: /graphify . --neo4j-push bolt://localhost:7687
 
-## Skill routing
+# Start MCP server for agent access (Ralph/AgentSys query without reading files)
+graphify watch .   # auto-rebuilds on code changes (no LLM)
+
+# Git hooks are installed — graph updates automatically on commit/checkout
+```
+
+## Skill Routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill
 tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
@@ -141,3 +209,4 @@ Key routing rules:
 - Architecture review → invoke plan-eng-review
 - Save progress, checkpoint, resume → invoke checkpoint
 - Code quality, health check → invoke health
+- Search past session work → use /mem-search

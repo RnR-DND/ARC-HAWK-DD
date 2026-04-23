@@ -37,6 +37,22 @@ graph LR
 
 ## Quick Start
 
+
+### Step 2: Run Database Migrations
+
+Before starting the server, apply all migrations:
+
+```bash
+# Using the built-in migrator (runs automatically on server start)
+# Or run manually:
+go run ./cmd/server/... migrate
+
+# Verify migrations applied:
+# 54 migration files in migrations_versioned/
+```
+
+The server applies pending migrations on startup via golang-migrate. No manual step required unless running in a restricted environment.
+
 ### Health Check
 ```bash
 GET /livez  → 200 { "status": "alive" }        # liveness probe
