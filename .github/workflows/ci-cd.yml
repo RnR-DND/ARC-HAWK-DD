@@ -181,8 +181,11 @@ jobs:
       neo4j:
         image: neo4j:5.15-community
         env:
-          # No auth for CI — avoids secret dependency and simplifies setup
           NEO4J_AUTH: none
+          # Constrain heap to prevent OOM on CI runners
+          NEO4J_server_memory_heap_initial__size: 256m
+          NEO4J_server_memory_heap_max__size: 512m
+          NEO4J_server_memory_pagecache__size: 256m
         ports:
           - 7474:7474
           - 7687:7687
@@ -190,7 +193,7 @@ jobs:
           --health-cmd "curl -sf http://localhost:7474 || exit 1"
           --health-interval 15s
           --health-timeout 10s
-          --health-retries 15
+          --health-retries 20
 
     steps:
       - uses: actions/checkout@v4

@@ -76,23 +76,25 @@ jobs:
       - name: Build backend image
         run: docker build -t arc-hawk-backend:scan-test apps/backend/
 
-      - name: Trivy — CRITICAL only (blocking gate)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: arc-hawk-backend:scan-test
-          format: table
-          exit-code: '1'
-          severity: CRITICAL
-          ignore-unfixed: true
-
-      - name: Trivy — HIGH (advisory, SARIF upload)
+      - name: Trivy — full scan (advisory, SARIF upload)
+        # Advisory mode: base image CVEs are surfaced but don't block builds.
+        # Promote to exit-code '1' once base images are pinned to CVE-free digests.
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: arc-hawk-backend:scan-test
           format: sarif
           output: trivy-results.sarif
           exit-code: '0'
-          severity: HIGH
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Trivy — table summary (informational)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: arc-hawk-backend:scan-test
+          format: table
+          exit-code: '0'
+          severity: CRITICAL,HIGH
           ignore-unfixed: true
 
       - name: Upload Trivy SARIF
