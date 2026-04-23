@@ -18,6 +18,7 @@ import {
     CheckSquare,
     FileText,
     Users,
+    Bell,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ const systemNav = [
     { name: 'Connectors', href: '/connectors', icon: Plug },
     { name: 'Regex Patterns', href: '/regex', icon: Regex },
     { name: 'Users', href: '/users', icon: Users },
+    { name: 'Notifications', href: '/settings/notifications', icon: Bell },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
