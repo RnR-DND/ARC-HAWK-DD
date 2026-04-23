@@ -187,4 +187,19 @@ export const dashboardApi = {
     }
 };
 
+export interface RiskTrendPoint {
+    date: string;
+    score: number;
+    scan_count: number;
+}
+
+export const getRiskTrend = async (days = 30): Promise<RiskTrendPoint[]> => {
+    try {
+        const res = await get<any>(`/dashboard/risk-trend?days=${days}`);
+        return Array.isArray(res?.trend) ? res.trend : [];
+    } catch {
+        return [];
+    }
+};
+
 export default dashboardApi;

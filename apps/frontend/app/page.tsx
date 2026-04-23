@@ -7,6 +7,7 @@ import { GlobalLayout } from '@/components/layout/GlobalLayout';
 import MetricCards from '@/components/ui/MetricCards';
 import FindingsTable from '@/components/ui/FindingsTable';
 import RiskChart from '@/components/ui/RiskChart';
+import RiskTrendChart from '@/components/ui/RiskTrendChart';
 import ScanStatusCard from '@/components/ui/ScanStatusCard';
 import { dashboardApi, DashboardData } from '@/services/dashboard.api';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -282,6 +283,15 @@ export default function Home() {
                             />
                         </motion.div>
                     </div>
+
+                    {/* Risk Score Trend */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.35 }}
+                    >
+                        <RiskTrendChart days={30} />
+                    </motion.div>
 
                     {/* Quick Actions */}
                     <motion.div

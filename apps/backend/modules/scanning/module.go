@@ -13,6 +13,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
+	sharedmiddleware "github.com/arc-platform/backend/modules/shared/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,7 +42,8 @@ type ScanningModule struct {
 	deps *interfaces.ModuleDependencies
 
 	// Background jobs
-	stopTimeout chan struct{}
+	stopTimeout        chan struct{}
+	triggerRateLimiter *sharedmiddleware.RateLimiter
 }
 
 // Name returns the module name
@@ -163,8 +165,9 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		// scanner_callback_auth.go for the dual-auth policy.
 		scans.POST("/ingest-verified", api.ScannerCallbackAuth(), m.sdkIngestHandler.IngestVerified)
 
-		// Scan trigger
-		scans.POST("/trigger", m.scanTriggerHandler.TriggerScan)
+		// Scan trigger — strict rate limit (10 req/min per IP)
+		m.triggerRateLimiter = sharedmiddleware.StrictRateLimiter()
+		scans.POST("/trigger", m.triggerRateLimiter.Middleware(), m.scanTriggerHandler.TriggerScan)
 
 		// Scan management — static routes MUST be registered before /:id
 		// wildcards to avoid router conflicts on /clear and /latest.
@@ -222,6 +225,7 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 
 	// Dashboard
 	router.GET("/dashboard/metrics", m.dashboardHandler.GetDashboardMetrics)
+	router.GET("/dashboard/risk-trend", m.dashboardHandler.GetRiskTrend)
 
 	// Agent sync — idempotent batch ingestion from EDR agents
 	agent := router.Group("/agent")
@@ -237,6 +241,12 @@ func (m *ScanningModule) Shutdown() error {
 	log.Printf("🔌 Shutting down Scanning & Classification Module...")
 	if m.stopTimeout != nil {
 		close(m.stopTimeout)
+	}
+	if m.scanTriggerHandler != nil {
+		m.scanTriggerHandler.StopGauge()
+	}
+	if m.triggerRateLimiter != nil {
+		m.triggerRateLimiter.Stop()
 	}
 	return nil
 }

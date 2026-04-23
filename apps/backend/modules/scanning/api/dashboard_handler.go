@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
@@ -124,4 +125,68 @@ func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, metrics)
+}
+
+// RiskTrendPoint is one day in the 30-day risk trend.
+type RiskTrendPoint struct {
+	Date      string `json:"date"`
+	Score     int    `json:"score"`
+	ScanCount int    `json:"scan_count"`
+}
+
+// GetRiskTrend returns daily risk scores for the last N days.
+// GET /dashboard/risk-trend?days=30
+func (h *DashboardHandler) GetRiskTrend(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	days := 30
+	if d := c.Query("days"); d != "" {
+		if n, err := strconv.Atoi(d); err == nil && n > 0 && n <= 365 {
+			days = n
+		}
+	}
+
+	db := h.pgRepo.GetDB()
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			DATE(sr.scan_started_at)::text                                    AS day,
+			COUNT(DISTINCT sr.id)                                             AS scan_count,
+			COALESCE(SUM(CASE WHEN f.severity = 'Critical' THEN 1 ELSE 0 END), 0) AS critical_ct,
+			COALESCE(SUM(CASE WHEN f.severity = 'High'     THEN 1 ELSE 0 END), 0) AS high_ct,
+			COALESCE(SUM(CASE WHEN f.severity = 'Medium'   THEN 1 ELSE 0 END), 0) AS medium_ct,
+			COALESCE(SUM(CASE WHEN f.severity = 'Low'      THEN 1 ELSE 0 END), 0) AS low_ct,
+			COUNT(f.id)                                                       AS total_findings
+		FROM scan_runs sr
+		LEFT JOIN findings f ON f.scan_run_id = sr.id
+		WHERE sr.scan_started_at >= NOW() - ($1 || ' days')::INTERVAL
+		  AND sr.status = 'completed'
+		GROUP BY DATE(sr.scan_started_at)
+		ORDER BY day ASC
+	`, strconv.Itoa(days))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	points := []RiskTrendPoint{}
+	for rows.Next() {
+		var day string
+		var scanCount, critCt, highCt, medCt, lowCt, totalFindings int
+		if err := rows.Scan(&day, &scanCount, &critCt, &highCt, &medCt, &lowCt, &totalFindings); err != nil {
+			continue
+		}
+		// Weighted score 0–100: heavier weight on critical/high.
+		score := 0
+		if totalFindings > 0 {
+			weighted := critCt*8 + highCt*5 + medCt*2 + lowCt
+			maxPossible := totalFindings * 8
+			score = weighted * 100 / maxPossible
+		}
+		points = append(points, RiskTrendPoint{Date: day, Score: score, ScanCount: scanCount})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"trend": points, "days": days})
 }
