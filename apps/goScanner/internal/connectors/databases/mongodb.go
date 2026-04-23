@@ -11,7 +11,10 @@ import (
 )
 
 // MongoDBConnector scans a MongoDB instance across all databases and collections.
-type MongoDBConnector struct{ client *mongo.Client }
+type MongoDBConnector struct {
+	client     *mongo.Client
+	sampleSize int
+}
 
 func (c *MongoDBConnector) SourceType() string { return "mongodb" }
 
@@ -36,6 +39,7 @@ func (c *MongoDBConnector) Connect(ctx context.Context, config map[string]any) e
 		return err
 	}
 	c.client = client
+	c.sampleSize = cfgInt(config, "sample_size", 1000, 50000)
 	return client.Ping(ctx, nil)
 }
 
@@ -70,7 +74,7 @@ func (c *MongoDBConnector) StreamFields(ctx context.Context) (<-chan connectors.
 			}
 			for _, collName := range colls {
 				coll := db.Collection(collName)
-				cursor, err := coll.Find(ctx, bson.M{}, options.Find().SetLimit(10000))
+				cursor, err := coll.Find(ctx, bson.M{}, options.Find().SetLimit(int64(c.sampleSize)))
 				if err != nil {
 					continue
 				}

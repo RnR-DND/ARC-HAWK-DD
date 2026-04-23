@@ -354,25 +354,44 @@ func (s *RemediationService) ExecuteRemediationRequest(ctx context.Context, requ
 		return nil, fmt.Errorf("failed to decode remediation preview: %w", err)
 	}
 
-	// 2. Execute remediation for each finding in the preview.
+	// 2. Execute remediation for each finding in the preview (saga pattern).
 	result := &RemediationResult{
 		RequestID:  requestID,
 		ExecutedBy: userID,
 		ExecutedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 
+	var completedActionIDs []string
+	sagaFailed := false
+
 	for _, findingID := range preview.FindingIDs {
 		actionID, err := s.ExecuteRemediation(ctx, findingID, preview.ActionType, userID)
 		if err != nil {
 			result.FailureCount++
 			result.FailedFindingIDs = append(result.FailedFindingIDs, findingID)
-			log.Printf("WARNING: Remediation failed for finding %s: %v", findingID, err)
-		} else {
-			result.SuccessCount++
-			result.ActionID = actionID // last successful action ID for reference
+			log.Printf("WARNING: Remediation failed for finding %s: %v — triggering saga rollback for %d prior actions", findingID, err, len(completedActionIDs))
+			remediationActionsFailedTotal.WithLabelValues(preview.ActionType, "execution_error").Inc()
+
+			// Compensating rollback for all previously-succeeded actions.
+			for _, previousActionID := range completedActionIDs {
+				if rollbackErr := s.RollbackRemediation(ctx, previousActionID); rollbackErr != nil {
+					log.Printf("WARN: saga rollback failed for action %s: %v", previousActionID, rollbackErr)
+				}
+			}
+			sagaFailed = true
+			break
 		}
+		result.SuccessCount++
+		result.ActionID = actionID // last successful action ID for reference
+		completedActionIDs = append(completedActionIDs, actionID)
 	}
-	result.Status = "COMPLETED"
+
+	if sagaFailed {
+		result.Status = "FAILED"
+		result.SuccessCount = 0
+	} else {
+		result.Status = "COMPLETED"
+	}
 
 	// 3. Delete the preview — single-use only.
 	if _, err := s.db.ExecContext(ctx, `DELETE FROM remediation_previews WHERE id = $1`, requestID); err != nil {

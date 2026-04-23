@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 	_ "github.com/microsoft/go-mssqldb"
@@ -63,6 +64,10 @@ func (c *MSSQLConnector) StreamFields(ctx context.Context) (<-chan connectors.Fi
 				tables = append(tables, t)
 			}
 		}
+		if err := rows.Err(); err != nil {
+			errc <- fmt.Errorf("rows iteration error: %w", err)
+			return
+		}
 
 		for _, t := range tables {
 			query := fmt.Sprintf(`SELECT TOP 10000 * FROM [%s].[%s]`, t.schema, t.name)
@@ -70,6 +75,7 @@ func (c *MSSQLConnector) StreamFields(ctx context.Context) (<-chan connectors.Fi
 			if err != nil {
 				continue
 			}
+			defer dataRows.Close()
 			cols, _ := dataRows.Columns()
 			for dataRows.Next() {
 				vals := make([]interface{}, len(cols))
@@ -96,12 +102,13 @@ func (c *MSSQLConnector) StreamFields(ctx context.Context) (<-chan connectors.Fi
 						IsStructured: true,
 					}:
 					case <-ctx.Done():
-						dataRows.Close()
 						return
 					}
 				}
 			}
-			dataRows.Close()
+			if err := dataRows.Err(); err != nil {
+				log.Printf("WARN: dataRows iteration error for table %s.%s: %v", t.schema, t.name, err)
+			}
 		}
 	}()
 	return out, errc

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 	_ "github.com/lib/pq"
@@ -69,6 +70,10 @@ func (c *RedshiftConnector) StreamFields(ctx context.Context) (<-chan connectors
 				tables = append(tables, t)
 			}
 		}
+		if err := rows.Err(); err != nil {
+			errc <- fmt.Errorf("rows iteration error: %w", err)
+			return
+		}
 
 		for _, t := range tables {
 			query := fmt.Sprintf(`SELECT * FROM "%s"."%s" LIMIT %d`, t.schema, t.name, c.sampleSize)
@@ -76,6 +81,7 @@ func (c *RedshiftConnector) StreamFields(ctx context.Context) (<-chan connectors
 			if err != nil {
 				continue
 			}
+			defer dataRows.Close()
 			cols, _ := dataRows.Columns()
 			for dataRows.Next() {
 				vals := make([]interface{}, len(cols))
@@ -102,12 +108,13 @@ func (c *RedshiftConnector) StreamFields(ctx context.Context) (<-chan connectors
 						IsStructured: true,
 					}:
 					case <-ctx.Done():
-						dataRows.Close()
 						return
 					}
 				}
 			}
-			dataRows.Close()
+			if err := dataRows.Err(); err != nil {
+				log.Printf("WARN: dataRows iteration error for table %s.%s: %v", t.schema, t.name, err)
+			}
 		}
 	}()
 	return out, errc

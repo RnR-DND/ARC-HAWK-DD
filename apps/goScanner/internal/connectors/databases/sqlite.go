@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 	_ "modernc.org/sqlite"
@@ -59,6 +60,10 @@ func (c *SQLiteConnector) StreamFields(ctx context.Context) (<-chan connectors.F
 				tables = append(tables, t)
 			}
 		}
+		if err := rows.Err(); err != nil {
+			errc <- fmt.Errorf("rows iteration error: %w", err)
+			return
+		}
 
 		for _, tbl := range tables {
 			query := fmt.Sprintf(`SELECT * FROM "%s" LIMIT %d`, tbl, c.sampleSize)
@@ -66,6 +71,7 @@ func (c *SQLiteConnector) StreamFields(ctx context.Context) (<-chan connectors.F
 			if err != nil {
 				continue
 			}
+			defer dataRows.Close()
 			cols, _ := dataRows.Columns()
 			for dataRows.Next() {
 				vals := make([]interface{}, len(cols))
@@ -92,12 +98,13 @@ func (c *SQLiteConnector) StreamFields(ctx context.Context) (<-chan connectors.F
 						IsStructured: true,
 					}:
 					case <-ctx.Done():
-						dataRows.Close()
 						return
 					}
 				}
 			}
-			dataRows.Close()
+			if err := dataRows.Err(); err != nil {
+				log.Printf("WARN: dataRows iteration error for table %s: %v", tbl, err)
+			}
 		}
 	}()
 	return out, errc

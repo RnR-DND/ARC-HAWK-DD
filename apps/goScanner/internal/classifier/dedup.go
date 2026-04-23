@@ -11,7 +11,7 @@ func Dedup(findings []ClassifiedFinding) []ClassifiedFinding {
 	out := make([]ClassifiedFinding, 0, len(findings))
 	for _, f := range findings {
 		h := sha256.Sum256([]byte(f.ValueHash))
-		key := fmt.Sprintf("%s|%s|%x", f.PIIType, f.SourcePath, h[:4])
+		key := fmt.Sprintf("%s|%s|%x", f.PIIType, f.SourcePath, h[:])
 		if _, ok := seen[key]; !ok {
 			seen[key] = struct{}{}
 			out = append(out, f)
