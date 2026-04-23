@@ -25,6 +25,16 @@ func NewLineageHandler(semanticLineageService *service.SemanticLineageService) *
 
 // GetLineage handles GET /api/v1/lineage
 // Returns the complete 3-level hierarchy (System → Asset → PII_Category)
+// GetLineage godoc
+// @Summary Get semantic lineage graph
+// @Tags lineage
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param system query string false "Filter by source system"
+// @Param risk query string false "Filter by risk level (Critical|High|Medium|Low)"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /lineage [get]
 func (h *LineageHandler) GetLineage(c *gin.Context) {
 	// Parse filters from query params
 	systemFilter := c.Query("system")
@@ -92,6 +102,14 @@ func (h *LineageHandler) GetLineage(c *gin.Context) {
 
 // GetLineageStats handles GET /api/v1/lineage/stats
 // Returns aggregated statistics from the graph
+// GetLineageStats godoc
+// @Summary Get lineage graph statistics
+// @Tags lineage
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /lineage/stats [get]
 func (h *LineageHandler) GetLineageStats(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -131,6 +149,14 @@ func countNodesByType(nodes []service.SemanticNode, nodeType string) int {
 
 // SyncLineage handles POST /api/v1/lineage/sync
 // Triggers full sync from PostgreSQL to Neo4j
+// SyncLineage godoc
+// @Summary Manually trigger lineage sync to Neo4j
+// @Tags lineage
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /lineage/sync [post]
 func (h *LineageHandler) SyncLineage(c *gin.Context) {
 	// Carry tenant ID from the request context into the detached background context.
 	// context.Background() is needed because request context cancels on response send,

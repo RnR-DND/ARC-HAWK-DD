@@ -43,6 +43,8 @@ jobs:
           PRESIDIO_URL: http://localhost:5001
 
       - name: Check Quality Gate
+        working-directory: apps/backend
         run: |
-          echo "✅ Regression tests passed with F1 >= 0.90"
-          echo "Quality gate enforced successfully"
+          SCORE=$(go run cmd/regression/main.go 2>/dev/null | grep -oP 'F1:\s*\K[0-9.]+' || echo "0")
+          echo "F1 score: $SCORE"
+          awk "BEGIN { if ($SCORE + 0 < 0.85) { print \"Quality gate failed: F1=$SCORE < 0.85\"; exit 1 } }"

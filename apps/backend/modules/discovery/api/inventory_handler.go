@@ -21,6 +21,14 @@ func NewInventoryHandler(repo *service.Repo) *InventoryHandler {
 
 // ListInventory returns paginated inventory rows for the tenant in ctx.
 // GET /api/discovery/inventory?classification=&source_id=&limit=100&offset=0
+// ListInventory godoc
+// @Summary List full asset inventory with source mapping
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/inventory [get]
 func (h *InventoryHandler) ListInventory(c *gin.Context) {
 	classification := c.Query("classification")
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
@@ -48,6 +56,15 @@ func (h *InventoryHandler) ListInventory(c *gin.Context) {
 
 // GetAssetInventory returns all inventory rows for one asset.
 // GET /api/discovery/inventory/:assetId
+// GetAssetInventory godoc
+// @Summary Get per-asset inventory detail
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param assetId path string true "Asset UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/inventory/{assetId} [get]
 func (h *InventoryHandler) GetAssetInventory(c *gin.Context) {
 	assetID, err := uuid.Parse(c.Param("assetId"))
 	if err != nil {

@@ -7,14 +7,16 @@ import (
 	"github.com/arc-platform/backend/modules/assets/service"
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
+	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 // FindingsHandler handles findings requests
 type FindingsHandler struct {
-	service *service.FindingsService
-	repo    *persistence.PostgresRepository
+	service     *service.FindingsService
+	repo        *persistence.PostgresRepository
+	auditLogger interfaces.AuditLogger
 }
 
 // NewFindingsHandler creates a new findings handler
@@ -27,7 +29,25 @@ func NewFindingsHandlerWithRepo(svc *service.FindingsService, repo *persistence.
 	return &FindingsHandler{service: svc, repo: repo}
 }
 
+// NewFindingsHandlerWithRepoAndAudit creates a new findings handler with repo and audit logger.
+func NewFindingsHandlerWithRepoAndAudit(svc *service.FindingsService, repo *persistence.PostgresRepository, auditLogger interfaces.AuditLogger) *FindingsHandler {
+	return &FindingsHandler{service: svc, repo: repo, auditLogger: auditLogger}
+}
+
 // GetFindings handles GET /api/v1/findings
+// GetFindings godoc
+// @Summary List PII findings with filters
+// @Tags findings
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param asset_id query string false "Filter by asset UUID"
+// @Param pii_type query string false "Filter by PII type (EMAIL, AADHAAR, PAN…)"
+// @Param risk_level query string false "critical|high|medium|low"
+// @Param limit query int false "Max results (default 50)"
+// @Param offset query int false "Offset"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /findings [get]
 func (h *FindingsHandler) GetFindings(c *gin.Context) {
 	// Parse query parameters
 	// pii_type is an alias for pattern_name (sent by findings explorer UI)
@@ -97,6 +117,13 @@ func (h *FindingsHandler) GetFindings(c *gin.Context) {
 		return
 	}
 
+	if h.auditLogger != nil {
+		_ = h.auditLogger.Record(c.Request.Context(), "FINDINGS_ACCESSED", "findings", "bulk", map[string]interface{}{
+			"count":   len(response.Findings),
+			"filters": query,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"data": response,
 	})
@@ -143,6 +170,14 @@ func (h *FindingsHandler) SubmitFeedback(c *gin.Context) {
 
 // GetFindingsFacets returns distinct filter options from actual findings data.
 // GET /findings/facets
+// GetFindingsFacets godoc
+// @Summary Get facet counts for findings filters
+// @Tags findings
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /findings/facets [get]
 func (h *FindingsHandler) GetFindingsFacets(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -150,6 +185,12 @@ func (h *FindingsHandler) GetFindingsFacets(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
+	}
+
+	if h.auditLogger != nil {
+		_ = h.auditLogger.Record(ctx, "FINDINGS_FACETS_ACCESSED", "findings", "facets", map[string]interface{}{
+			"tenant_id": tenantID.String(),
+		})
 	}
 
 	if h.repo == nil {

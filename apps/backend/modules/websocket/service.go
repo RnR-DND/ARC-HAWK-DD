@@ -142,6 +142,15 @@ func NewWebSocketService() *WebSocketService {
 	}
 }
 
+// HandleWebSocket godoc
+// @Summary Open a WebSocket connection for real-time scan events
+// @Description Upgrades HTTP to WebSocket. Broadcasts scan progress, completion, and PII summary events.
+// @Tags websocket
+// @Param Authorization header string true "Bearer {token}"
+// @Success 101 {string} string "Switching Protocols"
+// @Failure 401 {object} gin.H
+// @Security BearerAuth
+// @Router /ws [get]
 // HandleWebSocket upgrades HTTP connection to WebSocket and manages the client
 func (ws *WebSocketService) HandleWebSocket(c *gin.Context) {
 	// H-3: Reject unauthenticated connections when auth is required

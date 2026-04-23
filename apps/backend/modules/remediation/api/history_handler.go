@@ -20,8 +20,21 @@ func NewRemediationHistoryHandler(svc *service.RemediationService) *RemediationH
 	}
 }
 
-// GetHistory handles GET /api/v1/remediation/history
-// Returns audit trail of all remediation actions
+// GetHistory godoc
+// @Summary Get remediation history
+// @Description Returns the audit trail of all remediation actions
+// @Tags remediation
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param limit query int false "Maximum records to return (default 50)"
+// @Param offset query int false "Number of records to skip (default 0)"
+// @Param action query string false "Filter by action type"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/remediation/history [get]
 func (h *RemediationHistoryHandler) GetHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))

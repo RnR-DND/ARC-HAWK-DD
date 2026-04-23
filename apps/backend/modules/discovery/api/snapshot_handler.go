@@ -24,6 +24,14 @@ func NewSnapshotHandler(snapshotService *service.SnapshotService, repo *service.
 
 // ListSnapshots returns recent snapshots for the tenant in ctx.
 // GET /api/discovery/snapshots?limit=50&offset=0
+// ListSnapshots godoc
+// @Summary List point-in-time snapshots
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/snapshots [get]
 func (h *SnapshotHandler) ListSnapshots(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
@@ -41,6 +49,15 @@ func (h *SnapshotHandler) ListSnapshots(c *gin.Context) {
 
 // GetSnapshot returns a single snapshot with its facts.
 // GET /api/discovery/snapshots/:id
+// GetSnapshot godoc
+// @Summary Get a specific snapshot
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Snapshot UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/snapshots/{id} [get]
 func (h *SnapshotHandler) GetSnapshot(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -67,6 +84,14 @@ func (h *SnapshotHandler) GetSnapshot(c *gin.Context) {
 
 // TriggerSnapshot kicks off a manual snapshot for the tenant in ctx.
 // POST /api/discovery/snapshots/trigger
+// TriggerSnapshot godoc
+// @Summary Trigger a new data snapshot
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 202 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/snapshots/trigger [post]
 func (h *SnapshotHandler) TriggerSnapshot(c *gin.Context) {
 	// Get triggering user ID from auth middleware (optional — cron has no user).
 	var triggeredBy *uuid.UUID

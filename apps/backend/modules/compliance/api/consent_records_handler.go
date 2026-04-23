@@ -55,8 +55,20 @@ type createConsentRequest struct {
 	ConsentMechanism string `json:"consent_mechanism" binding:"required"`
 }
 
-// ListConsentRecords handles GET /compliance/consent.
-// Query params: limit (default 50, max 200), offset (default 0).
+// ListConsentRecords godoc
+// @Summary List compliance consent records
+// @Description Returns paginated consent records for the tenant
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param limit query int false "Maximum records to return (default 50, max 200)"
+// @Param offset query int false "Number of records to skip (default 0)"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/consent/records [get]
 func (h *ConsentRecordsHandler) ListConsentRecords(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {
@@ -127,7 +139,20 @@ func (h *ConsentRecordsHandler) ListConsentRecords(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"records": records, "total": len(records)})
 }
 
-// CreateConsentRecord handles POST /compliance/consent.
+// CreateConsentRecord godoc
+// @Summary Create a consent record
+// @Description Creates a new consent record for a data subject
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param body body createConsentRequest true "Consent record payload"
+// @Success 201 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/consent/records [post]
 func (h *ConsentRecordsHandler) CreateConsentRecord(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {
@@ -183,8 +208,21 @@ func (h *ConsentRecordsHandler) CreateConsentRecord(c *gin.Context) {
 	c.JSON(http.StatusCreated, r)
 }
 
-// WithdrawConsentRecord handles DELETE /compliance/consent/:id.
-// Sets withdrawal_timestamp = NOW() and is_active = false.
+// WithdrawConsentRecord godoc
+// @Summary Withdraw a consent record
+// @Description Withdraws consent by setting withdrawal_timestamp and marking inactive
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param id path string true "Consent record UUID"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/consent/records/{id} [delete]
 func (h *ConsentRecordsHandler) WithdrawConsentRecord(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {

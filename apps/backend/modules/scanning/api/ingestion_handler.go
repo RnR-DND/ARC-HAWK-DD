@@ -18,7 +18,15 @@ func NewIngestionHandler(service *service.IngestionService) *IngestionHandler {
 	return &IngestionHandler{service: service}
 }
 
-// IngestScan handles POST /api/v1/scans/ingest
+// IngestScan godoc
+// @Summary Ingest scan results (legacy endpoint)
+// @Tags scanning
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /scans/ingest [post]
 func (h *IngestionHandler) IngestScan(c *gin.Context) {
 	var input service.HawkeyeScanInput
 

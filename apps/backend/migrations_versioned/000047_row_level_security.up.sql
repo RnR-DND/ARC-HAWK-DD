@@ -5,7 +5,6 @@
 ALTER TABLE findings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scan_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE connections ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY tenant_isolation_findings ON findings
     USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
@@ -14,7 +13,4 @@ CREATE POLICY tenant_isolation_scan_runs ON scan_runs
     USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 CREATE POLICY tenant_isolation_assets ON assets
-    USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
-
-CREATE POLICY tenant_isolation_connections ON connections
     USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);

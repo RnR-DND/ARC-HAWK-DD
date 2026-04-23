@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 )
@@ -18,7 +19,7 @@ type CouchDBConnector struct {
 
 func (c *CouchDBConnector) SourceType() string { return "couchdb" }
 
-func (c *CouchDBConnector) Connect(_ context.Context, config map[string]any) error {
+func (c *CouchDBConnector) Connect(ctx context.Context, config map[string]any) error {
 	host := cfgString(config, "host")
 	port := cfgString(config, "port")
 	if port == "" {
@@ -35,9 +36,13 @@ func (c *CouchDBConnector) Connect(_ context.Context, config map[string]any) err
 	} else {
 		c.baseURL = fmt.Sprintf("%s://%s:%s", proto, host, port)
 	}
-	c.client = &http.Client{}
+	c.client = &http.Client{Timeout: 30 * time.Second}
 
-	resp, err := c.client.Get(c.baseURL + "/")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}

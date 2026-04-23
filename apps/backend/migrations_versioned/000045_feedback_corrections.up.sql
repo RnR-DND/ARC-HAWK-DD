@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS feedback_corrections (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID NOT NULL REFERENCES tenants(id),
     finding_id      UUID REFERENCES findings(id) ON DELETE SET NULL,
-    pattern_id      UUID REFERENCES scan_patterns(id) ON DELETE SET NULL,
+    pattern_id      UUID REFERENCES custom_patterns(id) ON DELETE SET NULL,
     pattern_code    TEXT NOT NULL,
     column_name     TEXT,
     table_name      TEXT,

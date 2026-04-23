@@ -33,7 +33,18 @@ type groSettings struct {
 	IsSignificantDataFiduciary bool    `json:"is_significant_data_fiduciary"`
 }
 
-// GetSettings handles GET /compliance/gro-settings.
+// GetSettings godoc
+// @Summary Get GRO settings
+// @Description Returns the current tenant's Grievance Redressal Officer settings
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/gro-settings [get]
 func (h *GROHandler) GetSettings(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {
@@ -70,7 +81,20 @@ func (h *GROHandler) GetSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, s)
 }
 
-// UpdateSettings handles PUT /compliance/gro-settings.
+// UpdateSettings godoc
+// @Summary Update GRO settings
+// @Description Updates the Grievance Redressal Officer configuration for the tenant
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param body body groSettings true "GRO settings payload"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/gro-settings [put]
 func (h *GROHandler) UpdateSettings(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {

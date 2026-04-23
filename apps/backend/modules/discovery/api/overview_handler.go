@@ -37,6 +37,14 @@ func NewOverviewHandler(
 
 // GetOverview returns the dashboard payload: KPI cards, hotspots, trend.
 // GET /api/discovery/overview
+// GetOverview godoc
+// @Summary Get discovery dashboard overview
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/overview [get]
 func (h *OverviewHandler) GetOverview(c *gin.Context) {
 	summary, err := h.inventory.GetOverviewSummary(c.Request.Context(), h.repo)
 	if err != nil {

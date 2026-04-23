@@ -150,8 +150,14 @@ func (s *RemediationService) ExecuteRemediation(ctx context.Context, findingID s
 		assetUUID, parseErr := uuid.Parse(finding.AssetID)
 		if parseErr == nil {
 			if err := s.lineageSync.SyncAssetToNeo4j(ctx, assetUUID); err != nil {
-				// Log but don't fail remediation
-				log.Printf("WARNING: Failed to sync asset to lineage after remediation: %v", err)
+				// Source is mutated, Postgres is committed — cannot fully roll back.
+				// Transition to COMPLETED_WITH_LINEAGE_DRIFT and alert.
+				s.db.ExecContext(ctx, `
+					UPDATE remediation_actions SET status='COMPLETED_WITH_LINEAGE_DRIFT' WHERE id=$1
+				`, actionID)
+				remediationLineageDriftTotal.Inc()
+				log.Printf("ERROR: remediation %s completed but Neo4j lineage sync failed: %v", actionID, err)
+				return actionID, nil // don't fail the request — PII is masked, just lineage is stale
 			}
 		}
 	}
@@ -210,22 +216,35 @@ func (s *RemediationService) RollbackRemediation(ctx context.Context, actionID s
 		return fmt.Errorf("failed to restore value: %w", err)
 	}
 
-	// 7. Update action status to ROLLED_BACK
-	if err := s.updateRemediationStatus(ctx, actionID, "ROLLED_BACK"); err != nil {
-		return fmt.Errorf("failed to update status: %w", err)
+	// 7 & 8. Update status to ROLLED_BACK and set effective_until in a single transaction.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin rollback transaction: %w", err)
 	}
-
-	// 8. Set effective_until
-	_, err = s.db.ExecContext(ctx, `
-		UPDATE remediation_actions 
-		SET effective_until = NOW()
+	_, err = tx.ExecContext(ctx, `
+		UPDATE remediation_actions
+		SET status = 'ROLLED_BACK', effective_until = NOW()
 		WHERE id = $1
 	`, actionID)
 	if err != nil {
-		return fmt.Errorf("failed to set effective_until: %w", err)
+		tx.Rollback()
+		return fmt.Errorf("failed to update status and effective_until: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit rollback transaction: %w", err)
 	}
 
-	// 9. Record audit log via shared interface (hash-chained)
+	// 9. Reopen exposure window in Neo4j since source data is restored.
+	if s.lineageSync != nil {
+		assetUUID, parseErr := uuid.Parse(finding.AssetID)
+		if parseErr == nil {
+			if syncErr := s.lineageSync.SyncAssetToNeo4j(ctx, assetUUID); syncErr != nil {
+				log.Printf("WARN: rollback %s succeeded but Neo4j re-sync failed: %v", actionID, syncErr)
+			}
+		}
+	}
+
+	// 10. Record audit log via shared interface (hash-chained)
 	if s.auditLogger != nil {
 		_ = s.auditLogger.Record(ctx, "REMEDIATION_ROLLED_BACK", "remediation_action", actionID, map[string]interface{}{
 			"finding_id": action.FindingID,

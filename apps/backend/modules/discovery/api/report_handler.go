@@ -27,10 +27,17 @@ type generateReportRequest struct {
 	Format     string     `json:"format"`
 }
 
-// GenerateReport enqueues an async report job.
-// POST /api/discovery/reports/generate
-//
-// Body: { "snapshot_id": <uuid|null>, "format": "html|csv|json|pdf" }
+// GenerateReport godoc
+// @Summary Enqueue a discovery report
+// @Description Generates html, csv, json, or pdf report asynchronously. Poll GET /discovery/reports/:id for status.
+// @Tags discovery
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body object true "{snapshot_id, format: html|csv|json|pdf}"
+// @Success 202 {object} gin.H "report_id, status"
+// @Security BearerAuth
+// @Router /discovery/reports/generate [post]
 func (h *ReportHandler) GenerateReport(c *gin.Context) {
 	var req generateReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -69,8 +76,15 @@ func (h *ReportHandler) GenerateReport(c *gin.Context) {
 	})
 }
 
-// GetReport returns the status and metadata of a report job.
-// GET /api/discovery/reports/:id
+// GetReport godoc
+// @Summary Get report job status
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Report UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/reports/{id} [get]
 func (h *ReportHandler) GetReport(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -89,8 +103,17 @@ func (h *ReportHandler) GetReport(c *gin.Context) {
 	c.JSON(http.StatusOK, rep)
 }
 
-// DownloadReport streams the report content with the right Content-Type.
-// GET /api/discovery/reports/:id/download
+// DownloadReport godoc
+// @Summary Download generated report file
+// @Description Returns application/pdf, text/html, text/csv, or application/json depending on format
+// @Tags discovery
+// @Produce application/pdf
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Report UUID"
+// @Success 200 {string} string "Report bytes"
+// @Failure 425 {object} gin.H "Report not ready yet"
+// @Security BearerAuth
+// @Router /discovery/reports/{id}/download [get]
 func (h *ReportHandler) DownloadReport(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -109,8 +132,16 @@ func (h *ReportHandler) DownloadReport(c *gin.Context) {
 	c.Data(http.StatusOK, contentType, content)
 }
 
-// ListReports returns recent report jobs for the tenant.
-// GET /api/discovery/reports?limit=50&offset=0
+// ListReports godoc
+// @Summary List recent report jobs
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param limit query int false "Max results (default 50)"
+// @Param offset query int false "Offset"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/reports [get]
 func (h *ReportHandler) ListReports(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))

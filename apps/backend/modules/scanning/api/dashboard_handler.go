@@ -33,8 +33,15 @@ type DashboardMetrics struct {
 	SystemHealth     string    `json:"system_health"` // "healthy", "degraded", "unhealthy"
 }
 
-// GetDashboardMetrics returns real-time dashboard metrics
-// GET /api/v1/dashboard/metrics
+// GetDashboardMetrics godoc
+// @Summary Get real-time dashboard metrics
+// @Description Returns scan counts, finding totals, risk distribution, and recent activity
+// @Tags scanning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /dashboard/metrics [get]
 func (h *DashboardHandler) GetDashboardMetrics(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()

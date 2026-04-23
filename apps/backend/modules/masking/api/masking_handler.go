@@ -29,6 +29,17 @@ type MaskAssetRequest struct {
 }
 
 // MaskAsset handles POST /api/v1/masking/mask-asset
+// MaskAsset godoc
+// @Summary Apply PII masking to an asset
+// @Description Dispatches to the appropriate source-system connector to mask sensitive fields in-place
+// @Tags masking
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body object true "{asset_id, strategy, dry_run}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /masking/mask-asset [post]
 func (h *MaskingHandler) MaskAsset(c *gin.Context) {
 	var req MaskAssetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -82,6 +93,15 @@ func (h *MaskingHandler) MaskAsset(c *gin.Context) {
 }
 
 // GetMaskingStatus handles GET /api/v1/masking/status/:assetId
+// GetMaskingStatus godoc
+// @Summary Get masking status for an asset
+// @Tags masking
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param assetId path string true "Asset UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /masking/status/{assetId} [get]
 func (h *MaskingHandler) GetMaskingStatus(c *gin.Context) {
 	assetIDStr := c.Param("assetId")
 
@@ -106,6 +126,15 @@ func (h *MaskingHandler) GetMaskingStatus(c *gin.Context) {
 }
 
 // GetMaskingAuditLog handles GET /api/v1/masking/audit/:assetId
+// GetMaskingAuditLog godoc
+// @Summary Get masking operation audit log for an asset
+// @Tags masking
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param assetId path string true "Asset UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /masking/audit/{assetId} [get]
 func (h *MaskingHandler) GetMaskingAuditLog(c *gin.Context) {
 	assetIDStr := c.Param("assetId")
 

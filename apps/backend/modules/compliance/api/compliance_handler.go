@@ -19,8 +19,18 @@ func NewComplianceHandler(service *service.ComplianceService) *ComplianceHandler
 	}
 }
 
-// GetComplianceOverview returns the DPDPA compliance dashboard
-// GET /api/v1/compliance/overview
+// GetComplianceOverview godoc
+// @Summary Get DPDPA compliance overview
+// @Description Returns the DPDPA compliance dashboard with summary metrics
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/overview [get]
 func (h *ComplianceHandler) GetComplianceOverview(c *gin.Context) {
 	overview, err := h.service.GetComplianceOverview(c.Request.Context())
 	if err != nil {
@@ -33,8 +43,18 @@ func (h *ComplianceHandler) GetComplianceOverview(c *gin.Context) {
 	c.JSON(http.StatusOK, overview)
 }
 
-// GetCriticalAssets returns assets with critical PII exposure
-// GET /api/v1/compliance/critical
+// GetCriticalAssets godoc
+// @Summary Get critical assets with PII exposure
+// @Description Returns assets with critical PII exposure
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/critical [get]
 func (h *ComplianceHandler) GetCriticalAssets(c *gin.Context) {
 	assets, err := h.service.GetCriticalAssets(c.Request.Context())
 	if err != nil {
@@ -49,8 +69,18 @@ func (h *ComplianceHandler) GetCriticalAssets(c *gin.Context) {
 	})
 }
 
-// GetConsentViolations returns assets violating consent rules
-// GET /api/v1/compliance/violations
+// GetConsentViolations godoc
+// @Summary Get consent violations
+// @Description Returns assets violating consent rules
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/violations [get]
 func (h *ComplianceHandler) GetConsentViolations(c *gin.Context) {
 	violations, err := h.service.GetConsentViolations(c.Request.Context())
 	if err != nil {

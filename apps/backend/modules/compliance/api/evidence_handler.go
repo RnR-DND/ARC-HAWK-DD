@@ -22,8 +22,19 @@ func NewEvidenceHandler(svc *service.EvidencePackageService, logger *audit.Ledge
 	return &EvidenceHandler{svc: svc, logger: logger}
 }
 
-// GeneratePackage handles POST /compliance/evidence-package.
-// Generates a ZIP containing all DPDP evidence and streams it to the client.
+// GeneratePackage godoc
+// @Summary Generate DPDP evidence package
+// @Description Generates a ZIP containing all DPDP evidence and streams it to the client
+// @Tags compliance
+// @Accept json
+// @Produce application/zip
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/evidence-package [post]
 func (h *EvidenceHandler) GeneratePackage(c *gin.Context) {
 	tenantIDStr, _ := c.Get("tenant_id")
 	tenantID, err := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))
@@ -49,9 +60,22 @@ func (h *EvidenceHandler) GeneratePackage(c *gin.Context) {
 	c.Data(http.StatusOK, "application/zip", pkg.ZipBytes)
 }
 
-// GetAuditTrail handles GET /compliance/audit-trail.
-// Returns paginated audit_ledger rows for the tenant.
-// Query params: event_type (repeatable), from (RFC3339), to (RFC3339)
+// GetAuditTrail godoc
+// @Summary Get compliance audit trail
+// @Description Returns paginated audit ledger rows for the tenant
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param event_type query string false "Filter by event type (repeatable)"
+// @Param from query string false "Start time in RFC3339 format"
+// @Param to query string false "End time in RFC3339 format"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/audit-trail [get]
 func (h *EvidenceHandler) GetAuditTrail(c *gin.Context) {
 	tenantIDStr, _ := c.Get("tenant_id")
 	tenantID, err := uuid.Parse(fmt.Sprintf("%v", tenantIDStr))

@@ -581,16 +581,6 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		}
 	}
 
-	// C4/C5: Sync PII categories to Neo4j for lineage graph (3-level contract: System → Asset → PII_Category)
-	// This runs after commit to avoid blocking the transaction. Failures are non-fatal (logged only).
-	if s.neo4jRepo != nil {
-		for assetID, piiTypes := range assetPIIMap {
-			if err := s.neo4jRepo.SyncFindingsToPIICategories(ctx, assetID.String(), piiTypes); err != nil {
-				slog.WarnContext(ctx, "neo4j PII category sync failed", "asset_id", assetID, "error", err)
-			}
-		}
-	}
-
 	// WS6: Broadcast new findings via WebSocket for real-time dashboard updates.
 	if s.websocketService != nil && len(allFindings) > 0 {
 		broadcastBatch := make([]map[string]interface{}, 0, len(allFindings))

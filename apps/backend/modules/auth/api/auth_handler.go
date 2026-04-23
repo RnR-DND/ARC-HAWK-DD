@@ -73,6 +73,17 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
+// Login godoc
+// @Summary Authenticate and get JWT token
+// @Description Public endpoint — no auth required
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param body body object true "{email, password}"
+// @Success 200 {object} gin.H "token, refresh_token, user"
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Router /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -129,6 +140,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// Register godoc
+// @Summary Register a new user
+// @Description Public endpoint — creates user in caller's tenant
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param body body object true "{email, password, first_name, last_name}"
+// @Success 201 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 409 {object} gin.H "Email already exists"
+// @Router /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -199,6 +221,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	})
 }
 
+// Refresh godoc
+// @Summary Refresh access token
+// @Description Public endpoint — exchange refresh_token for new access token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param body body object true "{refresh_token}"
+// @Success 200 {object} gin.H "token"
+// @Failure 401 {object} gin.H
+// @Router /auth/refresh [post]
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -255,6 +287,14 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	})
 }
 
+// GetProfile godoc
+// @Summary Get authenticated user profile
+// @Tags auth
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /auth/profile [get]
 func (h *AuthHandler) GetProfile(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -277,6 +317,17 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+// ChangePassword godoc
+// @Summary Change user password
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body object true "{current_password, new_password}"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Security BearerAuth
+// @Router /auth/change-password [post]
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -322,6 +373,14 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	})
 }
 
+// ListUsers godoc
+// @Summary List all users in tenant
+// @Tags auth
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /auth/users [get]
 func (h *AuthHandler) ListUsers(c *gin.Context) {
 	tenantID, exists := c.Get("tenant_id")
 	if !exists {
@@ -349,6 +408,14 @@ type SettingsRequest struct {
 	Settings map[string]interface{} `json:"settings" binding:"required"`
 }
 
+// GetSettings godoc
+// @Summary Get tenant settings
+// @Tags auth
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /auth/settings [get]
 func (h *AuthHandler) GetSettings(c *gin.Context) {
 	tenantID, exists := c.Get("tenant_id")
 	if !exists {
@@ -385,6 +452,16 @@ func (h *AuthHandler) GetSettings(c *gin.Context) {
 	c.String(http.StatusOK, tenant.Settings)
 }
 
+// UpdateSettings godoc
+// @Summary Update tenant settings
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body object true "Key-value settings map"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /auth/settings [put]
 func (h *AuthHandler) UpdateSettings(c *gin.Context) {
 	tenantID, exists := c.Get("tenant_id")
 	if !exists {

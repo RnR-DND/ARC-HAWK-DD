@@ -59,7 +59,7 @@ func (m *AssetsModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	m.datasetService = service.NewDatasetService(repo)
 
 	m.assetHandler = api.NewAssetHandler(m.assetService)
-	m.findingsHandler = api.NewFindingsHandlerWithRepo(m.findingsService, repo)
+	m.findingsHandler = api.NewFindingsHandlerWithRepoAndAudit(m.findingsService, repo, auditLogger)
 	m.datasetHandler = api.NewDatasetHandler(m.datasetService)
 
 	log.Printf("✅ Assets Module initialized")
@@ -73,7 +73,6 @@ func (m *AssetsModule) RegisterRoutes(router *gin.RouterGroup) {
 	router.POST("/assets/bulk-tag", m.assetHandler.BulkTagAssets) // Phase 6: async batch tag
 	router.GET("/findings", m.findingsHandler.GetFindings)
 	router.GET("/findings/facets", m.findingsHandler.GetFindingsFacets)
-	router.POST("/findings/:id/feedback", m.findingsHandler.SubmitFeedback)
 	router.GET("/dataset/golden", m.datasetHandler.GetGoldenDataset)
 	log.Printf("📦 Assets routes registered")
 }

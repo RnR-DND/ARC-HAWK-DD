@@ -38,6 +38,17 @@ type AddConnectionRequest struct {
 }
 
 // AddConnection handles POST /api/v1/connections
+// AddConnection godoc
+// @Summary Add a new data source connection
+// @Tags connections
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body AddConnectionRequest true "Connection config"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Security BearerAuth
+// @Router /connections [post]
 func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 	var req AddConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -77,6 +88,14 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 }
 
 // GetConnections handles GET /api/v1/connections
+// GetConnections godoc
+// @Summary List all connections for tenant
+// @Tags connections
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /connections [get]
 func (h *ConnectionHandler) GetConnections(c *gin.Context) {
 	connections, err := h.service.GetConnections(c.Request.Context())
 	if err != nil {
@@ -88,6 +107,15 @@ func (h *ConnectionHandler) GetConnections(c *gin.Context) {
 }
 
 // DeleteConnection handles DELETE /api/v1/connections/:id
+// DeleteConnection godoc
+// @Summary Delete a connection
+// @Tags connections
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Connection UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /connections/{id} [delete]
 func (h *ConnectionHandler) DeleteConnection(c *gin.Context) {
 	id := c.Param("id")
 
@@ -122,7 +150,16 @@ type TestConnectionRequest struct {
 	Config     map[string]any `json:"config" binding:"required"`
 }
 
-// TestConnection handles POST /api/v1/connections/test
+// TestConnection godoc
+// @Summary Test a connection by config (no save)
+// @Tags connections
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body TestConnectionRequest true "source_type + config map"
+// @Success 200 {object} service.ConnectionTestResult
+// @Security BearerAuth
+// @Router /connections/test [post]
 func (h *ConnectionHandler) TestConnection(c *gin.Context) {
 	var req TestConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -139,7 +176,15 @@ func (h *ConnectionHandler) TestConnection(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// TestConnectionByID handles POST /api/v1/connections/:id/test
+// TestConnectionByID godoc
+// @Summary Test an existing saved connection
+// @Tags connections
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Connection UUID"
+// @Success 200 {object} service.ConnectionTestResult
+// @Security BearerAuth
+// @Router /connections/{id}/test [post]
 func (h *ConnectionHandler) TestConnectionByID(c *gin.Context) {
 	id := c.Param("id")
 
@@ -152,8 +197,13 @@ func (h *ConnectionHandler) TestConnectionByID(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// AvailableSourceTypes handles GET /api/v1/connections/available-types
-// Returns all supported connector types with display metadata.
+// AvailableSourceTypes godoc
+// @Summary List all supported connector types
+// @Description Returns 36 connector types across databases, cloud storage, warehouses, queues, files, and SaaS
+// @Tags connections
+// @Produce json
+// @Success 200 {object} gin.H "types: [{source_type, display_name, category, icon}]"
+// @Router /connections/available-types [get]
 func (h *ConnectionHandler) AvailableSourceTypes(c *gin.Context) {
 	types := []map[string]string{
 		{"source_type": "postgresql", "display_name": "PostgreSQL", "category": "databases", "icon": "database"},

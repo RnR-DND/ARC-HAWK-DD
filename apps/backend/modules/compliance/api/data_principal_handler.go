@@ -51,7 +51,20 @@ var validStatuses = map[string]bool{
 	"PENDING": true, "IN_PROGRESS": true, "COMPLETED": true, "REJECTED": true,
 }
 
-// SubmitRequest handles POST /compliance/dpr.
+// SubmitRequest godoc
+// @Summary Submit a data principal rights request
+// @Description Submits a new DPDPA data principal rights request (access, correction, erasure, etc.)
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param body body object true "Data principal request payload"
+// @Success 201 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/dpr [post]
 func (h *DataPrincipalHandler) SubmitRequest(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {
@@ -100,7 +113,22 @@ func (h *DataPrincipalHandler) SubmitRequest(c *gin.Context) {
 	c.JSON(http.StatusCreated, r)
 }
 
-// ListRequests handles GET /compliance/dpr.
+// ListRequests godoc
+// @Summary List data principal rights requests
+// @Description Returns paginated list of data principal rights requests with optional filters
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param status query string false "Filter by request status (PENDING, IN_PROGRESS, COMPLETED, REJECTED)"
+// @Param type query string false "Filter by request type"
+// @Param limit query int false "Maximum records to return (default 50, max 200)"
+// @Param offset query int false "Number of records to skip (default 0)"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/dpr [get]
 func (h *DataPrincipalHandler) ListRequests(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {
@@ -186,7 +214,22 @@ func (h *DataPrincipalHandler) ListRequests(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"requests": requests, "total": len(requests)})
 }
 
-// UpdateStatus handles PATCH /compliance/dpr/:id/status.
+// UpdateStatus godoc
+// @Summary Update data principal request status
+// @Description Updates the status of a data principal rights request
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param id path string true "Request UUID"
+// @Param body body object true "Status update payload"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/dpr/{id}/status [patch]
 func (h *DataPrincipalHandler) UpdateStatus(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {
@@ -237,7 +280,18 @@ func (h *DataPrincipalHandler) UpdateStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "updated", "request_id": requestID})
 }
 
-// GetStats handles GET /compliance/dpr/stats.
+// GetStats godoc
+// @Summary Get data principal request statistics
+// @Description Returns counts by status and overdue compliance flag for DPDPA Sec 7
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/compliance/dpr/stats [get]
 func (h *DataPrincipalHandler) GetStats(c *gin.Context) {
 	tenantID, ok := extractTenantID(c)
 	if !ok {

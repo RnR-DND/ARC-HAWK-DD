@@ -100,3 +100,21 @@ groups:
         annotations:
           summary: "No findings being ingested"
           description: "No new findings ingested in 15 minutes — scanner may be stalled or no scans running"
+
+      - alert: Neo4jSyncDeadLetterHigh
+        expr: increase(neo4j_sync_dead_letter_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Neo4j sync dead-letter queue growing"
+          description: "More than 5 rows transitioned to dead_letter in the last hour"
+
+      - alert: TemporalWorkflowFailure
+        expr: increase(temporal_workflow_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Temporal workflow failure detected"
+          description: "A Temporal workflow has failed in the last 5 minutes"

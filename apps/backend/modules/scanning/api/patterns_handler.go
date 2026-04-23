@@ -35,7 +35,14 @@ func tenantFromCtx(c *gin.Context) uuid.UUID {
 	return persistence.DevSystemTenantID
 }
 
-// ListPatterns GET /api/v1/patterns
+// ListPatterns godoc
+// @Summary List custom PII patterns
+// @Tags patterns
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H "data: []CustomPattern"
+// @Security BearerAuth
+// @Router /patterns [get]
 func (h *PatternsHandler) ListPatterns(c *gin.Context) {
 	tenantID := tenantFromCtx(c)
 	patterns, err := h.svc.ListPatterns(c.Request.Context(), tenantID)
@@ -49,7 +56,17 @@ func (h *PatternsHandler) ListPatterns(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": patterns})
 }
 
-// CreatePattern POST /api/v1/patterns
+// CreatePattern godoc
+// @Summary Create a custom PII pattern
+// @Tags patterns
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body service.CustomPattern true "Pattern definition (name, regex, pii_type required)"
+// @Success 201 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Security BearerAuth
+// @Router /patterns [post]
 func (h *PatternsHandler) CreatePattern(c *gin.Context) {
 	var body service.CustomPattern
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -85,7 +102,17 @@ func (h *PatternsHandler) CreatePattern(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"data": p})
 }
 
-// UpdatePattern PUT /api/v1/patterns/:id
+// UpdatePattern godoc
+// @Summary Update a custom pattern
+// @Tags patterns
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Pattern UUID"
+// @Success 200 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Security BearerAuth
+// @Router /patterns/{id} [put]
 func (h *PatternsHandler) UpdatePattern(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -119,7 +146,16 @@ func (h *PatternsHandler) UpdatePattern(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": p})
 }
 
-// DeletePattern DELETE /api/v1/patterns/:id
+// DeletePattern godoc
+// @Summary Delete a custom pattern
+// @Tags patterns
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Pattern UUID"
+// @Success 200 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Security BearerAuth
+// @Router /patterns/{id} [delete]
 func (h *PatternsHandler) DeletePattern(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -145,9 +181,16 @@ func (h *PatternsHandler) DeletePattern(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "pattern deleted"})
 }
 
-// RecordFalsePositive POST /api/v1/patterns/:id/false-positive
-// Increments the false-positive counter for the pattern and triggers auto-deactivation
-// if the resulting false_positive_rate exceeds 0.30.
+// RecordFalsePositive godoc
+// @Summary Record a false positive hit for a pattern
+// @Description Increments false-positive counter; auto-deactivates if rate > 30%%
+// @Tags patterns
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Pattern UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /patterns/{id}/false-positive [post]
 func (h *PatternsHandler) RecordFalsePositive(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -177,8 +220,15 @@ func (h *PatternsHandler) RecordFalsePositive(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": p})
 }
 
-// GetPatternStats GET /api/v1/patterns/:id/stats
-// Returns match-frequency and false-positive statistics for a single pattern.
+// GetPatternStats godoc
+// @Summary Get match and false-positive stats for a pattern
+// @Tags patterns
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Pattern UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /patterns/{id}/stats [get]
 func (h *PatternsHandler) GetPatternStats(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -200,9 +250,17 @@ func (h *PatternsHandler) GetPatternStats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": stats})
 }
 
-// TestPattern POST /api/v1/patterns/:id/test
-// Runs the pattern's compiled regex against caller-supplied test cases and returns
-// pass/fail per case plus an overall pass rate.
+// TestPattern godoc
+// @Summary Test a pattern against sample values
+// @Tags patterns
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Pattern UUID"
+// @Param body body object true "{test_cases: [{value, should_match}]}"
+// @Success 200 {object} gin.H "pass_rate, results per case"
+// @Security BearerAuth
+// @Router /patterns/{id}/test [post]
 func (h *PatternsHandler) TestPattern(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

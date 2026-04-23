@@ -1,0 +1,46 @@
+{{- if .Values.backend.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "arc-hawk-dd.fullname" . }}-backend
+  minReplicas: {{ .Values.backend.replicaCount }}
+  maxReplicas: {{ .Values.backend.hpa.maxReplicas | default 10 }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.backend.hpa.targetCPU | default 70 }}
+{{- end }}
+{{- if .Values.scanner.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "arc-hawk-dd.fullname" . }}-scanner
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "arc-hawk-dd.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "arc-hawk-dd.fullname" . }}-scanner
+  minReplicas: {{ .Values.scanner.replicaCount }}
+  maxReplicas: {{ .Values.scanner.hpa.maxReplicas | default 10 }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.scanner.hpa.targetCPU | default 70 }}
+{{- end }}

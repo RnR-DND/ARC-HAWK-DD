@@ -13,6 +13,7 @@ import (
 	entity "github.com/arc-platform/backend/modules/auth/entity"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
+	"github.com/arc-platform/backend/modules/shared/middleware"
 	"github.com/google/uuid"
 )
 
@@ -97,6 +98,14 @@ func (l *PostgresAuditLogger) Record(ctx context.Context, action, resourceType, 
 
 	auditLog.PreviousHash = previousHash
 	auditLog.EntryHash = entryHash
+
+	// Extract IP and UserAgent from context — not included in hash chain to avoid chain break
+	if ip, ok := ctx.Value(middleware.ContextKeyIPAddress).(string); ok && ip != "" {
+		auditLog.IPAddress = ip
+	}
+	if ua, ok := ctx.Value(middleware.ContextKeyUserAgent).(string); ok && ua != "" {
+		auditLog.UserAgent = ua
+	}
 
 	// Fire and forget (don't block main flow), or synchronous?
 	// Interface returns error, so synchronous is implied.

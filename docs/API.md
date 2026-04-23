@@ -5,6 +5,7 @@ Complete API reference for the ARC-Hawk Backend. Base URL: `http://localhost:808
 ## Table of Contents
 
 - [Authentication](#authentication)
+- [Auth Endpoints](#auth-endpoints)
 - [Response Format](#response-format)
 - [Error Handling](#error-handling)
 - [Scanning API](#scanning-api)
@@ -17,7 +18,11 @@ Complete API reference for the ARC-Hawk Backend. Base URL: `http://localhost:808
 - [Compliance API](#compliance-api)
 - [Remediation API](#remediation-api)
 - [Analytics API](#analytics-api)
+- [FP Learning API](#fp-learning-api)
+- [Masking API](#masking-api)
+- [Memory API](#memory-api)
 - [WebSocket API](#websocket-api)
+- [Health API](#health-api)
 
 ---
 
@@ -1664,6 +1669,312 @@ These endpoints are fully implemented in the backend but have no corresponding f
 
 ---
 
-**API Version**: 1.0  
-**Last Updated**: April 2026  
-**Documentation Version**: 3.1.0
+---
+
+## Auth Endpoints
+
+Base path: `/api/v1/auth`
+
+### Login
+```http
+POST /api/v1/auth/login
+```
+Public — no auth required.
+
+**Body:**
+```json
+{ "email": "user@example.com", "password": "string" }
+```
+**Response 200:**
+```json
+{ "token": "eyJ...", "refresh_token": "...", "user": { "id": "...", "email": "...", "role": "admin" } }
+```
+
+---
+
+### Register
+```http
+POST /api/v1/auth/register
+```
+Public. Creates a new user in the caller's tenant.
+
+**Body:**
+```json
+{ "email": "user@example.com", "password": "string", "first_name": "string", "last_name": "string" }
+```
+
+---
+
+### Refresh Token
+```http
+POST /api/v1/auth/refresh
+```
+Public. Exchanges a refresh token for a new access token.
+
+**Body:**
+```json
+{ "refresh_token": "string" }
+```
+
+---
+
+### Get Profile
+```http
+GET /api/v1/auth/profile
+Authorization: Bearer {token}
+```
+Returns the authenticated user's profile.
+
+---
+
+### Change Password
+```http
+POST /api/v1/auth/change-password
+Authorization: Bearer {token}
+```
+**Body:**
+```json
+{ "current_password": "string", "new_password": "string" }
+```
+
+---
+
+### List Users
+```http
+GET /api/v1/auth/users
+Authorization: Bearer {token}
+```
+Returns all users in the caller's tenant. Requires `admin` role.
+
+---
+
+### Get Settings
+```http
+GET /api/v1/auth/settings
+Authorization: Bearer {token}
+```
+Returns tenant-scoped application settings.
+
+---
+
+### Update Settings
+```http
+PUT /api/v1/auth/settings
+Authorization: Bearer {token}
+```
+Updates tenant settings. Requires `admin` role.
+
+**Body:** `{ "key": "value", ... }` (key-value map of setting overrides)
+
+---
+
+## FP Learning API
+
+Base path: `/api/v1/fp`
+
+The FP (False Positive) Learning module lets analysts teach the classifier which findings are false positives and which are confirmed PII. The system uses Bayesian confidence adjustment to improve precision over time.
+
+### Mark False Positive
+```http
+POST /api/v1/fp/false-positives
+Authorization: Bearer {token}
+```
+**Body:**
+```json
+{
+  "finding_id": "uuid",
+  "asset_id": "uuid",
+  "pattern_name": "EMAIL",
+  "pii_type": "email",
+  "field_name": "email_column",
+  "reason": "This is an internal system email, not user PII"
+}
+```
+
+---
+
+### Mark Confirmed
+```http
+POST /api/v1/fp/confirmed
+Authorization: Bearer {token}
+```
+Confirms a finding as true PII, reinforcing the classifier.
+
+---
+
+### List FP Learnings
+```http
+GET /api/v1/fp/learnings
+Authorization: Bearer {token}
+```
+Returns all active false-positive learnings for the tenant.
+
+---
+
+### Get FP Learning
+```http
+GET /api/v1/fp/learnings/:id
+Authorization: Bearer {token}
+```
+
+---
+
+### Deactivate FP Learning
+```http
+DELETE /api/v1/fp/learnings/:id
+Authorization: Bearer {token}
+```
+Soft-deletes the learning entry (sets `is_active = false`).
+
+---
+
+### Get FP Stats
+```http
+GET /api/v1/fp/stats
+Authorization: Bearer {token}
+```
+Returns precision/recall stats per pattern derived from analyst feedback.
+
+---
+
+### Check False Positive
+```http
+POST /api/v1/fp/check
+Authorization: Bearer {token}
+```
+Checks whether a specific field/pattern combination is a known false positive.
+
+**Body:**
+```json
+{ "pattern_name": "EMAIL", "field_name": "system_email", "asset_id": "uuid" }
+```
+
+---
+
+## Masking API
+
+Base path: `/api/v1/masking`
+
+### Mask Asset
+```http
+POST /api/v1/masking/mask-asset
+Authorization: Bearer {token}
+```
+Applies PII masking to all sensitive fields in the specified asset. Dispatches to the appropriate source-system connector (PostgreSQL, MySQL, MongoDB, S3, Filesystem).
+
+**Body:**
+```json
+{ "asset_id": "uuid", "strategy": "hash|redact|tokenize", "dry_run": false }
+```
+
+**Response 200:**
+```json
+{ "asset_id": "uuid", "fields_masked": 12, "status": "completed", "audit_id": "uuid" }
+```
+
+---
+
+### Get Masking Status
+```http
+GET /api/v1/masking/status/:assetId
+Authorization: Bearer {token}
+```
+Returns the current masking status and last operation timestamp for an asset.
+
+---
+
+### Get Masking Audit Log
+```http
+GET /api/v1/masking/audit/:assetId
+Authorization: Bearer {token}
+```
+Returns the full masking operation history for an asset.
+
+---
+
+## Memory API
+
+Base path: `/api/v1/memory`
+
+The Memory module integrates with an external vector memory service (Supermemory) to provide semantic search over scan history and findings.
+
+### Get Memory Status
+```http
+GET /api/v1/memory/status
+Authorization: Bearer {token}
+```
+Returns connectivity status of the memory service.
+
+**Response 200:**
+```json
+{ "status": "connected", "provider": "supermemory", "latency_ms": 42 }
+```
+
+---
+
+### Semantic Search
+```http
+POST /api/v1/memory/search
+Authorization: Bearer {token}
+```
+Runs a semantic search over indexed scan data and findings.
+
+**Body:**
+```json
+{ "query": "assets with unencrypted Aadhaar numbers in production", "limit": 10 }
+```
+
+**Response 200:**
+```json
+{ "results": [ { "content": "...", "score": 0.92, "metadata": { "asset_id": "...", "source": "..." } } ] }
+```
+
+---
+
+## Health API
+
+### Liveness
+```http
+GET /livez
+```
+Returns 200 if the process is alive. No auth required.
+
+### Readiness
+```http
+GET /readyz
+GET /health
+```
+Returns 200 if all critical dependencies (PostgreSQL, Neo4j) are reachable.
+
+### Component Health
+```http
+GET /api/v1/health/components
+Authorization: Bearer {token}
+```
+Returns per-component health status (database, neo4j, vault, temporal, redis).
+
+**Response 200:**
+```json
+{
+  "overall": "healthy",
+  "components": {
+    "postgres": { "status": "healthy", "latency_ms": 2 },
+    "neo4j":    { "status": "healthy", "latency_ms": 8 },
+    "vault":    { "status": "healthy" },
+    "temporal": { "status": "healthy" },
+    "redis":    { "status": "healthy", "latency_ms": 1 }
+  }
+}
+```
+
+### Prometheus Metrics
+```http
+GET /metrics
+```
+Exposes Prometheus metrics. No auth required.
+
+---
+
+**API Version**: 3.0.0
+**Last Updated**: April 2026
+**Documentation Version**: 3.2.0

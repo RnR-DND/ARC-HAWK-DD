@@ -22,6 +22,15 @@ func NewDriftHandler(drift *service.DriftDetectionService, repo *service.Repo) *
 
 // GetDriftSince returns drift events for a specific snapshot ID.
 // GET /api/discovery/drift/since/:snapshotId?limit=100
+// GetDriftSince godoc
+// @Summary Get drift events since a snapshot
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param snapshotId path string true "Snapshot UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/drift/since/{snapshotId} [get]
 func (h *DriftHandler) GetDriftSince(c *gin.Context) {
 	snapshotID, err := uuid.Parse(c.Param("snapshotId"))
 	if err != nil {
@@ -44,6 +53,14 @@ func (h *DriftHandler) GetDriftSince(c *gin.Context) {
 
 // GetDriftTimeline returns drift events from the most recent snapshot.
 // GET /api/discovery/drift/timeline?limit=100
+// GetDriftTimeline godoc
+// @Summary Get full drift timeline
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/drift/timeline [get]
 func (h *DriftHandler) GetDriftTimeline(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
 

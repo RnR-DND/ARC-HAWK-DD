@@ -17,7 +17,18 @@ func NewRemediationExportHandler(svc *service.RemediationService) *RemediationEx
 }
 
 // ExportReport godoc
-// GET /api/v1/remediation/export?format=pdf|xlsx
+// @Summary Export remediation report
+// @Description Exports remediation history as PDF (HTML) or XLSX
+// @Tags remediation
+// @Accept json
+// @Produce application/octet-stream
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param format query string false "Export format: pdf or xlsx (default pdf)"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/remediation/export [get]
 func (h *RemediationExportHandler) ExportReport(c *gin.Context) {
 	format := c.DefaultQuery("format", "pdf")
 

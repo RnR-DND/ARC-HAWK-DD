@@ -36,7 +36,21 @@ type ExecuteRemediationResponse struct {
 	Errors    []string `json:"errors,omitempty"`
 }
 
-// ExecuteRemediation executes remediation for multiple findings
+// ExecuteRemediation godoc
+// @Summary Execute remediation for findings
+// @Description Executes remediation actions (MASK, DELETE, or ENCRYPT) for one or more findings
+// @Tags remediation
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param body body ExecuteRemediationRequest true "Remediation execution request"
+// @Success 200 {object} ExecuteRemediationResponse
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Failure 503 {object} gin.H
+// @Router /api/v1/remediation [post]
 func (h *RemediationHandler) ExecuteRemediation(c *gin.Context) {
 	var req ExecuteRemediationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -83,7 +97,19 @@ func (h *RemediationHandler) ExecuteRemediation(c *gin.Context) {
 	})
 }
 
-// RollbackRemediation rolls back a remediation action
+// RollbackRemediation godoc
+// @Summary Rollback a remediation action
+// @Description Rolls back a previously executed remediation action by action ID
+// @Tags remediation
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param id path string true "Remediation action ID"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/remediation/rollback/{id} [post]
 func (h *RemediationHandler) RollbackRemediation(c *gin.Context) {
 	actionID := c.Param("actionId")
 
@@ -98,7 +124,20 @@ func (h *RemediationHandler) RollbackRemediation(c *gin.Context) {
 	})
 }
 
-// GeneratePreview generates a remediation preview
+// GeneratePreview godoc
+// @Summary Generate remediation preview
+// @Description Generates a preview of what remediation would do without executing it
+// @Tags remediation
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param body body object true "Preview request with finding_ids and action_type"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/remediation/preview [post]
 func (h *RemediationHandler) GeneratePreview(c *gin.Context) {
 	var req struct {
 		FindingIDs []string `json:"finding_ids"`
@@ -118,7 +157,19 @@ func (h *RemediationHandler) GeneratePreview(c *gin.Context) {
 	c.JSON(http.StatusOK, preview)
 }
 
-// GetRemediationAction retrieves a single remediation action
+// GetRemediationAction godoc
+// @Summary Get a single remediation action
+// @Description Retrieves details of a specific remediation action by ID
+// @Tags remediation
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param id path string true "Remediation action ID"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/remediation/{id} [get]
 func (h *RemediationHandler) GetRemediationAction(c *gin.Context) {
 	actionID := c.Param("id")
 
@@ -131,7 +182,19 @@ func (h *RemediationHandler) GetRemediationAction(c *gin.Context) {
 	c.JSON(http.StatusOK, action)
 }
 
-// GetRemediationActions retrieves remediation actions for a finding
+// GetRemediationActions godoc
+// @Summary Get remediation actions for a finding
+// @Description Returns all remediation actions associated with a specific finding
+// @Tags remediation
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param findingId path string true "Finding ID"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/remediation/actions/{findingId} [get]
 func (h *RemediationHandler) GetRemediationActions(c *gin.Context) {
 	findingID := c.Param("findingId")
 
@@ -147,7 +210,19 @@ func (h *RemediationHandler) GetRemediationActions(c *gin.Context) {
 	})
 }
 
-// GetRemediationHistory retrieves remediation history for an asset
+// GetRemediationHistory godoc
+// @Summary Get remediation history for an asset
+// @Description Returns the full remediation action history for a specific asset
+// @Tags remediation
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param assetId path string true "Asset ID"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/remediation/history/{assetId} [get]
 func (h *RemediationHandler) GetRemediationHistory(c *gin.Context) {
 	assetID := c.Param("assetId")
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -8,9 +9,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/gin-gonic/gin"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 // AgentSyncRequest is the payload POSTed by EDR agents for batch ingestion.
@@ -50,13 +54,40 @@ type BatchResult struct {
 // ingestion from EDR agents.
 type AgentSyncHandler struct {
 	repo *persistence.PostgresRepository
+	rdb  *goredis.Client
 }
 
-// NewAgentSyncHandler creates an AgentSyncHandler backed by the shared Postgres repository.
+// NewAgentSyncHandler creates an AgentSyncHandler backed by the shared Postgres
+// repository and an optional Redis client for the async classify queue.
+// If redisAddr is empty the classify publish step is skipped (data is safe in PG).
 func NewAgentSyncHandler(repo *persistence.PostgresRepository) *AgentSyncHandler {
-	return &AgentSyncHandler{repo: repo}
+	h := &AgentSyncHandler{repo: repo}
+	if addr := os.Getenv("REDIS_ADDR"); addr != "" {
+		h.rdb = goredis.NewClient(&goredis.Options{
+			Addr:         addr,
+			Password:     os.Getenv("REDIS_PASSWORD"),
+			DB:           0,
+			DialTimeout:  3 * time.Second,
+			ReadTimeout:  3 * time.Second,
+			WriteTimeout: 3 * time.Second,
+		})
+	}
+	return h
 }
 
+// Sync godoc
+// @Summary Ingest agent scan batch (idempotent)
+// @Description Idempotent batch ingestion from EDR agents. Requires X-Scanner-Token + X-Tenant-ID headers.
+// @Tags agent
+// @Accept json
+// @Produce json
+// @Param X-Scanner-Token header string true "Scanner service token"
+// @Param X-Tenant-ID header string true "Tenant UUID"
+// @Param body body AgentSyncRequest true "Batch payload"
+// @Success 200 {object} AgentSyncResponse
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Router /agent/sync [post]
 // Sync handles POST /api/v1/agent/sync.
 //
 // Logic per batch:
@@ -180,7 +211,7 @@ func (h *AgentSyncHandler) processBatch(c *gin.Context, db *sql.DB, agentID stri
 	//    persisted in agent_sync_log and can be replayed. In the current architecture
 	//    classification is triggered via HTTP callback from the scanner, so this
 	//    publish is forward-compatible for the async pipeline.
-	if err := publishToClassifyQueue(agentID, batch); err != nil {
+	if err := h.publishToClassifyQueue(agentID, batch); err != nil {
 		// Non-fatal: log but don't fail the batch — data is safe in PG.
 		log.Printf("WARN: agent_sync: classify publish failed (non-fatal): %v", err)
 	}
@@ -206,11 +237,10 @@ func hashPayload(data json.RawMessage) string {
 	return hex.EncodeToString(h[:])
 }
 
-// publishToClassifyQueue publishes a batch to the Redis "classify" queue.
-// This is a forward-compatible stub — the current scanner architecture uses HTTP
-// callbacks. When the async classification pipeline is enabled, this will use the
-// Redis client from shared infrastructure.
-func publishToClassifyQueue(agentID string, batch AgentSyncBatch) error {
+// publishToClassifyQueue publishes a batch to the Redis "classify" list queue via LPUSH.
+// Best-effort: if Redis is unavailable the batch data is already persisted in agent_sync_log
+// and can be replayed. Non-fatal errors are logged but do not fail the sync response.
+func (h *AgentSyncHandler) publishToClassifyQueue(agentID string, batch AgentSyncBatch) error {
 	msg := map[string]interface{}{
 		"agent_id":    agentID,
 		"scan_job_id": batch.ScanJobID,
@@ -222,9 +252,18 @@ func publishToClassifyQueue(agentID string, batch AgentSyncBatch) error {
 		return fmt.Errorf("marshal classify message: %w", err)
 	}
 
-	// TODO: Wire real Redis LPUSH when async classify pipeline is enabled.
-	// For now, log the intent so operators can verify the flow.
-	log.Printf("INFO: agent_sync: classify queue message prepared (%d bytes) for job %s batch %d",
-		len(payload), batch.ScanJobID, batch.BatchSeq)
+	if h.rdb == nil {
+		log.Printf("INFO: agent_sync: Redis not configured — classify queue skipped for job %s batch %d (data safe in PG)", batch.ScanJobID, batch.BatchSeq)
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if err := h.rdb.LPush(ctx, "classify", payload).Err(); err != nil {
+		return fmt.Errorf("redis LPUSH classify: %w", err)
+	}
+
+	log.Printf("INFO: agent_sync: published %d bytes to classify queue for job %s batch %d", len(payload), batch.ScanJobID, batch.BatchSeq)
 	return nil
 }

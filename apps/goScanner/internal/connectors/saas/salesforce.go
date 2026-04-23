@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 )
@@ -40,7 +41,7 @@ func (c *SalesforceConnector) Connect(ctx context.Context, cfg map[string]any) e
 		"username":      {username},
 		"password":      {password},
 	}
-	c.httpClient = &http.Client{}
+	c.httpClient = &http.Client{Timeout: 30 * time.Second}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.instanceURL+"/services/oauth2/token",
 		strings.NewReader(form.Encode()))

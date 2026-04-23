@@ -117,8 +117,20 @@ func (h *ScanTriggerHandler) recordAudit(ctx context.Context, action, resourceTy
 	}
 }
 
-// TriggerScan handles POST /api/v1/scans/trigger
-// Accepts scan configuration, creates scan entity, and triggers scanner
+// TriggerScan godoc
+// @Summary Trigger a new scan
+// @Description Creates a scan entity and dispatches it to the scanner service. Scan runs asynchronously; poll GET /scans/:id/status for progress.
+// @Tags scanning
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body service.TriggerScanRequest true "Scan configuration"
+// @Success 202 {object} gin.H "Scan accepted — returns scan_id"
+// @Failure 400 {object} gin.H "Invalid request"
+// @Failure 401 {object} gin.H "Unauthorized"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Security BearerAuth
+// @Router /scans/trigger [post]
 func (h *ScanTriggerHandler) TriggerScan(c *gin.Context) {
 	start := time.Now()
 	defer func() {
@@ -453,8 +465,17 @@ func (h *ScanTriggerHandler) markScanFailed(scanID uuid.UUID, reason string) {
 	}
 }
 
-// GetScanDelta returns findings added/removed since the previous scan.
-// Returns 204 if there is no previous scan to compare against.
+// GetScanDelta godoc
+// @Summary Get finding delta vs previous scan
+// @Description Returns findings added and removed since the immediately preceding scan. Returns 204 when no prior scan exists.
+// @Tags scanning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Scan UUID"
+// @Success 200 {object} gin.H "added, removed finding lists"
+// @Success 204 {object} nil "No previous scan"
+// @Security BearerAuth
+// @Router /scans/{id}/delta [get]
 func (h *ScanTriggerHandler) GetScanDelta(c *gin.Context) {
 	scanID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

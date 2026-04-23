@@ -18,8 +18,20 @@ func NewConsentHandler(service *service.ConsentService) *ConsentHandler {
 	return &ConsentHandler{service: service}
 }
 
-// RecordConsent records a new consent
-// POST /api/v1/consent/records
+// RecordConsent godoc
+// @Summary Record a new consent
+// @Description Records a new consent entry for a data subject
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param body body service.ConsentRequest true "Consent request payload"
+// @Success 201 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/consent/records [post]
 func (h *ConsentHandler) RecordConsent(c *gin.Context) {
 	var req service.ConsentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -36,8 +48,23 @@ func (h *ConsentHandler) RecordConsent(c *gin.Context) {
 	c.JSON(http.StatusCreated, record)
 }
 
-// ListConsentRecords lists consent records with optional filters
-// GET /api/v1/consent/records
+// ListConsentRecords godoc
+// @Summary List consent records
+// @Description Returns consent records with optional filters
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param asset_id query string false "Filter by asset ID"
+// @Param pii_type query string false "Filter by PII type"
+// @Param status query string false "Filter by consent status"
+// @Param limit query int false "Maximum records to return"
+// @Param offset query int false "Number of records to skip"
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/consent/records [get]
 func (h *ConsentHandler) ListConsentRecords(c *gin.Context) {
 	filters := service.ConsentFilters{
 		AssetID: c.Query("asset_id"),
@@ -69,8 +96,21 @@ func (h *ConsentHandler) ListConsentRecords(c *gin.Context) {
 	})
 }
 
-// WithdrawConsent withdraws an existing consent
-// POST /api/v1/consent/withdraw/:id
+// WithdrawConsent godoc
+// @Summary Withdraw an existing consent
+// @Description Withdraws a previously recorded consent by ID
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param id path string true "Consent ID"
+// @Param body body service.ConsentWithdrawalRequest true "Withdrawal request payload"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/consent/withdraw/{id} [post]
 func (h *ConsentHandler) WithdrawConsent(c *gin.Context) {
 	consentID := c.Param("id")
 	if consentID == "" {
@@ -96,8 +136,21 @@ func (h *ConsentHandler) WithdrawConsent(c *gin.Context) {
 	})
 }
 
-// GetConsentStatus gets the consent status for a specific asset and PII type
-// GET /api/v1/consent/status/:assetId/:piiType
+// GetConsentStatus godoc
+// @Summary Get consent status for an asset and PII type
+// @Description Returns the consent status for a specific asset and PII type combination
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Param assetId path string true "Asset ID"
+// @Param piiType path string true "PII type"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/consent/status/{assetId}/{piiType} [get]
 func (h *ConsentHandler) GetConsentStatus(c *gin.Context) {
 	assetID := c.Param("assetId")
 	piiType := c.Param("piiType")
@@ -124,8 +177,18 @@ func (h *ConsentHandler) GetConsentStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, record)
 }
 
-// GetConsentViolations returns assets with consent violations
-// GET /api/v1/consent/violations
+// GetConsentViolations godoc
+// @Summary Get consent violations
+// @Description Returns assets that have consent violations
+// @Tags compliance
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Security BearerAuth
+// @Success 200 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /api/v1/consent/violations [get]
 func (h *ConsentHandler) GetConsentViolations(c *gin.Context) {
 	violations, err := h.service.GetConsentViolations(c.Request.Context())
 	if err != nil {

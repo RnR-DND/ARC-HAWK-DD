@@ -28,10 +28,13 @@ func InitTracer(ctx context.Context, serviceName string) (func(context.Context) 
 		return func(context.Context) error { return nil }, nil
 	}
 
-	exp, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpoint(endpoint),
-		otlptracegrpc.WithInsecure(),
-	)
+	// Gate insecure mode on env var — default to TLS
+	var grpcOpts []otlptracegrpc.Option
+	grpcOpts = append(grpcOpts, otlptracegrpc.WithEndpoint(endpoint))
+	if os.Getenv("OTEL_INSECURE") == "true" {
+		grpcOpts = append(grpcOpts, otlptracegrpc.WithInsecure())
+	}
+	exp, err := otlptracegrpc.New(ctx, grpcOpts...)
 	if err != nil {
 		return nil, err
 	}

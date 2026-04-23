@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 )
@@ -53,7 +54,8 @@ func (c *FirebaseConnector) StreamFields(ctx context.Context) (<-chan connectors
 			errc <- err
 			return
 		}
-		resp, err := http.DefaultClient.Do(req)
+		httpClient := &http.Client{Timeout: 30 * time.Second}
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			errc <- err
 			return
@@ -79,7 +81,8 @@ func (c *FirebaseConnector) fetchNode(ctx context.Context, key, path string, out
 	if err != nil {
 		return
 	}
-	resp, err := http.DefaultClient.Do(req)
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return
 	}

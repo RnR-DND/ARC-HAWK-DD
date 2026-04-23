@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - "main"
+  pull_request:
+    branches:
+      - "main"
 
 jobs:
   backend:
@@ -27,12 +30,15 @@ jobs:
             ${{ runner.os }}-go-
       -
         name: Download dependencies
+        working-directory: apps/backend
         run: go mod download
       -
         name: Run tests
+        working-directory: apps/backend
         run: go test ./...
       -
         name: Build
+        working-directory: apps/backend
         run: go build ./cmd/server
 
   frontend:
@@ -62,6 +68,7 @@ jobs:
         working-directory: apps/frontend
 
   scanner:
+    needs: [backend, frontend]
     runs-on: ubuntu-latest
     steps:
       -

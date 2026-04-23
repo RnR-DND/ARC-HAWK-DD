@@ -6,7 +6,15 @@ import (
 	"encoding/json"
 	"log"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
+
+var neo4jSyncDeadLetterTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "neo4j_sync_dead_letter_total",
+	Help: "Total neo4j sync queue rows transitioned to dead_letter status",
+})
 
 // Neo4jSyncWorker drains the neo4j_sync_queue outbox table.
 // It runs as a background goroutine providing at-least-once delivery of Neo4j writes.
@@ -47,40 +55,64 @@ func (w *Neo4jSyncWorker) Stop() {
 	close(w.stop)
 }
 
+type qrow struct {
+	id        string
+	operation string
+	payload   json.RawMessage
+	attempts  int
+}
+
 func (w *Neo4jSyncWorker) processBatch(ctx context.Context) {
-	rows, err := w.db.QueryContext(ctx, `
-		SELECT id, operation, payload
+	tx, err := w.db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Printf("neo4j_sync_worker: begin tx error: %v", err)
+		return
+	}
+
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, operation, payload, attempts
 		FROM neo4j_sync_queue
 		WHERE status IN ('pending', 'failed') AND attempts < 5
 		ORDER BY created_at ASC
 		LIMIT 50
+		FOR UPDATE SKIP LOCKED
 	`)
 	if err != nil {
+		tx.Rollback()
 		log.Printf("neo4j_sync_worker: query error: %v", err)
 		return
 	}
-	defer rows.Close()
 
-	type qrow struct {
-		id        string
-		operation string
-		payload   json.RawMessage
-	}
 	var batch []qrow
 	for rows.Next() {
 		var r qrow
-		if err := rows.Scan(&r.id, &r.operation, &r.payload); err != nil {
+		if err := rows.Scan(&r.id, &r.operation, &r.payload, &r.attempts); err != nil {
 			continue
 		}
 		batch = append(batch, r)
 	}
 	rows.Close()
 
+	// Mark all as 'processing' before releasing the lock
+	for _, r := range batch {
+		_, _ = tx.ExecContext(ctx, `UPDATE neo4j_sync_queue SET status='processing' WHERE id=$1`, r.id)
+	}
+	tx.Commit()
+
+	// Now process without lock held
 	for _, r := range batch {
 		if err := w.process(ctx, r.operation, r.payload); err != nil {
-			_, _ = w.db.ExecContext(ctx,
-				`UPDATE neo4j_sync_queue SET status='failed', attempts=attempts+1, last_error=$1 WHERE id=$2`,
-				err.Error(), r.id)
+			attempts := r.attempts + 1
+			if attempts >= 5 {
+				_, _ = w.db.ExecContext(ctx,
+					`UPDATE neo4j_sync_queue SET status='dead_letter', attempts=$1, last_error=$2 WHERE id=$3`,
+					attempts, err.Error(), r.id)
+				neo4jSyncDeadLetterTotal.Inc()
+			} else {
+				_, _ = w.db.ExecContext(ctx,
+					`UPDATE neo4j_sync_queue SET status='failed', attempts=$1, last_error=$2 WHERE id=$3`,
+					attempts, err.Error(), r.id)
+			}
 		} else {
 			_, _ = w.db.ExecContext(ctx,
 				`UPDATE neo4j_sync_queue SET status='done', processed_at=NOW() WHERE id=$1`,

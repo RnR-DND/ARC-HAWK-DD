@@ -15,8 +15,14 @@ func NewMemoryHandler(svc *service.MemoryService) *MemoryHandler {
 	return &MemoryHandler{svc: svc}
 }
 
-// GetStatus reports whether the memory backend is wired up.
-// GET /api/v1/memory/status
+// GetStatus godoc
+// @Summary Get memory service status
+// @Tags memory
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /memory/status [get]
 func (h *MemoryHandler) GetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"enabled":  h.svc.Enabled(),
@@ -29,8 +35,17 @@ type searchBody struct {
 	Limit int    `json:"limit"`
 }
 
-// Search forwards /v3/search — hybrid memory + RAG.
-// POST /api/v1/memory/search
+// Search godoc
+// @Summary Semantic search over scan history
+// @Description Hybrid memory + RAG search via Supermemory
+// @Tags memory
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body object true "{query, limit}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /memory/search [post]
 func (h *MemoryHandler) Search(c *gin.Context) {
 	var body searchBody
 	if err := c.ShouldBindJSON(&body); err != nil {

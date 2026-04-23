@@ -17,6 +17,14 @@ func NewGlossaryHandler() *GlossaryHandler {
 
 // GetGlossary returns the (empty) glossary list.
 // GET /api/discovery/glossary
+// GetGlossary godoc
+// @Summary Get data glossary and term registry
+// @Tags discovery
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /discovery/glossary [get]
 func (h *GlossaryHandler) GetGlossary(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"items":   []interface{}{},

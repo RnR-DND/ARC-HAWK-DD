@@ -20,6 +20,16 @@ func NewAssetHandler(service *service.AssetService) *AssetHandler {
 }
 
 // GetAsset handles GET /api/v1/assets/:id
+// GetAsset godoc
+// @Summary Get asset by ID
+// @Tags assets
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Asset UUID"
+// @Success 200 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Security BearerAuth
+// @Router /assets/{id} [get]
 func (h *AssetHandler) GetAsset(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -38,6 +48,18 @@ func (h *AssetHandler) GetAsset(c *gin.Context) {
 }
 
 // ListAssets handles GET /api/v1/assets
+// ListAssets godoc
+// @Summary List assets for tenant
+// @Tags assets
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param source_type query string false "Filter by source type"
+// @Param classification query string false "Filter by classification"
+// @Param limit query int false "Max results"
+// @Param offset query int false "Offset"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /assets [get]
 func (h *AssetHandler) ListAssets(c *gin.Context) {
 	assets, err := h.service.ListAssets(c.Request.Context(), 100, 0)
 	if err != nil {
@@ -49,6 +71,15 @@ func (h *AssetHandler) ListAssets(c *gin.Context) {
 }
 
 // DeleteAsset handles DELETE /api/v1/assets/:id
+// DeleteAsset godoc
+// @Summary Delete an asset and its findings
+// @Tags assets
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Asset UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /assets/{id} [delete]
 func (h *AssetHandler) DeleteAsset(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)

@@ -13,7 +13,7 @@ import (
 func main() {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://postgres:postgres@localhost:5432/arc_platform?sslmode=disable"
+		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
 	db, err := sql.Open("postgres", dbURL)

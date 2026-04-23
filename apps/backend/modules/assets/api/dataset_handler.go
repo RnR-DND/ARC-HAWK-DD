@@ -18,6 +18,14 @@ func NewDatasetHandler(service *service.DatasetService) *DatasetHandler {
 }
 
 // GetGoldenDataset handles GET /api/v1/dataset/golden
+// GetGoldenDataset godoc
+// @Summary Get golden dataset for classifier training
+// @Tags assets
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /dataset/golden [get]
 func (h *DatasetHandler) GetGoldenDataset(c *gin.Context) {
 	data, err := h.service.GenerateGoldenDataset(c.Request.Context())
 	if err != nil {

@@ -82,8 +82,18 @@ func (h *ScanStatusHandler) syncLineageForScan(scanID uuid.UUID) {
 	log.Printf("Lineage sync complete for scan %s: %d assets synced", scanID, synced)
 }
 
-// GetScan handles GET /api/v1/scans/:id
-// Returns full scan details
+// GetScan godoc
+// @Summary Get scan by ID
+// @Description Returns full details for a single scan run
+// @Tags scanning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Scan UUID"
+// @Success 200 {object} gin.H "Scan details"
+// @Failure 400 {object} gin.H "Invalid ID"
+// @Failure 404 {object} gin.H "Not found"
+// @Security BearerAuth
+// @Router /scans/{id} [get]
 func (h *ScanStatusHandler) GetScan(c *gin.Context) {
 	scanID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -104,8 +114,16 @@ func (h *ScanStatusHandler) GetScan(c *gin.Context) {
 	c.JSON(http.StatusOK, scan)
 }
 
-// GetScanStatus handles GET /api/v1/scans/:id/status
-// Returns lightweight status for polling
+// GetScanStatus godoc
+// @Summary Get scan status (lightweight poll)
+// @Tags scanning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Scan UUID"
+// @Success 200 {object} gin.H "status, progress, findings_count, assets_count"
+// @Failure 404 {object} gin.H "Not found"
+// @Security BearerAuth
+// @Router /scans/{id}/status [get]
 func (h *ScanStatusHandler) GetScanStatus(c *gin.Context) {
 	scanID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -145,8 +163,16 @@ func (h *ScanStatusHandler) GetScanStatus(c *gin.Context) {
 	})
 }
 
-// ListScans handles GET /api/v1/scans
-// Returns a paginated list of scan runs
+// ListScans godoc
+// @Summary List scan runs
+// @Tags scanning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param limit query int false "Page size (default 10)"
+// @Param offset query int false "Offset"
+// @Success 200 {object} gin.H "data: []ScanRun"
+// @Security BearerAuth
+// @Router /scans [get]
 func (h *ScanStatusHandler) ListScans(c *gin.Context) {
 	limit := 10
 	if limitQuery := c.Query("limit"); limitQuery != "" {
@@ -175,8 +201,19 @@ func (h *ScanStatusHandler) ListScans(c *gin.Context) {
 	})
 }
 
-// CompleteScan handles POST /api/v1/scans/:id/complete
-// Updates scan status to completed (called by scanner service)
+// CompleteScan godoc
+// @Summary Mark scan complete (scanner callback)
+// @Description Called by the Go scanner service to set terminal status. Requires X-Scanner-Token header.
+// @Tags scanning
+// @Accept json
+// @Produce json
+// @Param X-Scanner-Token header string true "Scanner service token"
+// @Param X-Tenant-ID header string true "Tenant UUID"
+// @Param id path string true "Scan UUID"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Failure 401 {object} gin.H
+// @Router /scans/{id}/complete [post]
 func (h *ScanStatusHandler) CompleteScan(c *gin.Context) {
 	scanID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -281,8 +318,16 @@ func (h *ScanStatusHandler) CompleteScan(c *gin.Context) {
 	})
 }
 
-// CancelScan handles POST /api/v1/scans/:id/cancel
-// Cancels a running or pending scan
+// CancelScan godoc
+// @Summary Cancel a running or pending scan
+// @Tags scanning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Scan UUID"
+// @Success 200 {object} gin.H
+// @Failure 400 {object} gin.H
+// @Security BearerAuth
+// @Router /scans/{id}/cancel [post]
 func (h *ScanStatusHandler) CancelScan(c *gin.Context) {
 	scanID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -313,7 +358,16 @@ func (h *ScanStatusHandler) CancelScan(c *gin.Context) {
 	})
 }
 
-// DeleteScan handles DELETE /api/v1/scans/:id
+// DeleteScan godoc
+// @Summary Delete a scan run
+// @Tags scanning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Scan UUID"
+// @Success 200 {object} gin.H
+// @Failure 404 {object} gin.H
+// @Security BearerAuth
+// @Router /scans/{id} [delete]
 func (h *ScanStatusHandler) DeleteScan(c *gin.Context) {
 	scanID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -329,7 +383,15 @@ func (h *ScanStatusHandler) DeleteScan(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Scan deleted successfully"})
 }
 
-// GetScanPIISummary handles GET /api/v1/scans/:id/pii-summary
+// GetScanPIISummary godoc
+// @Summary Get PII type summary for a scan
+// @Tags scanning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Scan UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /scans/{id}/pii-summary [get]
 func (h *ScanStatusHandler) GetScanPIISummary(c *gin.Context) {
 	scanID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -354,8 +416,16 @@ type ProgressEvent struct {
 	PercentDone   float64 `json:"percent_done"`
 }
 
-// ReceiveProgressEvent handles POST /api/v1/scans/:id/progress-event
-// Called by the Go scanner every 50 findings to broadcast live progress.
+// ReceiveProgressEvent godoc
+// @Summary Receive live scan progress event (scanner callback)
+// @Description Called by Go scanner every N findings to broadcast WebSocket progress. Requires X-Scanner-Token.
+// @Tags scanning
+// @Accept json
+// @Produce json
+// @Param X-Scanner-Token header string true "Scanner token"
+// @Param id path string true "Scan UUID"
+// @Success 200 {object} gin.H
+// @Router /scans/{id}/progress-event [post]
 func (h *ScanStatusHandler) ReceiveProgressEvent(c *gin.Context) {
 	scanID := c.Param("id")
 	var event ProgressEvent

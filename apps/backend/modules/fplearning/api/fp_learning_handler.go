@@ -32,6 +32,15 @@ type CreateFPLearningRequest struct {
 	SourceFindingID *uuid.UUID `json:"source_finding_id"`
 }
 
+// MarkFalsePositive godoc
+// @Summary Mark a finding as false positive
+// @Tags fp-learning
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /fp/false-positives [post]
 func (h *FPLearningHandler) MarkFalsePositive(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -75,6 +84,15 @@ func (h *FPLearningHandler) MarkFalsePositive(c *gin.Context) {
 	c.JSON(http.StatusCreated, fp)
 }
 
+// MarkConfirmed godoc
+// @Summary Confirm a finding as true PII
+// @Tags fp-learning
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /fp/confirmed [post]
 func (h *FPLearningHandler) MarkConfirmed(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -117,6 +135,14 @@ func (h *FPLearningHandler) MarkConfirmed(c *gin.Context) {
 	c.JSON(http.StatusCreated, fp)
 }
 
+// ListFPLearnings godoc
+// @Summary List active FP learning entries
+// @Tags fp-learning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /fp/learnings [get]
 func (h *FPLearningHandler) ListFPLearnings(c *gin.Context) {
 	tenantIDStr, _ := c.Get("tenant_id")
 	tenantID, _ := uuid.Parse(tenantIDStr.(string))
@@ -150,6 +176,15 @@ func (h *FPLearningHandler) ListFPLearnings(c *gin.Context) {
 	})
 }
 
+// GetFPLearning godoc
+// @Summary Get a specific FP learning entry
+// @Tags fp-learning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Learning UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /fp/learnings/{id} [get]
 func (h *FPLearningHandler) GetFPLearning(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -167,6 +202,15 @@ func (h *FPLearningHandler) GetFPLearning(c *gin.Context) {
 	c.JSON(http.StatusOK, fp)
 }
 
+// DeactivateFPLearning godoc
+// @Summary Soft-delete an FP learning entry
+// @Tags fp-learning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Learning UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /fp/learnings/{id} [delete]
 func (h *FPLearningHandler) DeactivateFPLearning(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
@@ -190,6 +234,14 @@ func (h *FPLearningHandler) DeactivateFPLearning(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "deactivated"})
 }
 
+// GetStats godoc
+// @Summary Get FP learning precision/recall stats
+// @Tags fp-learning
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /fp/stats [get]
 func (h *FPLearningHandler) GetStats(c *gin.Context) {
 	tenantIDStr, _ := c.Get("tenant_id")
 	tenantID, _ := uuid.Parse(tenantIDStr.(string))
@@ -203,6 +255,16 @@ func (h *FPLearningHandler) GetStats(c *gin.Context) {
 	c.JSON(http.StatusOK, stats)
 }
 
+// CheckFalsePositive godoc
+// @Summary Check if field/pattern is a known false positive
+// @Tags fp-learning
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param body body object true "{pattern_name, field_name, asset_id}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /fp/check [post]
 func (h *FPLearningHandler) CheckFalsePositive(c *gin.Context) {
 	tenantIDStr, _ := c.Get("tenant_id")
 	tenantID, _ := uuid.Parse(tenantIDStr.(string))

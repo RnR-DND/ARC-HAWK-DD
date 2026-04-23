@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 )
@@ -30,7 +31,7 @@ func (c *TeamsConnector) Connect(ctx context.Context, cfg map[string]any) error 
 		return fmt.Errorf("ms_teams: tenant_id, client_id, client_secret are required")
 	}
 
-	c.httpClient = &http.Client{}
+	c.httpClient = &http.Client{Timeout: 30 * time.Second}
 	form := url.Values{
 		"grant_type":    {"client_credentials"},
 		"client_id":     {clientID},

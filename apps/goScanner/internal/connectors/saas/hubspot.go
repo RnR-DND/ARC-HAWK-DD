@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/arc-platform/go-scanner/internal/connectors"
 )
@@ -24,7 +25,7 @@ func (c *HubSpotConnector) Connect(_ context.Context, cfg map[string]any) error 
 	if c.apiKey == "" || c.apiKey == "<nil>" {
 		return fmt.Errorf("hubspot: api_key is required (Private App access token)")
 	}
-	c.httpClient = &http.Client{}
+	c.httpClient = &http.Client{Timeout: 30 * time.Second}
 	return nil
 }
 

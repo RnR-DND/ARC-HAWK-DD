@@ -23,6 +23,16 @@ type submitFeedbackRequest struct {
 }
 
 // SubmitFeedback POST /findings/:id/feedback
+// SubmitFeedback godoc
+// @Summary Submit analyst feedback on a finding
+// @Tags findings
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Param id path string true "Finding UUID"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /findings/{id}/feedback [post]
 func (h *FeedbackHandler) SubmitFeedback(c *gin.Context) {
 	tenantID := authmiddleware.GetTenantIDFromToken(c).String()
 	userID := authmiddleware.GetUserIDFromToken(c).String()
@@ -41,6 +51,14 @@ func (h *FeedbackHandler) SubmitFeedback(c *gin.Context) {
 }
 
 // GetPatternPrecision GET /patterns/precision
+// GetPatternPrecision godoc
+// @Summary Get precision metrics for all patterns
+// @Tags patterns
+// @Produce json
+// @Param Authorization header string true "Bearer {token}"
+// @Success 200 {object} gin.H
+// @Security BearerAuth
+// @Router /patterns/precision [get]
 func (h *FeedbackHandler) GetPatternPrecision(c *gin.Context) {
 	tenantID := authmiddleware.GetTenantIDFromToken(c).String()
 	stats, err := h.feedbackSvc.GetPatternPrecisionStats(c.Request.Context(), tenantID)
