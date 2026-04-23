@@ -172,6 +172,9 @@ func (o *Orchestrator) runSequential(ctx context.Context, cfg ScanConfig) ([]cla
 			all = append(all, findings...)
 		}
 	}
+	if cfg.OnBatch == nil {
+		all = globalDedup(all)
+	}
 	return all, nil
 }
 
@@ -215,6 +218,9 @@ func (o *Orchestrator) runParallel(ctx context.Context, cfg ScanConfig) ([]class
 
 	if err := g.Wait(); err != nil {
 		return all, err
+	}
+	if cfg.OnBatch == nil {
+		all = globalDedup(all)
 	}
 	return all, nil
 }
@@ -505,5 +511,21 @@ func splitOn(s string, sep byte) []string {
 		}
 	}
 	out = append(out, s[start:])
+	return out
+}
+
+// globalDedup removes cross-source duplicate findings by (pii_type + source_path + value_hash).
+// Intra-source dedup has already run; this catches the same PII appearing across multiple sources.
+func globalDedup(findings []classifier.ClassifiedFinding) []classifier.ClassifiedFinding {
+	seen := make(map[string]struct{}, len(findings))
+	out := make([]classifier.ClassifiedFinding, 0, len(findings))
+	for _, f := range findings {
+		key := f.PIIType + "|" + f.SourcePath + "|" + f.ValueHash
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, f)
+	}
 	return out
 }
