@@ -224,9 +224,9 @@ func resolveMigrationsPath(t *testing.T) string {
 		t.Fatal("runtime.Caller failed")
 	}
 	// thisFile: .../apps/backend/modules/shared/testutil/db_container_test.go
-	// Walk up 5 levels to reach apps/backend/.
+	// Walk up 3 levels from testutil/ to reach apps/backend/.
 	base := filepath.Dir(thisFile)
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 3; i++ {
 		base = filepath.Dir(base)
 	}
 	p := filepath.Join(base, "migrations_versioned")
