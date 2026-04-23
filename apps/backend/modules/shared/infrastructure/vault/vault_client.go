@@ -27,10 +27,13 @@ var ErrVaultDisabled = fmt.Errorf("vault integration is disabled")
 // NewClient creates a Vault client from environment variables.
 //
 // Environment:
-//   - VAULT_ENABLED  — "true" to enable (default "false")
-//   - VAULT_ADDR     — Vault server address (default "http://vault:8200")
-//   - VAULT_TOKEN    — Authentication token (required when enabled)
-//   - VAULT_SECRET_MOUNT — KV v2 mount path (default "secret")
+//   - VAULT_ENABLED       — "true" to enable (default "false")
+//   - VAULT_ADDR          — Vault server address (default "http://vault:8200")
+//   - VAULT_SECRET_MOUNT  — KV v2 mount path (default "secret")
+//
+// Authentication (in order of preference):
+//  1. AppRole: set VAULT_ROLE_ID + VAULT_SECRET_ID (recommended for production)
+//  2. Token:   set VAULT_TOKEN (acceptable for local dev only)
 func NewClient() (*Client, error) {
 	enabled := strings.EqualFold(os.Getenv("VAULT_ENABLED"), "true")
 	if !enabled {
@@ -49,14 +52,27 @@ func NewClient() (*Client, error) {
 		return nil, fmt.Errorf("failed to create vault client: %w", err)
 	}
 
-	token := os.Getenv("VAULT_TOKEN")
-	if token == "" {
-		return nil, fmt.Errorf("VAULT_TOKEN is required when VAULT_ENABLED=true")
+	roleID := os.Getenv("VAULT_ROLE_ID")
+	secretID := os.Getenv("VAULT_SECRET_ID")
+
+	if roleID != "" && secretID != "" {
+		token, err := loginWithAppRole(vc, roleID, secretID)
+		if err != nil {
+			log.Printf("ERROR: Vault AppRole login failed: %v", err)
+			return nil, err
+		}
+		vc.SetToken(token)
+		log.Printf("INFO: Vault authenticated via AppRole (role_id=%s...)", roleID[:min(len(roleID), 8)])
+	} else {
+		token := os.Getenv("VAULT_TOKEN")
+		if token == "" {
+			return nil, fmt.Errorf("Vault auth requires either VAULT_ROLE_ID+VAULT_SECRET_ID or VAULT_TOKEN")
+		}
+		if strings.HasPrefix(token, "hvs.") || token == "dev-root-token-arc-hawk" || strings.HasPrefix(token, "root") {
+			log.Printf("WARNING: VAULT_TOKEN looks like a dev/root token — use AppRole in production (VAULT_ROLE_ID + VAULT_SECRET_ID)")
+		}
+		vc.SetToken(token)
 	}
-	if strings.HasPrefix(token, "arc-hawk-dev") || token == "root" || strings.HasPrefix(token, "hvs.dev") {
-		log.Printf("WARNING: VAULT_TOKEN looks like a dev/root token (%q) — use AppRole in production", token[:min(len(token), 16)])
-	}
-	vc.SetToken(token)
 
 	mount := os.Getenv("VAULT_SECRET_MOUNT")
 	if mount == "" {
@@ -69,6 +85,22 @@ func NewClient() (*Client, error) {
 		enabled:     true,
 		secretMount: mount,
 	}, nil
+}
+
+// loginWithAppRole performs an AppRole login against Vault and returns the
+// resulting client token. roleID and secretID must both be non-empty.
+func loginWithAppRole(client *vaultapi.Client, roleID, secretID string) (string, error) {
+	resp, err := client.Logical().Write("auth/approle/login", map[string]interface{}{
+		"role_id":   roleID,
+		"secret_id": secretID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("AppRole login failed: %w", err)
+	}
+	if resp == nil || resp.Auth == nil {
+		return "", fmt.Errorf("AppRole login returned no auth data")
+	}
+	return resp.Auth.ClientToken, nil
 }
 
 // IsEnabled reports whether the Vault backend is active.
