@@ -245,3 +245,6 @@ apps/goScanner/scanner
 apps/frontend/tsconfig.tsbuildinfo
 .claire/
 .agent/agentsys/
+
+# Audit / production reports (generated, not tracked)
+GSD_PRODUCTION_REPORT.md

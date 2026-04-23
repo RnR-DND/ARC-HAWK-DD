@@ -354,6 +354,10 @@ func main() {
 	router.Use(middleware.SecurityHeaders())
 	log.Println("🔒 Security Headers enabled (HSTS, CSP, X-Frame-Options)")
 
+	// IP/UserAgent context middleware — populates request context for audit logging
+	router.Use(middleware.IPContextMiddleware())
+	log.Println("🌐 IP context middleware enabled (IP + UserAgent for audit logs)")
+
 	// Initialize struct-based auth middleware (B-05)
 	authMW := authmiddleware.NewAuthMiddleware(auditRepo, db)
 

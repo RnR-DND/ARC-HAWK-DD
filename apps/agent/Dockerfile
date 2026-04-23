@@ -27,4 +27,15 @@ EXPOSE 9090
 
 # The agent needs root for EDR scanning; run as root in container.
 USER root
+
+# Required capabilities for EDR scanning documented below.
+# All others dropped as defence-in-depth.
+# SECURITY: This container requires root for host-level EDR scanning.
+# When running in Kubernetes, apply:
+#   securityContext:
+#     capabilities:
+#       drop: ["ALL"]
+#       add: ["SYS_PTRACE", "NET_ADMIN"]  # Only if required for scanning
+#     readOnlyRootFilesystem: true
+
 ENTRYPOINT ["/usr/local/bin/hawk-agent"]
