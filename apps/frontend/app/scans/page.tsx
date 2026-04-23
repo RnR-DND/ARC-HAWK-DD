@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/contexts/ToastContext';
 import { ScanConfigModal } from '@/components/scans/ScanConfigModal';
+import { ScanScheduleModal } from '@/components/scans/ScanScheduleModal';
 
 function LiveDuration({ startedAt }: { startedAt: string | null }) {
     const [elapsed, setElapsed] = React.useState(0);
@@ -41,6 +42,7 @@ export default function ScansPage() {
     const [hasRunningScans, setHasRunningScans] = useState(false);
     const [scanAllLoading, setScanAllLoading] = useState(false);
     const [scanAllConfirm, setScanAllConfirm] = useState(false);
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
 
     const handleScanAll = async () => {
         setScanAllConfirm(false);
@@ -126,6 +128,10 @@ export default function ScansPage() {
                 onClose={() => setShowScanConfigModal(false)}
                 onRunScan={() => setTimeout(fetchScans, 1000)}
             />
+            <ScanScheduleModal
+                isOpen={showScheduleModal}
+                onClose={() => setShowScheduleModal(false)}
+            />
 
             {/* Scan-all confirmation banner */}
             {scanAllConfirm && (
@@ -171,6 +177,13 @@ export default function ScansPage() {
                     <p className="text-slate-500 mt-1">Manage and review PII detection scans.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowScheduleModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
+                    >
+                        <Calendar className="w-4 h-4" />
+                        <span>Schedules</span>
+                    </button>
                     <button
                         data-testid="scan-all-sources-btn"
                         onClick={() => setScanAllConfirm(true)}

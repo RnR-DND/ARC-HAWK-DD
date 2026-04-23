@@ -312,6 +312,157 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 		agent.POST("/sync", m.agentSyncHandler.Sync)
 	}
 
+	// Scan schedules — recurring scan scheduling CRUD
+	type ScanSchedule struct {
+		ID           string  `json:"id"`
+		ProfileName  string  `json:"profile_name"`
+		Frequency    string  `json:"frequency"`
+		Hour         int     `json:"hour"`
+		DayOfWeek    *int    `json:"day_of_week,omitempty"`
+		DayOfMonth   *int    `json:"day_of_month,omitempty"`
+		Enabled      bool    `json:"enabled"`
+		LastRunAt    *string `json:"last_run_at"`
+		NextRunAt    *string `json:"next_run_at"`
+		CreatedAt    string  `json:"created_at"`
+	}
+	db := m.deps.DB
+	schedules := router.Group("/scans/schedules")
+	{
+		schedules.GET("", func(c *gin.Context) {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 8*time.Second)
+			defer cancel()
+			tenantID, err := persistence.EnsureTenantID(ctx)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			rows, err := db.QueryContext(ctx,
+				`SELECT id, profile_name, frequency, hour, day_of_week, day_of_month, enabled,
+				        last_run_at, next_run_at, created_at
+				 FROM scan_schedules WHERE tenant_id = $1 ORDER BY created_at DESC`, tenantID)
+			if err != nil {
+				log.Printf("ERROR: list scan schedules: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			defer rows.Close()
+			result := []ScanSchedule{}
+			for rows.Next() {
+				var s ScanSchedule
+				var lastRun, nextRun *time.Time
+				var dow, dom *int
+				if err := rows.Scan(&s.ID, &s.ProfileName, &s.Frequency, &s.Hour, &dow, &dom,
+					&s.Enabled, &lastRun, &nextRun, &s.CreatedAt); err != nil {
+					continue
+				}
+				s.DayOfWeek = dow
+				s.DayOfMonth = dom
+				if lastRun != nil {
+					t := lastRun.Format(time.RFC3339)
+					s.LastRunAt = &t
+				}
+				if nextRun != nil {
+					t := nextRun.Format(time.RFC3339)
+					s.NextRunAt = &t
+				}
+				result = append(result, s)
+			}
+			c.JSON(http.StatusOK, gin.H{"schedules": result})
+		})
+
+		schedules.POST("", func(c *gin.Context) {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 8*time.Second)
+			defer cancel()
+			tenantID, err := persistence.EnsureTenantID(ctx)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			var body struct {
+				ProfileName string `json:"profile_name" binding:"required"`
+				Frequency   string `json:"frequency" binding:"required"`
+				Hour        int    `json:"hour"`
+				DayOfWeek   *int   `json:"day_of_week"`
+				DayOfMonth  *int   `json:"day_of_month"`
+			}
+			if err := c.ShouldBindJSON(&body); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			if body.Frequency != "daily" && body.Frequency != "weekly" && body.Frequency != "monthly" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "frequency must be daily, weekly, or monthly"})
+				return
+			}
+			var id string
+			err = db.QueryRowContext(ctx, `
+				INSERT INTO scan_schedules (tenant_id, profile_name, frequency, hour, day_of_week, day_of_month)
+				VALUES ($1, $2, $3, $4, $5, $6)
+				ON CONFLICT (tenant_id, profile_name) DO UPDATE
+				  SET frequency = EXCLUDED.frequency, hour = EXCLUDED.hour,
+				      day_of_week = EXCLUDED.day_of_week, day_of_month = EXCLUDED.day_of_month,
+				      updated_at = NOW()
+				RETURNING id`,
+				tenantID, body.ProfileName, body.Frequency, body.Hour, body.DayOfWeek, body.DayOfMonth,
+			).Scan(&id)
+			if err != nil {
+				log.Printf("ERROR: upsert scan schedule: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			c.JSON(http.StatusCreated, gin.H{"id": id})
+		})
+
+		schedules.DELETE("/:id", func(c *gin.Context) {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 8*time.Second)
+			defer cancel()
+			tenantID, err := persistence.EnsureTenantID(ctx)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			sid, err := uuid.Parse(c.Param("id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+				return
+			}
+			res, err := db.ExecContext(ctx, `DELETE FROM scan_schedules WHERE id = $1 AND tenant_id = $2`, sid, tenantID)
+			if err != nil {
+				log.Printf("ERROR: delete scan schedule: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			if n, _ := res.RowsAffected(); n == 0 {
+				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"deleted": true})
+		})
+
+		schedules.PATCH("/:id/toggle", func(c *gin.Context) {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 8*time.Second)
+			defer cancel()
+			tenantID, err := persistence.EnsureTenantID(ctx)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			sid, err := uuid.Parse(c.Param("id"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+				return
+			}
+			var enabled bool
+			err = db.QueryRowContext(ctx,
+				`UPDATE scan_schedules SET enabled = NOT enabled, updated_at = NOW()
+				 WHERE id = $1 AND tenant_id = $2 RETURNING enabled`, sid, tenantID).Scan(&enabled)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"enabled": enabled})
+		})
+	}
+
 	log.Printf("📡 Scanning & Classification routes registered")
 }
 
