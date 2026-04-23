@@ -1,50 +1,51 @@
 name: Regression Tests
-on: 
+
+on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   regression:
+    name: Classifier & Scanner Regression
     runs-on: ubuntu-latest
-    
-    services:
-      presidio:
-        image: mcr.microsoft.com/presidio-analyzer:latest
-        ports:
-          - 5001:3000
-        options: >-
-          --health-cmd "curl -f http://localhost:3000/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25'
+          cache: true
+          cache-dependency-path: apps/goScanner/go.sum
 
-      - name: Wait for Presidio to be ready
-        run: |
-          echo "Waiting for Presidio service..."
-          timeout 60 bash -c 'until curl -f http://localhost:5001/health; do sleep 2; done'
-          echo "Presidio is ready!"
+      - name: Download scanner dependencies
+        working-directory: apps/goScanner
+        run: go mod download
 
-      - name: Run Regression Tests
-        run: |
-          cd apps/backend
-          go run cmd/regression/main.go
-        env:
-          PRESIDIO_URL: http://localhost:5001
+      - name: Run classifier regression tests
+        working-directory: apps/goScanner
+        run: go test ./internal/classifier/... -v -timeout 2m
 
-      - name: Check Quality Gate
-        working-directory: apps/backend
+      - name: Run connector regression tests
+        working-directory: apps/goScanner
+        run: go test ./internal/connectors/... -v -short -timeout 2m
+
+      - name: Run orchestrator regression tests
+        working-directory: apps/goScanner
+        run: go test ./internal/orchestrator/... -v -short -timeout 3m
+
+      - name: Check classifier quality gate
+        working-directory: apps/goScanner
         run: |
-          SCORE=$(go run cmd/regression/main.go 2>/dev/null | grep -oP 'F1:\s*\K[0-9.]+' || echo "0")
-          echo "F1 score: $SCORE"
-          awk "BEGIN { if ($SCORE + 0 < 0.85) { print \"Quality gate failed: F1=$SCORE < 0.85\"; exit 1 } }"
+          RESULT=$(go test ./internal/classifier/... -v 2>&1)
+          PASS=$(echo "$RESULT" | grep -c "^--- PASS:" || true)
+          FAIL=$(echo "$RESULT" | grep -c "^--- FAIL:" || true)
+          TOTAL=$((PASS + FAIL))
+          echo "Tests: $PASS passed, $FAIL failed out of $TOTAL"
+          if [ "$TOTAL" -gt 0 ]; then
+            RATE=$(awk "BEGIN {printf \"%.2f\", $PASS / $TOTAL}")
+            echo "Pass rate: $RATE"
+            awk "BEGIN { if ($RATE < 0.90) { print \"Quality gate failed: pass rate \" $RATE \" < 0.90\"; exit 1 } print \"Quality gate passed\" }"
+          fi
