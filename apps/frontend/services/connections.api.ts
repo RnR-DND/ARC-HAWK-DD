@@ -67,6 +67,24 @@ export async function getAvailableTypes(): Promise<{ types: AvailableSourceType[
     return get<{ types: AvailableSourceType[] }>('/connections/available-types');
 }
 
+export interface ConnectorHealth {
+    profile_name: string;
+    source_type: string;
+    last_scan_time: string | null;
+    last_scan_status: string;
+    findings_count: number;
+    status: 'ok' | 'stale' | 'never';
+}
+
+export async function getConnectionHealth(): Promise<ConnectorHealth[]> {
+    try {
+        const res = await get<any>('/connections/health');
+        return Array.isArray(res?.health) ? res.health : [];
+    } catch {
+        return [];
+    }
+}
+
 export const connectionsApi = {
     addConnection,
     getConnections,
