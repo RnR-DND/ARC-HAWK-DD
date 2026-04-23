@@ -9,6 +9,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/scanning/api"
 	"github.com/arc-platform/backend/modules/scanning/service"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/audit"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
@@ -103,6 +104,9 @@ func (m *ScanningModule) Initialize(deps *interfaces.ModuleDependencies) error {
 		assetManager,
 		encryptionService,
 	).WithNeo4jRepo(deps.Neo4jRepo).WithWebSocket(deps.WebSocketService)
+	if deps.DB != nil {
+		m.ingestionService.SetLedger(audit.NewLedgerLogger(deps.DB))
+	}
 
 	// Initialize handlers
 	m.ingestionHandler = api.NewIngestionHandler(m.ingestionService)

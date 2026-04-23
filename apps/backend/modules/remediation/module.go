@@ -8,6 +8,7 @@ import (
 	"github.com/arc-platform/backend/modules/remediation/api"
 	"github.com/arc-platform/backend/modules/remediation/service"
 	remservice "github.com/arc-platform/backend/modules/remediation/service"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/audit"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/gin-gonic/gin"
@@ -46,6 +47,7 @@ func (m *RemediationModule) Initialize(deps *interfaces.ModuleDependencies) erro
 
 	// Initialize service with LineageSync + AuditLogger (shared hash-chained interface)
 	m.service = service.NewRemediationService(m.db, m.lineageSync, deps.AuditLogger)
+	m.service.SetLedger(audit.NewLedgerLogger(m.db))
 	m.escalationService = service.NewEscalationService(m.db)
 
 	// Initialize Auth Middleware for permission checks
