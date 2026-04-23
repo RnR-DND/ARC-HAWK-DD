@@ -46,14 +46,8 @@ func ShannonEntropy(s string) float64 {
 func Score(value, piiType string, record connectors.FieldRecord, contextKeywords, negKeywords []string) (int, string) {
 	lower := strings.ToLower(value)
 
-	// Test data → reject immediately
-	for _, w := range []string{"test", "example", "sample", "dummy", "placeholder", "12345", "00000"} {
-		if strings.Contains(lower, w) {
-			return 0, "regex"
-		}
-	}
-
-	// Math validator takes priority
+	// Math validator takes priority; it is the authoritative gatekeeper for
+	// types that have one (e.g. EMAIL_ADDRESS already rejects example.com).
 	if vfn, ok := validatorMap[piiType]; ok {
 		if vfn(value) {
 			score := 100
@@ -75,7 +69,15 @@ func Score(value, piiType string, record connectors.FieldRecord, contextKeywords
 		return 0, "regex"
 	}
 
-	// Heuristic for patterns without a math validator
+	// Heuristic for patterns without a math validator.
+	// Apply test-data guard here (not before the math-validator block) so that
+	// type-specific validators remain the sole authority for their own types.
+	for _, w := range []string{"test", "example", "sample", "dummy", "placeholder", "12345", "00000"} {
+		if strings.Contains(lower, w) {
+			return 0, "regex"
+		}
+	}
+
 	score := 50
 	if ShannonEntropy(value) > 3.0 {
 		score += 20
