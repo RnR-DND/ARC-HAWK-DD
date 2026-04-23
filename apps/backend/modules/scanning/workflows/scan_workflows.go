@@ -29,6 +29,7 @@ func ScanLifecycleWorkflow(ctx workflow.Context, scanID string) error {
 	err := workflow.ExecuteActivity(ctx, "TransitionScanState", scanID, "CREATED", "RUNNING").Get(ctx, nil)
 	if err != nil {
 		logger.Error("Failed to transition to RUNNING", "error", err)
+		RecordWorkflowFailure("ScanLifecycleWorkflow")
 		return err
 	}
 
@@ -39,6 +40,7 @@ func ScanLifecycleWorkflow(ctx workflow.Context, scanID string) error {
 		logger.Error("Scan ingestion failed", "error", err)
 		// State: RUNNING → FAILED
 		workflow.ExecuteActivity(ctx, "TransitionScanState", scanID, "RUNNING", "FAILED")
+		RecordWorkflowFailure("ScanLifecycleWorkflow")
 		return err
 	}
 
@@ -46,6 +48,7 @@ func ScanLifecycleWorkflow(ctx workflow.Context, scanID string) error {
 	if syncErr := workflow.ExecuteActivity(ctx, "SyncToNeo4j", scanID).Get(ctx, nil); syncErr != nil {
 		logger.Error("Neo4j sync failed — transitioning scan to DEGRADED", "scanID", scanID, "error", syncErr)
 		workflow.ExecuteActivity(ctx, "TransitionScanState", scanID, "RUNNING", "DEGRADED")
+		RecordWorkflowFailure("ScanLifecycleWorkflow")
 		return syncErr
 	}
 
@@ -53,6 +56,7 @@ func ScanLifecycleWorkflow(ctx workflow.Context, scanID string) error {
 	err = workflow.ExecuteActivity(ctx, "TransitionScanState", scanID, "RUNNING", "COMPLETED").Get(ctx, nil)
 	if err != nil {
 		logger.Error("Failed to transition to COMPLETED", "error", err)
+		RecordWorkflowFailure("ScanLifecycleWorkflow")
 		return err
 	}
 
@@ -93,6 +97,7 @@ func RemediationWorkflow(ctx workflow.Context, findingIDs []string, actionType s
 				}
 			}
 
+			RecordWorkflowFailure("RemediationWorkflow")
 			return err
 		}
 
@@ -128,6 +133,7 @@ func PolicyEvaluationWorkflow(ctx workflow.Context, findingID string) error {
 	err := workflow.ExecuteActivity(ctx, "GetFinding", findingID).Get(ctx, &finding)
 	if err != nil {
 		logger.Error("Failed to get finding", "error", err)
+		RecordWorkflowFailure("PolicyEvaluationWorkflow")
 		return err
 	}
 
@@ -136,6 +142,7 @@ func PolicyEvaluationWorkflow(ctx workflow.Context, findingID string) error {
 	err = workflow.ExecuteActivity(ctx, "GetActivePolicies", "REMEDIATION").Get(ctx, &policies)
 	if err != nil {
 		logger.Error("Failed to get policies", "error", err)
+		RecordWorkflowFailure("PolicyEvaluationWorkflow")
 		return err
 	}
 
