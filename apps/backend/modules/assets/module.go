@@ -46,12 +46,8 @@ func (m *AssetsModule) Initialize(deps *interfaces.ModuleDependencies) error {
 	if deps.AuditLogger != nil {
 		auditLogger = deps.AuditLogger
 	} else {
-		// Fallback or panic? For now, we allow nil if interface handles it,
-		// but better to mock it if nil.
-		// Since we didn't create a NoOpAuditLogger, we'll assume it's there or handle nil in Service.
-		// A better approach is NoOp if nil.
-		// Let's assume initialized by main.go
-		auditLogger = deps.AuditLogger
+		auditLogger = &interfaces.NoOpAuditLogger{}
+		log.Printf("⚠️  AuditLogger not available - using NoOp implementation")
 	}
 
 	m.assetService = service.NewAssetService(repo, lineageSync, auditLogger)

@@ -97,7 +97,10 @@ func (w *Neo4jSyncWorker) processBatch(ctx context.Context) {
 	for _, r := range batch {
 		_, _ = tx.ExecContext(ctx, `UPDATE neo4j_sync_queue SET status='processing' WHERE id=$1`, r.id)
 	}
-	tx.Commit()
+	if err := tx.Commit(); err != nil {
+		log.Printf("neo4j_sync_worker: commit error marking batch as processing, skipping: %v", err)
+		return
+	}
 
 	// Now process without lock held
 	for _, r := range batch {

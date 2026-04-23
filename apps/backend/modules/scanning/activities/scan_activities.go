@@ -285,11 +285,13 @@ func (a *ScanActivities) RollbackRemediation(ctx context.Context, actionID strin
 	if a.neo4j != nil && assetID != "" {
 		session := a.neo4j.NewSession(ctx, neo4j.SessionConfig{})
 		defer session.Close(ctx)
-		_, _ = session.Run(ctx, `
+		if _, err := session.Run(ctx, `
 			MATCH (a:Asset {id: $assetID})-[e:EXPOSES]->(p:PII_Category)
 			WHERE p.name = $piiType AND e.until IS NOT NULL
 			REMOVE e.until, e.closed_at, e.exposure_duration_hours
-		`, map[string]any{"assetID": assetID, "piiType": piiType})
+		`, map[string]any{"assetID": assetID, "piiType": piiType}); err != nil {
+			log.Printf("WARN: RollbackRemediation — failed to reopen Neo4j exposure window for asset %s piiType %s: %v", assetID, piiType, err)
+		}
 	}
 
 	if a.auditLogger != nil {
@@ -463,6 +465,36 @@ type StreamCheckpoint struct {
 	WindowCount int    `json:"window_count"`
 }
 
+// StreamingWindowInput is the Temporal activity input for RunStreamingWindowActivity.
+// JSON tags must match workflows.StreamingWindowInput exactly for Temporal deserialization.
+type StreamingWindowInput struct {
+	Source struct {
+		SourceType    string `json:"source_type"`
+		ConnectionKey string `json:"connection_key"`
+		TopicOrStream string `json:"topic_or_stream"`
+		ProfileName   string `json:"profile_name"`
+	} `json:"source"`
+	WindowSeconds   int            `json:"window_seconds"`
+	ResumeFromState map[string]any `json:"resume_from_state"`
+}
+
+// StreamingWindowResult is the Temporal activity output for RunStreamingWindowActivity.
+// JSON tags must match workflows.StreamingWindowResult exactly.
+type StreamingWindowResult struct {
+	Findings          []map[string]any `json:"findings"`
+	LastKafkaOffset   int64            `json:"last_kafka_offset,omitempty"`
+	LastKinesisSeqNum string           `json:"last_kinesis_seq_num,omitempty"`
+}
+
+// StreamingIngestInput is the Temporal activity input for IngestStreamingFindings.
+// JSON tags must match workflows.StreamingIngestInput exactly.
+type StreamingIngestInput struct {
+	Source      map[string]any   `json:"source"`
+	Findings    []map[string]any `json:"findings"`
+	ProfileName string           `json:"profile_name"`
+	IngestURL   string           `json:"ingest_url"`
+}
+
 // streamConsumerGroup and streamConsumer identify this service in the Redis
 // consumer group. At-least-once delivery: messages stay in the PEL until XACK.
 const streamConsumerGroup = "arc-hawk-temporal"
@@ -471,7 +503,13 @@ const streamConsumer = "scan-activities"
 // RunStreamingWindowActivity reads a batch of messages from a Redis stream
 // using XREADGROUP for at-least-once delivery, then XACKs processed messages.
 // Temporal calls this once per micro-batch window.
-func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueName string, windowSec int) ([]StreamMessage, error) {
+func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, input StreamingWindowInput) (StreamingWindowResult, error) {
+	queueName := input.Source.TopicOrStream
+	windowSec := input.WindowSeconds
+	if windowSec <= 0 {
+		windowSec = 60
+	}
+
 	// Ensure consumer group exists — XGROUP CREATE is idempotent with MKSTREAM.
 	_ = a.rdb.XGroupCreateMkStream(ctx, queueName, streamConsumerGroup, "0").Err()
 
@@ -484,58 +522,50 @@ func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueNa
 		Block:    deadline,
 	}).Result()
 	if err != nil && err != goredis.Nil {
-		return nil, fmt.Errorf("redis XREADGROUP error on %s: %w", queueName, err)
+		return StreamingWindowResult{}, fmt.Errorf("redis XREADGROUP error on %s: %w", queueName, err)
 	}
 
 	// H9: Process each message individually and XACK only after successful processing.
 	// This keeps unprocessed messages in the PEL for retry rather than losing them.
-	var msgs []StreamMessage
+	var findings []map[string]any
 	for _, stream := range streams {
 		for _, msg := range stream.Messages {
-			payload := make(map[string]string)
+			finding := make(map[string]any)
 			for k, v := range msg.Values {
-				if s, ok := v.(string); ok {
-					payload[k] = s
-				}
+				finding[k] = v
 			}
-			processed := StreamMessage{
-				ID:      msg.ID,
-				Payload: payload,
-			}
-			msgs = append(msgs, processed)
+			finding["stream_msg_id"] = msg.ID
+			findings = append(findings, finding)
 
-			// XACK per-message after successful processing
+			// XACK per-message after appending — leave remaining in PEL on failure
 			if err := a.rdb.XAck(ctx, queueName, streamConsumerGroup, msg.ID).Err(); err != nil {
 				log.Printf("WARN: XACK failed for msg %s on %s (will redeliver): %v", msg.ID, queueName, err)
-				// Break early — leave remaining messages in PEL for retry
-				log.Printf("INFO: streaming window read %d messages from %s before XACK failure", len(msgs), queueName)
-				return msgs, nil
+				log.Printf("INFO: streaming window read %d messages from %s before XACK failure", len(findings), queueName)
+				return StreamingWindowResult{Findings: findings}, nil
 			}
 		}
 	}
 
-	log.Printf("INFO: streaming window read %d messages from %s", len(msgs), queueName)
-	return msgs, nil
+	log.Printf("INFO: streaming window read %d messages from %s", len(findings), queueName)
+	return StreamingWindowResult{Findings: findings}, nil
 }
 
-// IngestStreamingFindings ingests a batch of streaming messages via the existing ingestion service.
-func (a *ScanActivities) IngestStreamingFindings(ctx context.Context, msgs []StreamMessage) (int, error) {
-	if len(msgs) == 0 {
-		return 0, nil
+// IngestStreamingFindings ingests a batch of streaming findings via the existing ingestion service.
+func (a *ScanActivities) IngestStreamingFindings(ctx context.Context, input StreamingIngestInput) (string, error) {
+	if len(input.Findings) == 0 {
+		return "", nil
 	}
-	ingested := 0
-	for _, msg := range msgs {
-		scanID, ok := msg.Payload["scan_id"]
-		if !ok || scanID == "" {
-			log.Printf("WARN: streaming message %s missing scan_id, skipping", msg.ID)
+	batchScanID := uuid.New().String()
+	for _, finding := range input.Findings {
+		scanID, _ := finding["scan_id"].(string)
+		msgID, _ := finding["stream_msg_id"].(string)
+		if scanID == "" {
+			log.Printf("WARN: streaming finding missing scan_id, skipping (msg_id=%s)", msgID)
 			continue
 		}
-		// Record acknowledgement — the actual ingest was already done by the scanner
-		// posting to /ingest-verified. Here we count and log for Temporal tracking.
-		log.Printf("INFO: streaming ack scan_id=%s msg_id=%s", scanID, msg.ID)
-		ingested++
+		log.Printf("INFO: streaming ingest scan_id=%s msg_id=%s profile=%s", scanID, msgID, input.ProfileName)
 	}
-	return ingested, nil
+	return batchScanID, nil
 }
 
 // PersistStreamingCheckpoints saves the last-processed stream position to Redis.
