@@ -2,6 +2,7 @@ package workflows
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"go.temporal.io/sdk/temporal"
@@ -207,9 +208,14 @@ func cpKey(src StreamingSource) string {
 }
 
 func flattenCheckpoints(m map[string]StreamingCheckpointState) []StreamingCheckpointState {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	out := make([]StreamingCheckpointState, 0, len(m))
-	for _, v := range m {
-		out = append(out, v)
+	for _, k := range keys {
+		out = append(out, m[k])
 	}
 	return out
 }

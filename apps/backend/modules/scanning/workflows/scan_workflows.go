@@ -42,9 +42,11 @@ func ScanLifecycleWorkflow(ctx workflow.Context, scanID string) error {
 		return err
 	}
 
-	// Sync Neo4j — .Get() ensures Temporal's retry policy applies on failure
+	// H21: Sync Neo4j — on failure, transition scan to DEGRADED and propagate error
 	if syncErr := workflow.ExecuteActivity(ctx, "SyncToNeo4j", scanID).Get(ctx, nil); syncErr != nil {
-		logger.Error("Neo4j sync failed after retries — lineage may be incomplete", "scanID", scanID, "error", syncErr)
+		logger.Error("Neo4j sync failed — transitioning scan to DEGRADED", "scanID", scanID, "error", syncErr)
+		workflow.ExecuteActivity(ctx, "TransitionScanState", scanID, "RUNNING", "DEGRADED")
+		return syncErr
 	}
 
 	// State: RUNNING → COMPLETED
@@ -97,8 +99,10 @@ func RemediationWorkflow(ctx workflow.Context, findingIDs []string, actionType s
 		executedActions = append(executedActions, result.ActionID)
 		logger.Info("Remediation executed", "progress", i+1, "total", len(findingIDs), "actionID", result.ActionID)
 
-		// Close exposure window in Neo4j
-		workflow.ExecuteActivity(ctx, "CloseExposureWindow", findingID, time.Now())
+		// Fix C2+H8: use workflow.Now(ctx) for determinism; pass assetID+piiType from result
+		if closeErr := workflow.ExecuteActivity(ctx, "CloseExposureWindow", result.AssetID, result.PIIType, workflow.Now(ctx)).Get(ctx, nil); closeErr != nil {
+			logger.Error("CloseExposureWindow failed", "assetID", result.AssetID, "error", closeErr)
+		}
 	}
 
 	logger.Info("Remediation workflow completed", "actionCount", len(executedActions))

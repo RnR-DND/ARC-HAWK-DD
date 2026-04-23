@@ -38,7 +38,10 @@ func NewScanActivities(db *sql.DB, neo4jDriver neo4j.DriverWithContext, lineageS
 		neo4j:       neo4jDriver,
 		lineageSync: lineageSync,
 		auditLogger: auditLogger,
-		rdb:         goredis.NewClient(&goredis.Options{Addr: redisAddr}),
+		rdb: goredis.NewClient(&goredis.Options{
+			Addr:     redisAddr,
+			Password: os.Getenv("REDIS_PASSWORD"),
+		}),
 	}
 }
 
@@ -190,6 +193,8 @@ func (a *ScanActivities) CloseExposureWindow(ctx context.Context, assetID, piiTy
 // RemediationResult is the structured result returned by ExecuteRemediation.
 type RemediationResult struct {
 	ActionID string `json:"action_id"`
+	AssetID  string `json:"asset_id"`
+	PIIType  string `json:"pii_type"`
 	Status   string `json:"status"`
 	Message  string `json:"message"`
 }
@@ -216,6 +221,10 @@ func (a *ScanActivities) ExecuteRemediation(ctx context.Context, findingID strin
 		return RemediationResult{}, fmt.Errorf("failed to create remediation action: %w", err)
 	}
 
+	// H8/C6: Fetch finding's asset_id and pattern_name (pii_type) before commit
+	var assetID, piiType string
+	_ = tx.QueryRowContext(ctx, `SELECT asset_id::text, pattern_name FROM findings WHERE id = $1`, findingID).Scan(&assetID, &piiType)
+
 	if err := tx.Commit(); err != nil {
 		return RemediationResult{}, fmt.Errorf("failed to commit transaction: %w", err)
 	}
@@ -232,6 +241,8 @@ func (a *ScanActivities) ExecuteRemediation(ctx context.Context, findingID strin
 	log.Printf("INFO: ExecuteRemediation — action %s queued for finding %s", actionID, findingID)
 	return RemediationResult{
 		ActionID: actionID,
+		AssetID:  assetID,
+		PIIType:  piiType,
 		Status:   "pending",
 		Message:  "remediation queued",
 	}, nil
@@ -257,8 +268,28 @@ func (a *ScanActivities) RollbackRemediation(ctx context.Context, actionID strin
 		return fmt.Errorf("failed to update remediation status: %w", err)
 	}
 
+	// H23: Fetch finding's asset_id and pii_type so we can reopen the exposure window in Neo4j
+	var assetID, piiType string
+	_ = tx.QueryRowContext(ctx, `
+		SELECT f.asset_id::text, f.pattern_name
+		FROM findings f
+		JOIN remediation_actions ra ON ra.finding_id = f.id
+		WHERE ra.id = $1
+	`, actionID).Scan(&assetID, &piiType)
+
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// H23: Reopen the exposure window in Neo4j by removing the closure properties
+	if a.neo4j != nil && assetID != "" {
+		session := a.neo4j.NewSession(ctx, neo4j.SessionConfig{})
+		defer session.Close(ctx)
+		_, _ = session.Run(ctx, `
+			MATCH (a:Asset {id: $assetID})-[e:EXPOSES]->(p:PII_Category)
+			WHERE p.name = $piiType AND e.until IS NOT NULL
+			REMOVE e.until, e.closed_at, e.exposure_duration_hours
+		`, map[string]any{"assetID": assetID, "piiType": piiType})
 	}
 
 	if a.auditLogger != nil {
@@ -456,8 +487,9 @@ func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueNa
 		return nil, fmt.Errorf("redis XREADGROUP error on %s: %w", queueName, err)
 	}
 
+	// H9: Process each message individually and XACK only after successful processing.
+	// This keeps unprocessed messages in the PEL for retry rather than losing them.
 	var msgs []StreamMessage
-	var ids []string
 	for _, stream := range streams {
 		for _, msg := range stream.Messages {
 			payload := make(map[string]string)
@@ -466,19 +498,19 @@ func (a *ScanActivities) RunStreamingWindowActivity(ctx context.Context, queueNa
 					payload[k] = s
 				}
 			}
-			msgs = append(msgs, StreamMessage{
+			processed := StreamMessage{
 				ID:      msg.ID,
 				Payload: payload,
-			})
-			ids = append(ids, msg.ID)
-		}
-	}
+			}
+			msgs = append(msgs, processed)
 
-	// XACK immediately — Temporal retries the activity on failure, so re-delivery
-	// is handled at the activity level rather than through the Redis PEL.
-	if len(ids) > 0 {
-		if err := a.rdb.XAck(ctx, queueName, streamConsumerGroup, ids...).Err(); err != nil {
-			log.Printf("WARN: XACK failed for %s (messages will redeliver on next run): %v", queueName, err)
+			// XACK per-message after successful processing
+			if err := a.rdb.XAck(ctx, queueName, streamConsumerGroup, msg.ID).Err(); err != nil {
+				log.Printf("WARN: XACK failed for msg %s on %s (will redeliver): %v", msg.ID, queueName, err)
+				// Break early — leave remaining messages in PEL for retry
+				log.Printf("INFO: streaming window read %d messages from %s before XACK failure", len(msgs), queueName)
+				return msgs, nil
+			}
 		}
 	}
 
