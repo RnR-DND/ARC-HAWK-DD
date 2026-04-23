@@ -13,6 +13,7 @@ import (
 
 	"github.com/arc-platform/backend/modules/shared/domain/entity"
 	"github.com/arc-platform/backend/modules/shared/domain/repository"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/audit"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/encryption"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
@@ -42,6 +43,7 @@ type IngestionService struct {
 	encryptor        *encryption.EncryptionService // nil when ENCRYPTION_KEY not set (dev fallback)
 	neo4jRepo        *persistence.Neo4jRepository  // nil when Neo4j is unavailable; writes PII_Category edges
 	websocketService interface{}                   // nil when WebSocket service not wired
+	ledger           *audit.LedgerLogger           // nil when not wired; emits EventPIIDiscovered after commit
 }
 
 // NewIngestionService creates a new ingestion service
@@ -71,6 +73,11 @@ func (s *IngestionService) WithNeo4jRepo(neo4jRepo *persistence.Neo4jRepository)
 func (s *IngestionService) WithWebSocket(ws interface{}) *IngestionService {
 	s.websocketService = ws
 	return s
+}
+
+// SetLedger wires the audit LedgerLogger for emitting EventPIIDiscovered after successful ingestion.
+func (s *IngestionService) SetLedger(l *audit.LedgerLogger) {
+	s.ledger = l
 }
 
 // broadcastFindings sends new_finding events via WebSocket for each ingested finding.
@@ -561,9 +568,9 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 			"scan_id":         scanRun.ID.String(),
 		})
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO neo4j_sync_queue (operation, payload)
-			VALUES ('sync_findings', $1)
-		`, payload); err != nil {
+			INSERT INTO neo4j_sync_queue (operation, payload, tenant_id)
+			VALUES ('sync_findings', $1, $2)
+		`, payload, tenantID); err != nil {
 			return nil, fmt.Errorf("outbox insert: %w", err)
 		}
 	}
@@ -573,6 +580,20 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	committed = true
+
+	// H15: Emit EventPIIDiscovered to audit_ledger after successful commit (non-fatal).
+	if s.ledger != nil {
+		_ = s.ledger.Log(ctx, audit.LogEntry{
+			EventType:    audit.EventPIIDiscovered,
+			TenantID:     tenantID,
+			ResourceID:   scanRun.ID.String(),
+			ResourceType: "scan_run",
+			Payload: map[string]interface{}{
+				"finding_count": len(allFindings),
+				"asset_count":   len(assetIDs),
+			},
+		})
+	}
 
 	// Recalculate asset risk AFTER commit so CountFindings sees committed rows
 	for _, assetID := range assetIDs {
