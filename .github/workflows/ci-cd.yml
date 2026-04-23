@@ -178,23 +178,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      neo4j:
-        image: neo4j:5.15-community
-        env:
-          NEO4J_AUTH: none
-          # Constrain heap to prevent OOM on CI runners
-          NEO4J_server_memory_heap_initial__size: 256m
-          NEO4J_server_memory_heap_max__size: 512m
-          NEO4J_server_memory_pagecache__size: 256m
-        ports:
-          - 7474:7474
-          - 7687:7687
-        options: >-
-          --health-cmd "curl -sf http://localhost:7474 || exit 1"
-          --health-interval 15s
-          --health-timeout 10s
-          --health-retries 20
-
     steps:
       - uses: actions/checkout@v4
 
@@ -204,17 +187,14 @@ jobs:
           cache: true
           cache-dependency-path: apps/backend/go.sum
 
-      - name: Wait for services
+      - name: Wait for PostgreSQL
         run: |
-          echo "Waiting for PostgreSQL..."
           timeout 60 bash -c 'until pg_isready -h localhost -p 5432; do sleep 2; done'
           echo "PostgreSQL ready"
-          echo "Waiting for Neo4j..."
-          timeout 120 bash -c 'until curl -sf http://localhost:7474; do sleep 3; done'
-          echo "Neo4j ready"
 
       - name: Run Integration Tests
         working-directory: apps/backend
+        # Neo4j not available in CI — lineage uses NoOpLineageSync in tests
         run: go test ./... -tags=integration -v -timeout 5m
         env:
           DATABASE_HOST: localhost
@@ -223,9 +203,7 @@ jobs:
           DATABASE_PASSWORD: postgres
           DATABASE_NAME: arc_platform
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/arc_platform?sslmode=disable
-          NEO4J_URI: bolt://localhost:7687
-          NEO4J_USER: ""
-          NEO4J_PASSWORD: ""
+          NEO4J_ENABLED: "false"
 
   # ==================== PUSH IMAGES (main branch only) ====================
 
