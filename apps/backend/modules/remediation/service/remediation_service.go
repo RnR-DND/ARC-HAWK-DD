@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/arc-platform/backend/modules/remediation/connectors"
+	"github.com/arc-platform/backend/modules/shared/infrastructure/audit"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	"github.com/google/uuid"
 )
@@ -31,6 +32,7 @@ type RemediationService struct {
 	db               *sql.DB
 	lineageSync      interfaces.LineageSync
 	auditLogger      interfaces.AuditLogger
+	ledger           *audit.LedgerLogger
 	connectorFactory *connectors.ConnectorFactory
 }
 
@@ -46,6 +48,10 @@ func NewRemediationService(db *sql.DB, lineageSync interfaces.LineageSync, audit
 		connectorFactory: &connectors.ConnectorFactory{},
 	}
 }
+
+// SetLedger wires a LedgerLogger for DPDPA-compliant audit_ledger writes.
+// Called after construction when the ledger is available; all ledger calls are non-fatal.
+func (s *RemediationService) SetLedger(l *audit.LedgerLogger) { s.ledger = l }
 
 // GetDB returns the database connection
 func (s *RemediationService) GetDB() *sql.DB {
@@ -172,6 +178,25 @@ func (s *RemediationService) ExecuteRemediation(ctx context.Context, findingID s
 		})
 	}
 
+	// 12. Emit EventRemediationApplied to audit_ledger for DPDPA compliance trail.
+	if s.ledger != nil {
+		var actorID *uuid.UUID
+		if parsed, parseErr := uuid.Parse(userID); parseErr == nil {
+			actorID = &parsed
+		}
+		_ = s.ledger.Log(ctx, audit.LogEntry{
+			EventType:    audit.EventRemediationApplied,
+			TenantID:     uuid.Nil,
+			ActorID:      actorID,
+			ResourceID:   actionID,
+			ResourceType: "remediation_action",
+			Payload: map[string]interface{}{
+				"finding_id":  findingID,
+				"action_type": actionType,
+			},
+		})
+	}
+
 	return actionID, nil
 }
 
@@ -248,6 +273,19 @@ func (s *RemediationService) RollbackRemediation(ctx context.Context, actionID s
 	if s.auditLogger != nil {
 		_ = s.auditLogger.Record(ctx, "REMEDIATION_ROLLED_BACK", "remediation_action", actionID, map[string]interface{}{
 			"finding_id": action.FindingID,
+		})
+	}
+
+	// 11. Emit EventRemediationApplied to audit_ledger for DPDPA compliance trail.
+	if s.ledger != nil {
+		_ = s.ledger.Log(ctx, audit.LogEntry{
+			EventType:    audit.EventRemediationApplied,
+			TenantID:     uuid.Nil,
+			ResourceID:   actionID,
+			ResourceType: "remediation_action",
+			Payload: map[string]interface{}{
+				"status": "ROLLED_BACK",
+			},
 		})
 	}
 
