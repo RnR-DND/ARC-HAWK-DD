@@ -170,6 +170,30 @@ export default function FindingsPage() {
         }
     };
 
+    const [exportLoading, setExportLoading] = useState(false);
+
+    const handleExportCSV = async () => {
+        setExportLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (severityFilter) params.set('severity', severityFilter);
+            if (searchTerm) params.set('search', searchTerm);
+            const url = `/api/v1/findings/export?${params.toString()}`;
+            const res = await fetch(url, { credentials: 'include' });
+            if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+            const blob = await res.blob();
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `findings_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        } catch (err) {
+            console.error('Export failed:', err);
+        } finally {
+            setExportLoading(false);
+        }
+    };
+
     const handleMarkFalsePositive = async (id: string) => {
         try {
             await findingsApi.submitFeedback(id, {
@@ -196,14 +220,12 @@ export default function FindingsPage() {
                 {findingsData && findingsData.findings.length > 0 && (
                     <button
                         data-testid="export-findings-btn"
-                        onClick={() => {
-                            const { exportToCSV } = require('@/utils/export');
-                            exportToCSV(findingsData.findings, 'findings');
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors text-sm font-medium"
+                        onClick={handleExportCSV}
+                        disabled={exportLoading}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors text-sm font-medium disabled:opacity-50"
                     >
                         <Download className="w-4 h-4" />
-                        Export CSV
+                        {exportLoading ? 'Exporting…' : 'Export CSV'}
                     </button>
                 )}
             </div>

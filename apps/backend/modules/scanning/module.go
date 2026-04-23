@@ -2,6 +2,7 @@ package scanning
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/interfaces"
 	sharedmiddleware "github.com/arc-platform/backend/modules/shared/middleware"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // ScanningModule handles scan ingestion, PII classification, and enrichment
@@ -220,6 +222,83 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 	// PII feedback loop
 	findings := router.Group("/findings")
 	{
+		// CSV export — static route must precede /:id wildcard
+		findings.GET("/export", func(c *gin.Context) {
+			ctx, cancel := context.WithTimeout(c.Request.Context(), 60*time.Second)
+			defer cancel()
+
+			tenantID, err := persistence.EnsureTenantID(ctx)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+
+			args := []interface{}{tenantID}
+			where := "f.tenant_id = $1 AND (cl.classification_type IS NULL OR cl.classification_type != 'Non-PII')"
+			argIdx := 2
+
+			if scanIDStr := c.Query("scan_id"); scanIDStr != "" {
+				if sid, parseErr := uuid.Parse(scanIDStr); parseErr == nil {
+					where += fmt.Sprintf(" AND f.scan_run_id = $%d", argIdx)
+					args = append(args, sid)
+					argIdx++
+				}
+			}
+			if sev := c.Query("severity"); sev != "" {
+				where += fmt.Sprintf(" AND f.severity = ANY(string_to_array($%d, ','))", argIdx)
+				args = append(args, sev)
+				argIdx++
+			}
+			if search := c.Query("search"); search != "" {
+				where += fmt.Sprintf(" AND (a.name ILIKE $%d OR f.pattern_name ILIKE $%d)", argIdx, argIdx)
+				args = append(args, "%"+search+"%")
+			}
+
+			query := fmt.Sprintf(`
+				SELECT f.id, f.pattern_name, f.severity, f.confidence_score,
+				       COALESCE(a.name, ''), COALESCE(a.path, ''), COALESCE(f.environment, ''), f.created_at
+				FROM findings f
+				LEFT JOIN classifications cl ON f.id = cl.finding_id
+				LEFT JOIN assets a ON f.asset_id = a.id
+				WHERE %s
+				ORDER BY f.created_at DESC
+				LIMIT 50000
+			`, where)
+
+			rows, queryErr := m.deps.DB.QueryContext(ctx, query, args...)
+			if queryErr != nil {
+				log.Printf("ERROR: findings export query: %v", queryErr)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+				return
+			}
+			defer rows.Close()
+
+			c.Header("Content-Type", "text/csv; charset=utf-8")
+			c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="findings_%s.csv"`, time.Now().Format("2006-01-02")))
+			c.Status(http.StatusOK)
+
+			w := csv.NewWriter(c.Writer)
+			_ = w.Write([]string{"id", "pattern_name", "severity", "confidence_score", "asset_name", "asset_path", "environment", "created_at"})
+			for rows.Next() {
+				var (
+					id, patternName, severity, env string
+					confidence                      float64
+					assetName, assetPath            string
+					createdAt                       time.Time
+				)
+				if scanErr := rows.Scan(&id, &patternName, &severity, &confidence, &assetName, &assetPath, &env, &createdAt); scanErr != nil {
+					continue
+				}
+				_ = w.Write([]string{
+					id, patternName, severity,
+					fmt.Sprintf("%.2f", confidence),
+					assetName, assetPath, env,
+					createdAt.Format(time.RFC3339),
+				})
+			}
+			w.Flush()
+		})
+
 		findings.POST("/:id/feedback", m.feedbackHandler.SubmitFeedback)
 	}
 
