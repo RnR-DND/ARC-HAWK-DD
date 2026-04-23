@@ -69,7 +69,8 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 
 	conn, err := h.service.AddConnection(c.Request.Context(), req.SourceType, req.ProfileName, req.Config, createdBy)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add connection: " + err.Error()})
+		log.Printf("ERROR: add connection %s: %v", req.ProfileName, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add connection"})
 		return
 	}
 
@@ -99,7 +100,8 @@ func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 func (h *ConnectionHandler) GetConnections(c *gin.Context) {
 	connections, err := h.service.GetConnections(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get connections: " + err.Error()})
+		log.Printf("ERROR: list connections: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get connections"})
 		return
 	}
 
@@ -127,7 +129,8 @@ func (h *ConnectionHandler) DeleteConnection(c *gin.Context) {
 	}
 
 	if err := h.service.DeleteConnection(c.Request.Context(), uuid); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete connection: " + err.Error()})
+		log.Printf("ERROR: delete connection: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete connection"})
 		return
 	}
 
@@ -169,7 +172,8 @@ func (h *ConnectionHandler) TestConnection(c *gin.Context) {
 
 	result, err := h.testConnectionSvc.TestConnectionByConfig(c.Request.Context(), req.SourceType, req.Config)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to test connection: " + err.Error()})
+		log.Printf("ERROR: test connection: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to test connection"})
 		return
 	}
 

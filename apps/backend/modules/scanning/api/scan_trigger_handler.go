@@ -36,6 +36,7 @@ type ScanTriggerHandler struct {
 	vault            *vault.Client
 	patternsService  *service.PatternsService
 	auditLogger      interfaces.AuditLogger
+	stopGauge        chan struct{}
 }
 
 // Prometheus metrics
@@ -92,18 +93,31 @@ func NewScanTriggerHandler(scanService *service.ScanService, websocketService an
 // neo4j_sync_queue table every 30 s and updates the Prometheus gauge.
 // Call once from module.Initialize after the handler is constructed.
 func (h *ScanTriggerHandler) StartNeo4jQueueGauge(db *sql.DB) {
+	h.stopGauge = make(chan struct{})
 	go func() {
 		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
-		for range t.C {
-			var n float64
-			if err := db.QueryRowContext(context.Background(),
-				`SELECT COUNT(*) FROM neo4j_sync_queue WHERE status IN ('pending','failed')`).
-				Scan(&n); err == nil {
-				neo4jSyncQueuePending.Set(n)
+		for {
+			select {
+			case <-t.C:
+				var n float64
+				if err := db.QueryRowContext(context.Background(),
+					`SELECT COUNT(*) FROM neo4j_sync_queue WHERE status IN ('pending','failed')`).
+					Scan(&n); err == nil {
+					neo4jSyncQueuePending.Set(n)
+				}
+			case <-h.stopGauge:
+				return
 			}
 		}
 	}()
+}
+
+// StopGauge stops the background Neo4j queue gauge goroutine.
+func (h *ScanTriggerHandler) StopGauge() {
+	if h.stopGauge != nil {
+		close(h.stopGauge)
+	}
 }
 
 // recordAudit is a helper that swallows audit errors (never break a scan on an
@@ -201,7 +215,7 @@ func (h *ScanTriggerHandler) TriggerScan(c *gin.Context) {
 		h.executeScan(scanRun.ID, &req, tenantID)
 	}()
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusAccepted, gin.H{
 		"message": "Scan triggered successfully",
 		"scan_id": scanRun.ID,
 		"status":  "pending",
@@ -497,7 +511,8 @@ func (h *ScanTriggerHandler) GetScanDelta(c *gin.Context) {
 	}
 	delta, err := h.scanService.GetScanDelta(c.Request.Context(), scanID)
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		log.Printf("ERROR: GetScanDelta scan=%s: %v", scanID, err)
+		c.JSON(500, gin.H{"error": "internal server error"})
 		return
 	}
 	if delta == nil {

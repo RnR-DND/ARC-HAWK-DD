@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/arc-platform/backend/modules/discovery/domain"
@@ -229,7 +230,7 @@ func (s *RiskScoringService) ScoreAsset(ctx context.Context, assetID uuid.UUID, 
 	)
 	if histErr != nil {
 		// Log but don't surface — risk_score_history is supplementary.
-		_ = fmt.Errorf("risk_score_history insert: %w", histErr)
+		log.Printf("WARN: risk_score_history insert: %v", histErr)
 	}
 
 	return rs, nil

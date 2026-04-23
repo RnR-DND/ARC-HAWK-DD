@@ -3,7 +3,11 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	scannerapi "github.com/arc-platform/go-scanner/api"
 	// Blank imports trigger each sub-package's init(), which self-registers connectors.
@@ -28,7 +32,6 @@ func main() {
 		log.Printf("WARN: OTel tracer init failed: %v (tracing disabled)", err)
 		shutdownTracer = func(context.Context) error { return nil }
 	}
-	defer shutdownTracer(context.Background()) //nolint:errcheck
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -53,8 +56,35 @@ func main() {
 		log.Printf("WARN: SCANNER_SERVICE_TOKEN is empty; /scan will reject all requests")
 	}
 
-	log.Printf("Go scanner starting on :%s", port)
-	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("scanner failed: %v", err)
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
 	}
+
+	// Graceful shutdown on SIGINT / SIGTERM.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Printf("Go scanner starting on :%s", port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("scanner failed: %v", err)
+		}
+	}()
+
+	<-quit
+	log.Println("Scanner shutting down...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Scanner forced shutdown: %v", err)
+	}
+
+	if err := shutdownTracer(ctx); err != nil {
+		log.Printf("Tracer shutdown error: %v", err)
+	}
+
+	log.Println("Scanner stopped.")
 }

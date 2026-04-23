@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -143,7 +144,7 @@ func SendScanComplete(scanID, tenantID, backendURL string, totalSent, totalFaile
 func sendIngestChunkWithRetry(tenantID, backendURL string, data []byte, startIdx, endIdx int) error {
 	var lastErr error
 	for attempt := 1; attempt <= ingestMaxAttempts; attempt++ {
-		req, err := http.NewRequest("POST", backendURL+"/api/v1/scans/ingest-verified", bytes.NewReader(data))
+		req, err := http.NewRequestWithContext(context.Background(), "POST", backendURL+"/api/v1/scans/ingest-verified", bytes.NewReader(data))
 		if err != nil {
 			return fmt.Errorf("build request: %w", err)
 		}
@@ -191,7 +192,7 @@ func sendComplete(tenantID, backendURL, scanID, status, message string) {
 		"status":  status,
 		"message": message,
 	})
-	req, err := http.NewRequest("POST", backendURL+"/api/v1/scans/"+scanID+"/complete", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", backendURL+"/api/v1/scans/"+scanID+"/complete", bytes.NewReader(body))
 	if err != nil {
 		return
 	}
@@ -262,7 +263,7 @@ func sendProgressEvent(client *http.Client, tenantID, backendURL, scanID string,
 	}
 	data, _ := json.Marshal(evt)
 	url := fmt.Sprintf("%s/api/v1/scans/%s/progress-event", backendURL, scanID)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewReader(data))
 	if err != nil {
 		return
 	}

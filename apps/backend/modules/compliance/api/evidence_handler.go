@@ -50,7 +50,7 @@ func (h *EvidenceHandler) GeneratePackage(c *gin.Context) {
 
 	pkg, err := h.svc.Generate(c.Request.Context(), tenantID, actorID, actorEmail)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -105,7 +105,7 @@ func (h *EvidenceHandler) GetAuditTrail(c *gin.Context) {
 
 	results, err := h.logger.Query(c.Request.Context(), tenantID, eventTypes, from, now, 500)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

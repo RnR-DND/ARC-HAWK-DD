@@ -1,0 +1,56 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - gosec
+    - gofmt
+    - goimports
+    - ineffassign
+    - unused
+    - bodyclose
+    - contextcheck
+    - noctx
+    - sqlclosecheck
+  disable-all: false
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # too noisy for rapid dev
+  gosec:
+    excludes:
+      - G404  # math/rand is OK in non-crypto contexts
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+      - name: var-naming
+        disabled: false
+      - name: error-return
+        disabled: false
+      - name: unused-parameter
+        disabled: true  # too noisy during active dev
+
+issues:
+  exclude-rules:
+    # Test files get relaxed rules
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck
+    # Migration files don't need exhaustive checks
+    - path: migrations_versioned/
+      linters:
+        - all
+  max-issues-per-linter: 50
+  max-same-issues: 10

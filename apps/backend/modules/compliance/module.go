@@ -9,6 +9,7 @@ import (
 	"github.com/arc-platform/backend/modules/shared/infrastructure/audit"
 	"github.com/arc-platform/backend/modules/shared/infrastructure/persistence"
 	"github.com/arc-platform/backend/modules/shared/interfaces"
+	sharedmiddleware "github.com/arc-platform/backend/modules/shared/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -40,7 +41,8 @@ type ComplianceModule struct {
 	groHandler            *compapi.GROHandler
 	evidenceHandler       *compapi.EvidenceHandler
 
-	deps *interfaces.ModuleDependencies
+	deps                *interfaces.ModuleDependencies
+	evidenceRateLimiter *sharedmiddleware.RateLimiter
 }
 
 func (m *ComplianceModule) Name() string {
@@ -131,8 +133,9 @@ func (m *ComplianceModule) RegisterRoutes(router *gin.RouterGroup) {
 		compliance.GET("/gro-settings", m.groHandler.GetSettings)
 		compliance.PUT("/gro-settings", m.groHandler.UpdateSettings)
 
-		// DPDP Act 2023 evidence package + immutable audit trail
-		compliance.POST("/evidence-package", m.evidenceHandler.GeneratePackage)
+		// DPDP Act 2023 evidence package + immutable audit trail (strict rate limit: 10/min)
+		m.evidenceRateLimiter = sharedmiddleware.StrictRateLimiter()
+		compliance.POST("/evidence-package", m.evidenceRateLimiter.Middleware(), m.evidenceHandler.GeneratePackage)
 		compliance.GET("/audit-trail", m.evidenceHandler.GetAuditTrail)
 	}
 
@@ -169,6 +172,9 @@ func (m *ComplianceModule) RegisterRoutes(router *gin.RouterGroup) {
 
 func (m *ComplianceModule) Shutdown() error {
 	log.Printf("🔌 Shutting down Compliance Module...")
+	if m.evidenceRateLimiter != nil {
+		m.evidenceRateLimiter.Stop()
+	}
 	return nil
 }
 

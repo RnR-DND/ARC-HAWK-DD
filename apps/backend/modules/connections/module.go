@@ -1,8 +1,11 @@
 package connections
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/arc-platform/backend/modules/connections/api"
 	"github.com/arc-platform/backend/modules/connections/service"
@@ -82,6 +85,74 @@ func (m *ConnectionsModule) RegisterRoutes(router *gin.RouterGroup) {
 		scans.GET("/status", m.scanOrchestrationHandler.GetScanStatus)
 		scans.GET("/jobs", m.scanOrchestrationHandler.GetAllJobs)
 	}
+
+	// Connector health: last scan time/status/findings per profile
+	db := m.deps.DB
+	router.GET("/connections/health", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 8*time.Second)
+		defer cancel()
+
+		type ConnHealth struct {
+			ProfileName    string     `json:"profile_name"`
+			SourceType     string     `json:"source_type"`
+			LastScanTime   *time.Time `json:"last_scan_time"`
+			LastScanStatus string     `json:"last_scan_status"`
+			FindingsCount  int        `json:"findings_count"`
+			Status         string     `json:"status"` // ok | stale | never
+		}
+
+		rows, err := db.QueryContext(ctx, `
+			SELECT
+				c.profile_name,
+				c.source_type,
+				sr.scan_started_at,
+				sr.status,
+				COALESCE(sr.total_findings, 0)
+			FROM connections c
+			LEFT JOIN LATERAL (
+				SELECT scan_started_at, status, total_findings
+				FROM scan_runs
+				WHERE profile_name = c.profile_name
+				ORDER BY scan_started_at DESC
+				LIMIT 1
+			) sr ON true
+			ORDER BY c.profile_name
+		`)
+		if err != nil {
+			log.Printf("ERROR: connections health query: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			return
+		}
+		defer rows.Close()
+
+		result := []ConnHealth{}
+		for rows.Next() {
+			var h ConnHealth
+			var lastScan *time.Time
+			var lastStatus *string
+			var findings *int
+			if err := rows.Scan(&h.ProfileName, &h.SourceType, &lastScan, &lastStatus, &findings); err != nil {
+				continue
+			}
+			h.LastScanTime = lastScan
+			if lastStatus != nil {
+				h.LastScanStatus = *lastStatus
+			}
+			if findings != nil {
+				h.FindingsCount = *findings
+			}
+			switch {
+			case lastScan == nil:
+				h.Status = "never"
+			case time.Since(*lastScan) > 72*time.Hour:
+				h.Status = "stale"
+			default:
+				h.Status = "ok"
+			}
+			result = append(result, h)
+		}
+		c.JSON(http.StatusOK, gin.H{"health": result})
+	})
 
 	log.Printf("🔌 Connections routes registered")
 }
