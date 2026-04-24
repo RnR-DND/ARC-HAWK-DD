@@ -383,8 +383,8 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 		sanitizedSample := strings.ReplaceAll(hawkeyeFinding.SampleText, "\u0000", "")
 
 		// Encrypt PII sample value at rest (AES-256-GCM) — DPDPA security requirement.
-		// If encryptor is unavailable (dev/test without ENCRYPTION_KEY), store as-is with a warning.
-		storedSample := sanitizedSample
+		// Never store plaintext PII: redact if encryptor is unavailable or encryption fails.
+		storedSample := "[ENCRYPTION_UNAVAILABLE]"
 		if s.encryptor != nil && sanitizedSample != "" {
 			encrypted, encErr := s.encryptor.EncryptString(sanitizedSample)
 			if encErr != nil {
@@ -395,7 +395,7 @@ func (s *IngestionService) IngestScan(ctx context.Context, input *HawkeyeScanInp
 				storedSample = encrypted
 			}
 		} else if s.encryptor == nil {
-			log.Printf("WARNING: EncryptionService unavailable — PII sample stored unencrypted for %s",
+			log.Printf("WARNING: EncryptionService unavailable — PII sample redacted for %s",
 				hawkeyeFinding.PatternName)
 		}
 
