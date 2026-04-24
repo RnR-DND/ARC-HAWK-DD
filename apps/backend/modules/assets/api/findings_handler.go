@@ -146,7 +146,7 @@ func (h *FindingsHandler) SubmitFeedback(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -161,7 +161,7 @@ func (h *FindingsHandler) SubmitFeedback(c *gin.Context) {
 	}
 
 	if err := h.service.SubmitFeedback(c.Request.Context(), feedback); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

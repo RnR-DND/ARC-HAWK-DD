@@ -43,7 +43,7 @@ func (h *InventoryHandler) ListInventory(c *gin.Context) {
 
 	rows, err := h.repo.ListInventory(c.Request.Context(), classification, sourceID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -76,7 +76,7 @@ func (h *InventoryHandler) GetAssetInventory(c *gin.Context) {
 	// We don't yet have a per-asset list method on the repo; emulate via filter.
 	rows, err := h.repo.ListInventory(c.Request.Context(), "", nil, 1000, 0)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

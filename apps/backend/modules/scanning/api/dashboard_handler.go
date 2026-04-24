@@ -166,7 +166,7 @@ func (h *DashboardHandler) GetRiskTrend(c *gin.Context) {
 		ORDER BY day ASC
 	`, strconv.Itoa(days))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	defer rows.Close()

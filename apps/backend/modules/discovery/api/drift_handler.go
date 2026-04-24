@@ -41,7 +41,7 @@ func (h *DriftHandler) GetDriftSince(c *gin.Context) {
 
 	events, err := h.repo.ListDriftSinceSnapshot(c.Request.Context(), snapshotID, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -67,7 +67,7 @@ func (h *DriftHandler) GetDriftTimeline(c *gin.Context) {
 	// Find the most recent snapshot to anchor the timeline.
 	snaps, err := h.repo.ListSnapshots(c.Request.Context(), 1, 0)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	if len(snaps) == 0 {
@@ -77,7 +77,7 @@ func (h *DriftHandler) GetDriftTimeline(c *gin.Context) {
 
 	events, err := h.repo.ListDriftSinceSnapshot(c.Request.Context(), snaps[0].ID, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

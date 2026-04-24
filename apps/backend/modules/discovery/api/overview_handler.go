@@ -48,7 +48,7 @@ func NewOverviewHandler(
 func (h *OverviewHandler) GetOverview(c *gin.Context) {
 	summary, err := h.inventory.GetOverviewSummary(c.Request.Context(), h.repo)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, summary)

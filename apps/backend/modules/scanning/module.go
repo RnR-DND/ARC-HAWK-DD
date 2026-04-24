@@ -386,7 +386,7 @@ func (m *ScanningModule) RegisterRoutes(router *gin.RouterGroup) {
 				DayOfMonth  *int   `json:"day_of_month"`
 			}
 			if err := c.ShouldBindJSON(&body); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 				return
 			}
 			if body.Frequency != "daily" && body.Frequency != "weekly" && body.Frequency != "monthly" {

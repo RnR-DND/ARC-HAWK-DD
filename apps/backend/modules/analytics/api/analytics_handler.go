@@ -55,7 +55,7 @@ func (h *AnalyticsHandler) GetPIIHeatmap(c *gin.Context) {
 func (h *AnalyticsHandler) GetRiskDistribution(c *gin.Context) {
 	result, err := h.service.GetRiskDistribution(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, result)

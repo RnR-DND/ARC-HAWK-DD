@@ -42,13 +42,13 @@ func (h *RetentionHandler) SetRetentionPolicy(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
 	err := h.service.SetRetentionPolicy(c.Request.Context(), req.AssetID, req.PolicyDays, req.PolicyName, req.PolicyBasis)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -81,7 +81,7 @@ func (h *RetentionHandler) GetRetentionPolicy(c *gin.Context) {
 
 	policy, err := h.service.GetRetentionPolicy(c.Request.Context(), assetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h *RetentionHandler) GetRetentionPolicy(c *gin.Context) {
 func (h *RetentionHandler) GetRetentionViolations(c *gin.Context) {
 	violations, err := h.service.GetRetentionViolations(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -136,7 +136,7 @@ func (h *RetentionHandler) GetRetentionTimeline(c *gin.Context) {
 
 	timeline, err := h.service.GetRetentionTimeline(c.Request.Context(), assetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -208,7 +208,7 @@ func (h *AuditHandler) ListAuditLogs(c *gin.Context) {
 
 	logs, err := h.service.ListAuditLogs(c.Request.Context(), filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -248,7 +248,7 @@ func (h *AuditHandler) GetUserActivity(c *gin.Context) {
 
 	activity, err := h.service.GetUserActivity(c.Request.Context(), userID, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -281,7 +281,7 @@ func (h *AuditHandler) GetResourceHistory(c *gin.Context) {
 
 	logs, err := h.service.GetResourceHistory(c.Request.Context(), resourceType, resourceID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -313,7 +313,7 @@ func (h *AuditHandler) GetRecentActivity(c *gin.Context) {
 
 	logs, err := h.service.GetRecentActivity(c.Request.Context(), limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

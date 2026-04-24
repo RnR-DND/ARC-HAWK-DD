@@ -78,7 +78,7 @@ func (h *DataPrincipalHandler) SubmitRequest(c *gin.Context) {
 		RequestDetails     *string `json:"request_details"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 	if !validRequestTypes[req.RequestType] {
@@ -101,7 +101,7 @@ func (h *DataPrincipalHandler) SubmitRequest(c *gin.Context) {
 		&details, new(sql.NullString), &r.DueDate, new(sql.NullTime), &r.CreatedAt, &r.UpdatedAt,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	if email.Valid {
@@ -173,7 +173,7 @@ func (h *DataPrincipalHandler) ListRequests(c *gin.Context) {
 		`, tenantID, limit, offset)
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	defer rows.Close()
@@ -187,7 +187,7 @@ func (h *DataPrincipalHandler) ListRequests(c *gin.Context) {
 			&r.ID, &r.TenantID, &r.RequestType, &r.Status, &r.DataPrincipalID, &email,
 			&requestDetails, &responseDetails, &r.DueDate, &resolvedAt, &r.CreatedAt, &r.UpdatedAt,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 			return
 		}
 		if email.Valid {
@@ -205,7 +205,7 @@ func (h *DataPrincipalHandler) ListRequests(c *gin.Context) {
 		requests = append(requests, r)
 	}
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	if requests == nil {
@@ -247,7 +247,7 @@ func (h *DataPrincipalHandler) UpdateStatus(c *gin.Context) {
 		ResponseDetails *string `json:"response_details"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 	if !validStatuses[req.Status] {
@@ -269,7 +269,7 @@ func (h *DataPrincipalHandler) UpdateStatus(c *gin.Context) {
 		WHERE id = $4 AND tenant_id = $5
 	`, req.Status, req.ResponseDetails, resolvedAt, requestID, tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	affected, _ := result.RowsAffected()
@@ -303,7 +303,7 @@ func (h *DataPrincipalHandler) GetStats(c *gin.Context) {
 		WHERE tenant_id = $1 GROUP BY status
 	`, tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	defer rows.Close()

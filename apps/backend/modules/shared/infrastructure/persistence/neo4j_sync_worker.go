@@ -35,6 +35,10 @@ func NewNeo4jSyncWorker(db *sql.DB, neo4jRepo *Neo4jRepository) *Neo4jSyncWorker
 }
 
 func (w *Neo4jSyncWorker) Start(ctx context.Context) {
+	// Reset rows stuck in 'processing' from a previous crash before starting the loop.
+	// Rows in 'processing' longer than 10 minutes indicate a worker that died between
+	// the commit that locked them and the follow-up status updates.
+	w.recoverStaleRows(ctx)
 	go func() {
 		ticker := time.NewTicker(w.interval)
 		defer ticker.Stop()
@@ -55,6 +59,29 @@ func (w *Neo4jSyncWorker) Stop() {
 	close(w.stop)
 }
 
+// recoverStaleRows resets rows stuck in 'processing' back to 'failed' so they
+// are retried. A row is considered stale when it has been in 'processing' for
+// more than 10 minutes — longer than any reasonable Neo4j write should take.
+func (w *Neo4jSyncWorker) recoverStaleRows(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	res, err := w.db.ExecContext(ctx, `
+		UPDATE neo4j_sync_queue
+		SET    status     = 'failed',
+		       last_error = 'recovered from stale processing state',
+		       updated_at = NOW()
+		WHERE  status = 'processing'
+		  AND  updated_at < NOW() - INTERVAL '10 minutes'
+	`)
+	if err != nil {
+		log.Printf("neo4j_sync_worker: stale row recovery error: %v", err)
+		return
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		log.Printf("neo4j_sync_worker: recovered %d stale rows from 'processing'", n)
+	}
+}
+
 type qrow struct {
 	id        string
 	operation string
@@ -63,22 +90,27 @@ type qrow struct {
 }
 
 func (w *Neo4jSyncWorker) processBatch(ctx context.Context) {
-	tx, err := w.db.BeginTx(ctx, nil)
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	tx, err := w.db.BeginTx(queryCtx, nil)
 	if err != nil {
 		log.Printf("neo4j_sync_worker: begin tx error: %v", err)
 		return
 	}
 
-	rows, err := tx.QueryContext(ctx, `
+	rows, err := tx.QueryContext(queryCtx, `
 		SELECT id, operation, payload, attempts
-		FROM neo4j_sync_queue
-		WHERE status IN ('pending', 'failed') AND attempts < 5
-		ORDER BY created_at ASC
-		LIMIT 50
+		FROM   neo4j_sync_queue
+		WHERE  status IN ('pending', 'failed') AND attempts < 5
+		ORDER  BY created_at ASC
+		LIMIT  50
 		FOR UPDATE SKIP LOCKED
 	`)
 	if err != nil {
-		tx.Rollback()
+		if rbErr := tx.Rollback(); rbErr != nil {
+			log.Printf("neo4j_sync_worker: rollback error after query failure: %v", rbErr)
+		}
 		log.Printf("neo4j_sync_worker: query error: %v", err)
 		return
 	}
@@ -87,39 +119,68 @@ func (w *Neo4jSyncWorker) processBatch(ctx context.Context) {
 	for rows.Next() {
 		var r qrow
 		if err := rows.Scan(&r.id, &r.operation, &r.payload, &r.attempts); err != nil {
+			log.Printf("neo4j_sync_worker: scan error: %v", err)
 			continue
 		}
 		batch = append(batch, r)
 	}
 	rows.Close()
 
-	// Mark all as 'processing' before releasing the lock
-	for _, r := range batch {
-		_, _ = tx.ExecContext(ctx, `UPDATE neo4j_sync_queue SET status='processing' WHERE id=$1`, r.id)
-	}
-	if err := tx.Commit(); err != nil {
-		log.Printf("neo4j_sync_worker: commit error marking batch as processing, skipping: %v", err)
+	if len(batch) == 0 {
+		tx.Rollback() //nolint:errcheck — nothing was written
 		return
 	}
 
-	// Now process without lock held
+	// Mark all as 'processing' before releasing the lock. Once committed, these
+	// rows are excluded from future SELECT FOR UPDATE SKIP LOCKED queries, so
+	// only this worker will update their final status.
+	for _, r := range batch {
+		if _, err := tx.ExecContext(queryCtx,
+			`UPDATE neo4j_sync_queue SET status='processing', updated_at=NOW() WHERE id=$1`,
+			r.id); err != nil {
+			log.Printf("neo4j_sync_worker: failed to mark row %s as processing: %v", r.id, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			log.Printf("neo4j_sync_worker: rollback error after commit failure: %v", rbErr)
+		}
+		log.Printf("neo4j_sync_worker: commit error marking batch as processing: %v", err)
+		return
+	}
+
+	// Process without lock held. Each status update is a single-statement exec.
+	// No transaction is needed here because rows are now uniquely owned by this
+	// worker — 'processing' rows are excluded from all other workers' queries.
 	for _, r := range batch {
 		if err := w.process(ctx, r.operation, r.payload); err != nil {
 			attempts := r.attempts + 1
 			if attempts >= 5 {
-				_, _ = w.db.ExecContext(ctx,
-					`UPDATE neo4j_sync_queue SET status='dead_letter', attempts=$1, last_error=$2 WHERE id=$3`,
-					attempts, err.Error(), r.id)
+				if _, updateErr := w.db.ExecContext(ctx,
+					`UPDATE neo4j_sync_queue
+					 SET status='dead_letter', attempts=$1, last_error=$2, updated_at=NOW()
+					 WHERE id=$3`,
+					attempts, err.Error(), r.id); updateErr != nil {
+					log.Printf("neo4j_sync_worker: failed to mark row %s as dead_letter: %v", r.id, updateErr)
+				}
 				neo4jSyncDeadLetterTotal.Inc()
 			} else {
-				_, _ = w.db.ExecContext(ctx,
-					`UPDATE neo4j_sync_queue SET status='failed', attempts=$1, last_error=$2 WHERE id=$3`,
-					attempts, err.Error(), r.id)
+				if _, updateErr := w.db.ExecContext(ctx,
+					`UPDATE neo4j_sync_queue
+					 SET status='failed', attempts=$1, last_error=$2, updated_at=NOW()
+					 WHERE id=$3`,
+					attempts, err.Error(), r.id); updateErr != nil {
+					log.Printf("neo4j_sync_worker: failed to mark row %s as failed: %v", r.id, updateErr)
+				}
 			}
 		} else {
-			_, _ = w.db.ExecContext(ctx,
-				`UPDATE neo4j_sync_queue SET status='done', processed_at=NOW() WHERE id=$1`,
-				r.id)
+			if _, updateErr := w.db.ExecContext(ctx,
+				`UPDATE neo4j_sync_queue
+				 SET status='done', processed_at=NOW(), updated_at=NOW()
+				 WHERE id=$1`,
+				r.id); updateErr != nil {
+				log.Printf("neo4j_sync_worker: failed to mark row %s as done: %v", r.id, updateErr)
+			}
 		}
 	}
 }

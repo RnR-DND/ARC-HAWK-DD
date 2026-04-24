@@ -42,7 +42,7 @@ func (h *RemediationHistoryHandler) GetHistory(c *gin.Context) {
 
 	actions, total, err := h.service.GetAllRemediationActions(c.Request.Context(), limit, offset, actionFilter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch remediation history: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

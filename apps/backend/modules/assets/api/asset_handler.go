@@ -102,7 +102,7 @@ func (h *AssetHandler) DeleteAsset(c *gin.Context) {
 func (h *AssetHandler) BulkTagAssets(c *gin.Context) {
 	var req service.BulkTagRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -113,7 +113,7 @@ func (h *AssetHandler) BulkTagAssets(c *gin.Context) {
 
 	result, err := h.service.BulkTagAssets(c.Request.Context(), &req, actor)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 

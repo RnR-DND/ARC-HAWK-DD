@@ -66,7 +66,7 @@ func (h *GROHandler) GetSettings(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	if name.Valid {
@@ -108,7 +108,7 @@ func (h *GROHandler) UpdateSettings(c *gin.Context) {
 		IsSignificantDataFiduciary *bool   `json:"is_significant_data_fiduciary"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 	if req.GROEmail != nil && *req.GROEmail != "" {
@@ -128,7 +128,7 @@ func (h *GROHandler) UpdateSettings(c *gin.Context) {
 		WHERE id = $5
 	`, req.GROName, req.GROEmail, req.GROPhone, req.IsSignificantDataFiduciary, tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "updated"})

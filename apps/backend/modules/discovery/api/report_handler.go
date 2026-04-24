@@ -66,7 +66,7 @@ func (h *ReportHandler) GenerateReport(c *gin.Context) {
 
 	rep, err := h.report.EnqueueReport(c.Request.Context(), req.SnapshotID, format, requestedBy)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{
@@ -97,7 +97,7 @@ func (h *ReportHandler) GetReport(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, rep)
@@ -126,7 +126,7 @@ func (h *ReportHandler) DownloadReport(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.Data(http.StatusOK, contentType, content)
@@ -148,7 +148,7 @@ func (h *ReportHandler) ListReports(c *gin.Context) {
 
 	reps, err := h.repo.ListReports(c.Request.Context(), limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": reps, "count": len(reps)})

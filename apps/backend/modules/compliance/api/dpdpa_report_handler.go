@@ -39,7 +39,7 @@ func NewDPDPAReportHandler(
 func (h *DPDPAReportHandler) GetObligationGaps(c *gin.Context) {
 	report, err := h.obligationSvc.BuildGapReport(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, report)
@@ -60,7 +60,7 @@ func (h *DPDPAReportHandler) GetObligationGaps(c *gin.Context) {
 func (h *DPDPAReportHandler) GenerateHTMLReport(c *gin.Context) {
 	html, err := h.reportSvc.GenerateHTMLReport(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.Data(http.StatusOK, "text/html; charset=utf-8", html)

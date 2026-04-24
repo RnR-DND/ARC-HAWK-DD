@@ -32,7 +32,7 @@ func NewEscalationHandler(svc *service.EscalationService) *EscalationHandler {
 func (h *EscalationHandler) Preview(c *gin.Context) {
 	candidates, err := h.svc.PreviewEscalation(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -58,7 +58,7 @@ func (h *EscalationHandler) Preview(c *gin.Context) {
 func (h *EscalationHandler) Run(c *gin.Context) {
 	count, err := h.svc.RunEscalationPass(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

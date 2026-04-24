@@ -53,7 +53,7 @@ func (h *FPLearningHandler) MarkFalsePositive(c *gin.Context) {
 
 	var req CreateFPLearningRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -77,7 +77,7 @@ func (h *FPLearningHandler) MarkFalsePositive(c *gin.Context) {
 		nil,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -105,7 +105,7 @@ func (h *FPLearningHandler) MarkConfirmed(c *gin.Context) {
 
 	var req CreateFPLearningRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -128,7 +128,7 @@ func (h *FPLearningHandler) MarkConfirmed(c *gin.Context) {
 		nil,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -164,7 +164,7 @@ func (h *FPLearningHandler) ListFPLearnings(c *gin.Context) {
 
 	fps, total, err := h.service.GetFPLearnings(c.Request.Context(), tenantID, filter, page, pageSize)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -227,7 +227,7 @@ func (h *FPLearningHandler) DeactivateFPLearning(c *gin.Context) {
 
 	err = h.service.DeactivateFPLearning(c.Request.Context(), id, userID.(uuid.UUID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -248,7 +248,7 @@ func (h *FPLearningHandler) GetStats(c *gin.Context) {
 
 	stats, err := h.service.GetStats(c.Request.Context(), tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -271,7 +271,7 @@ func (h *FPLearningHandler) CheckFalsePositive(c *gin.Context) {
 
 	var req entity.FPMatchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -286,7 +286,7 @@ func (h *FPLearningHandler) CheckFalsePositive(c *gin.Context) {
 		req.MatchedValue,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

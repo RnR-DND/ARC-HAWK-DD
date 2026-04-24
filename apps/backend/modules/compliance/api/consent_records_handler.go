@@ -98,7 +98,7 @@ func (h *ConsentRecordsHandler) ListConsentRecords(c *gin.Context) {
 		LIMIT $2 OFFSET $3
 	`, tenantID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	defer rows.Close()
@@ -113,7 +113,7 @@ func (h *ConsentRecordsHandler) ListConsentRecords(c *gin.Context) {
 			&r.Purpose, &r.ConsentGivenAt, &consentExpiresAt,
 			&withdrawalTS, &r.ConsentMechanism, &r.IsActive, &r.CreatedAt, &r.UpdatedAt,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 			return
 		}
 		if assetID.Valid {
@@ -130,7 +130,7 @@ func (h *ConsentRecordsHandler) ListConsentRecords(c *gin.Context) {
 		records = append(records, r)
 	}
 	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	if records == nil {
@@ -161,7 +161,7 @@ func (h *ConsentRecordsHandler) CreateConsentRecord(c *gin.Context) {
 
 	var req createConsentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -194,7 +194,7 @@ func (h *ConsentRecordsHandler) CreateConsentRecord(c *gin.Context) {
 		new(sql.NullTime), &r.ConsentMechanism, &r.IsActive, &r.CreatedAt, &r.UpdatedAt,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	if assetID.Valid {
@@ -242,7 +242,7 @@ func (h *ConsentRecordsHandler) WithdrawConsentRecord(c *gin.Context) {
 		WHERE id = $1 AND tenant_id = $2 AND is_active = TRUE
 	`, consentID, tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	rows, _ := result.RowsAffected()

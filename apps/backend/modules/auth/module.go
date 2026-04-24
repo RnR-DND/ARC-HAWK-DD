@@ -138,7 +138,7 @@ func (m *AuthModule) RegisterRoutes(router *gin.RouterGroup) {
 					SeverityThreshold      string   `json:"severity_threshold"`
 				}
 				if err := c.ShouldBindJSON(&body); err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 					return
 				}
 				if body.EmailRecipients == nil {

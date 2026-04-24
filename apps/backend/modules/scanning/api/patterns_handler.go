@@ -47,7 +47,7 @@ func (h *PatternsHandler) ListPatterns(c *gin.Context) {
 	tenantID := tenantFromCtx(c)
 	patterns, err := h.svc.ListPatterns(c.Request.Context(), tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	if patterns == nil {
@@ -87,7 +87,7 @@ func (h *PatternsHandler) CreatePattern(c *gin.Context) {
 
 	p, err := h.svc.CreatePattern(c.Request.Context(), tenantID, createdByStr, &body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -132,7 +132,7 @@ func (h *PatternsHandler) UpdatePattern(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "pattern not found"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -168,7 +168,7 @@ func (h *PatternsHandler) DeletePattern(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "pattern not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -205,7 +205,7 @@ func (h *PatternsHandler) RecordFalsePositive(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "pattern not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -243,7 +243,7 @@ func (h *PatternsHandler) GetPatternStats(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "pattern not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -287,7 +287,7 @@ func (h *PatternsHandler) TestPattern(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "pattern not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

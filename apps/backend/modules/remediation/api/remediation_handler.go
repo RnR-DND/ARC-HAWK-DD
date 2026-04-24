@@ -54,7 +54,7 @@ type ExecuteRemediationResponse struct {
 func (h *RemediationHandler) ExecuteRemediation(c *gin.Context) {
 	var req ExecuteRemediationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, interfaces.NewErrorResponse(interfaces.ErrCodeBadRequest, "Invalid request format", err.Error()))
+		c.JSON(http.StatusBadRequest, interfaces.NewErrorResponse(interfaces.ErrCodeBadRequest, "Invalid request format", nil))
 		return
 	}
 
@@ -114,7 +114,7 @@ func (h *RemediationHandler) RollbackRemediation(c *gin.Context) {
 	actionID := c.Param("actionId")
 
 	if err := h.service.RollbackRemediation(c.Request.Context(), actionID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -144,13 +144,13 @@ func (h *RemediationHandler) GeneratePreview(c *gin.Context) {
 		ActionType string   `json:"action_type"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, interfaces.NewErrorResponse(interfaces.ErrCodeBadRequest, "Invalid request format", err.Error()))
+		c.JSON(http.StatusBadRequest, interfaces.NewErrorResponse(interfaces.ErrCodeBadRequest, "Invalid request format", nil))
 		return
 	}
 
 	preview, err := h.service.GenerateRemediationPreview(c.Request.Context(), req.FindingIDs, req.ActionType)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to generate remediation preview", err.Error()))
+		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to generate remediation preview", nil))
 		return
 	}
 
@@ -175,7 +175,7 @@ func (h *RemediationHandler) GetRemediationAction(c *gin.Context) {
 
 	action, err := h.service.GetRemediationAction(c.Request.Context(), actionID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to retrieve remediation action", err.Error()))
+		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to retrieve remediation action", nil))
 		return
 	}
 
@@ -200,7 +200,7 @@ func (h *RemediationHandler) GetRemediationActions(c *gin.Context) {
 
 	actions, err := h.service.GetRemediationActions(c.Request.Context(), findingID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to retrieve remediation actions", err.Error()))
+		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to retrieve remediation actions", nil))
 		return
 	}
 
@@ -228,7 +228,7 @@ func (h *RemediationHandler) GetRemediationHistory(c *gin.Context) {
 
 	history, err := h.service.GetRemediationHistory(c.Request.Context(), assetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to retrieve remediation history", err.Error()))
+		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to retrieve remediation history", nil))
 		return
 	}
 
@@ -244,7 +244,7 @@ func (h *RemediationHandler) GetPIIPreview(c *gin.Context) {
 
 	preview, err := h.service.GetPIIPreview(c.Request.Context(), findingID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to generate PII preview", err.Error()))
+		c.JSON(http.StatusInternalServerError, interfaces.NewErrorResponse(interfaces.ErrCodeInternalServer, "Failed to generate PII preview", nil))
 		return
 	}
 

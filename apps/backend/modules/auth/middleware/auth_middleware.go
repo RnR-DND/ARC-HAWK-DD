@@ -95,9 +95,12 @@ func (m *AuthMiddleware) authenticateAPIKey(c *gin.Context) bool {
 		return false
 	}
 
-	// Update last_used_at (fire-and-forget — don't block the request)
+	// Update last_used_at — fire-and-forget but bounded to 5 s so the goroutine
+	// cannot outlive a stuck DB connection and exhaust the pool under high QPS.
 	go func() {
-		if _, err := m.postgresRepo.GetDB().ExecContext(context.Background(), `
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := m.postgresRepo.GetDB().ExecContext(ctx, `
 			UPDATE api_keys SET last_used_at = NOW() WHERE id = $1
 		`, keyID); err != nil {
 			log.Printf("WARN: failed to update api_keys.last_used_at for %s: %v", keyID, err)

@@ -33,7 +33,7 @@ func NewRiskHandler(risk *service.RiskScoringService, repo *service.Repo) *RiskH
 func (h *RiskHandler) GetRiskOverview(c *gin.Context) {
 	hotspots, err := h.repo.ListTopRiskHotspots(c.Request.Context(), 10)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -56,7 +56,7 @@ func (h *RiskHandler) GetRiskHotspots(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	hotspots, err := h.repo.ListTopRiskHotspots(c.Request.Context(), limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"hotspots": hotspots, "count": len(hotspots)})
@@ -81,7 +81,7 @@ func (h *RiskHandler) GetAssetRiskHistory(c *gin.Context) {
 	}
 	score, err := h.risk.ScoreAsset(c.Request.Context(), assetID, nil)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, score)

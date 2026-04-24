@@ -35,13 +35,13 @@ func NewConsentHandler(service *service.ConsentService) *ConsentHandler {
 func (h *ConsentHandler) RecordConsent(c *gin.Context) {
 	var req service.ConsentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
 	record, err := h.service.RecordConsent(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -86,7 +86,7 @@ func (h *ConsentHandler) ListConsentRecords(c *gin.Context) {
 
 	records, err := h.service.ListConsentRecords(c.Request.Context(), filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -120,12 +120,12 @@ func (h *ConsentHandler) WithdrawConsent(c *gin.Context) {
 
 	var req service.ConsentWithdrawalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
 	if err := h.service.WithdrawConsent(c.Request.Context(), consentID, req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -162,7 +162,7 @@ func (h *ConsentHandler) GetConsentStatus(c *gin.Context) {
 
 	record, err := h.service.GetConsentStatus(c.Request.Context(), assetID, piiType)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -192,7 +192,7 @@ func (h *ConsentHandler) GetConsentStatus(c *gin.Context) {
 func (h *ConsentHandler) GetConsentViolations(c *gin.Context) {
 	violations, err := h.service.GetConsentViolations(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

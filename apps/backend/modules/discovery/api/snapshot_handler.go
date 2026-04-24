@@ -38,7 +38,7 @@ func (h *SnapshotHandler) ListSnapshots(c *gin.Context) {
 
 	snaps, err := h.repo.ListSnapshots(c.Request.Context(), limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -71,7 +71,7 @@ func (h *SnapshotHandler) GetSnapshot(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

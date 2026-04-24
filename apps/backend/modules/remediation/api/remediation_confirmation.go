@@ -69,14 +69,14 @@ type ApprovalRequest struct {
 func (h *RemediationConfirmationHandler) PreviewRemediation(c *gin.Context) {
 	var req PreviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
 	// Generate preview
 	preview, err := h.service.GenerateRemediationPreview(c.Request.Context(), req.FindingIDs, req.ActionType)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *RemediationConfirmationHandler) PreviewRemediation(c *gin.Context) {
 func (h *RemediationConfirmationHandler) ApproveRemediation(c *gin.Context) {
 	var req ApprovalRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *RemediationConfirmationHandler) ApproveRemediation(c *gin.Context) {
 			))
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -131,7 +131,7 @@ func (h *RemediationConfirmationHandler) RollbackRemediation(c *gin.Context) {
 	}
 
 	if err := h.service.RollbackRemediation(c.Request.Context(), actionID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 

@@ -49,7 +49,7 @@ type searchBody struct {
 func (h *MemoryHandler) Search(c *gin.Context) {
 	var body searchBody
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 	if !h.svc.Enabled() {
@@ -64,7 +64,7 @@ func (h *MemoryHandler) Search(c *gin.Context) {
 		Limit: body.Limit,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadGateway, gin.H{"error": "upstream error"})
 		return
 	}
 	c.JSON(http.StatusOK, resp)

@@ -40,11 +40,11 @@ func (h *FeedbackHandler) SubmitFeedback(c *gin.Context) {
 
 	var req submitFeedbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 	if err := h.feedbackSvc.RecordCorrection(c.Request.Context(), tenantID, userID, findingID, req.CorrectionType); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "recorded"})
@@ -63,7 +63,7 @@ func (h *FeedbackHandler) GetPatternPrecision(c *gin.Context) {
 	tenantID := authmiddleware.GetTenantIDFromToken(c).String()
 	stats, err := h.feedbackSvc.GetPatternPrecisionStats(c.Request.Context(), tenantID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 	c.JSON(http.StatusOK, stats)

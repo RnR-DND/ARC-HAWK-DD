@@ -52,7 +52,7 @@ type AddConnectionRequest struct {
 func (h *ConnectionHandler) AddConnection(c *gin.Context) {
 	var req AddConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 	if !profileNameRegex.MatchString(req.ProfileName) {
@@ -166,7 +166,7 @@ type TestConnectionRequest struct {
 func (h *ConnectionHandler) TestConnection(c *gin.Context) {
 	var req TestConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 
@@ -194,7 +194,7 @@ func (h *ConnectionHandler) TestConnectionByID(c *gin.Context) {
 
 	result, err := h.testConnectionSvc.TestConnection(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 

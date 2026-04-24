@@ -376,7 +376,7 @@ func (h *ScanStatusHandler) DeleteScan(c *gin.Context) {
 	}
 
 	if err := h.repo.DeleteScanRun(c.Request.Context(), scanID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete scan", "details": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
 
@@ -430,7 +430,7 @@ func (h *ScanStatusHandler) ReceiveProgressEvent(c *gin.Context) {
 	scanID := c.Param("id")
 	var event ProgressEvent
 	if err := c.ShouldBindJSON(&event); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
 		return
 	}
 	if event.ScanID == "" {
