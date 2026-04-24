@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 	"time"
@@ -35,15 +36,16 @@ func (s *MemoryService) RecordScanCompletion(ctx context.Context, sum ScanSummar
 	if !s.Enabled() {
 		return nil
 	}
+	tenantHash := fmt.Sprintf("%x", sha256.Sum256([]byte(sum.TenantID)))[:12]
 	content := fmt.Sprintf(
-		"Scan %q (id=%s, tenant=%s) finished at %s. %d assets, %d findings (%d critical, %d high). Sources: %s. PII types: %s. Duration: %dms.",
-		sum.ScanName, sum.ScanID, sum.TenantID,
+		"Scan %q (id=%s) finished at %s. %d assets, %d findings (%d critical, %d high). Source types: %d. PII types: %s. Duration: %dms.",
+		sum.ScanName, sum.ScanID,
 		sum.CompletedAt.Format(time.RFC3339),
 		sum.TotalAssets, sum.TotalFindings, sum.Critical, sum.High,
-		strings.Join(sum.SourceTypes, ","), strings.Join(sum.PIITypes, ","),
+		len(sum.SourceTypes), strings.Join(sum.PIITypes, ","),
 		sum.DurationMs,
 	)
-	tags := append([]string{"arc-hawk", "scan", sum.TenantID}, sum.SourceTypes...)
+	tags := []string{"arc-hawk", "scan", "t:" + tenantHash}
 	_, err := s.client.AddDocument(ctx, Document{
 		Content: content,
 		Title:   "Scan: " + sum.ScanName,
@@ -51,7 +53,7 @@ func (s *MemoryService) RecordScanCompletion(ctx context.Context, sum ScanSummar
 		Metadata: map[string]interface{}{
 			"kind":           "scan_summary",
 			"scan_id":        sum.ScanID,
-			"tenant_id":      sum.TenantID,
+			"tenant_hash":    tenantHash,
 			"total_findings": sum.TotalFindings,
 			"critical":       sum.Critical,
 			"high":           sum.High,
@@ -77,21 +79,21 @@ func (s *MemoryService) RecordFinding(ctx context.Context, f FindingContext) err
 	if !s.Enabled() {
 		return nil
 	}
+	tenantHash := fmt.Sprintf("%x", sha256.Sum256([]byte(f.TenantID)))[:12]
 	content := fmt.Sprintf(
-		"Finding %s: %s PII detected in %s at %s (severity=%s). Redacted preview: %s.",
-		f.FindingID, f.PIIType, f.AssetName, f.Location, f.Severity, f.Redacted,
+		"Finding %s: %s PII detected in %s (severity=%s). Redacted preview: %s.",
+		f.FindingID, f.PIIType, f.AssetName, f.Severity, f.Redacted,
 	)
 	_, err := s.client.AddDocument(ctx, Document{
 		Content: content,
 		Title:   fmt.Sprintf("%s finding in %s", f.PIIType, f.AssetName),
-		Tags:    []string{"arc-hawk", "finding", f.TenantID, f.PIIType, f.Severity},
+		Tags:    []string{"arc-hawk", "finding", "t:" + tenantHash, f.PIIType, f.Severity},
 		Metadata: map[string]interface{}{
-			"kind":       "finding",
-			"finding_id": f.FindingID,
-			"tenant_id":  f.TenantID,
-			"asset_name": f.AssetName,
-			"pii_type":   f.PIIType,
-			"severity":   f.Severity,
+			"kind":        "finding",
+			"finding_id":  f.FindingID,
+			"tenant_hash": tenantHash,
+			"pii_type":    f.PIIType,
+			"severity":    f.Severity,
 		},
 	})
 	return err

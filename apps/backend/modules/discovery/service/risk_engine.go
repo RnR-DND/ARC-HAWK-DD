@@ -209,13 +209,15 @@ func (e *RiskEngine) RecalculateOnScanComplete(ctx context.Context, scanJobID uu
 		}
 
 		// Write time-series history row (non-fatal).
-		_, _ = e.repo.DB().ExecContext(ctx, `
+		if _, err := e.repo.DB().ExecContext(ctx, `
 			INSERT INTO risk_score_history
 			    (asset_id, score, tier, pii_density, sensitivity_weight, access_exposure, retention_violation)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 		`, assetID, result.Score, string(result.Tier),
 			result.PIIDensity, result.SensitivityWeight, result.AccessExposure, result.RetentionViolation,
-		)
+		); err != nil {
+			log.Printf("WARN: risk engine: history insert for asset %s: %v", assetID, err)
+		}
 
 		scored++
 	}

@@ -30,6 +30,6 @@ test.describe('Findings filter flow', () => {
   });
 
   test('export CSV button is present', async ({ page }) => {
-    await expect(page.getByTestId('export-csv-btn')).toBeVisible();
+    await expect(page.getByTestId('export-findings-btn')).toBeVisible();
   });
 });

@@ -128,12 +128,15 @@ func (s *FeedbackService) maybeAdjustPatternThreshold(ctx context.Context, tenan
 		newThreshold = 90
 	}
 
-	_, _ = s.db.ExecContext(ctx, `
+	if _, err := s.db.ExecContext(ctx, `
 		INSERT INTO pattern_confidence_overrides (tenant_id, pattern_code, min_confidence_score, updated_at)
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (tenant_id, pattern_code) DO UPDATE
 		SET min_confidence_score = $3, updated_at = NOW()
-	`, tenantID, patternCode, newThreshold)
+	`, tenantID, patternCode, newThreshold); err != nil {
+		slog.WarnContext(ctx, "bayesian threshold upsert failed", "pattern", patternCode, "error", err)
+		return
+	}
 
 	slog.InfoContext(ctx, "bayesian threshold adjusted",
 		"pattern", patternCode,

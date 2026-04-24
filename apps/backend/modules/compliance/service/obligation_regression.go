@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	"github.com/arc-platform/backend/modules/shared/infrastructure/audit"
 	"github.com/google/uuid"
@@ -53,14 +54,16 @@ func (d *ObligationRegressionDetector) DetectRegressions(ctx context.Context, te
 		})
 
 		// Upsert regression record
-		_, _ = d.db.ExecContext(ctx, `
+		if _, err := d.db.ExecContext(ctx, `
 			INSERT INTO obligation_regressions (tenant_id, scan_id, pii_category, detected_at)
 			VALUES ($1, $2, $3, NOW())
 			ON CONFLICT (tenant_id, pii_category) DO UPDATE SET
 				scan_id = EXCLUDED.scan_id,
 				detected_at = NOW()`,
 			tenantID, currentScanID, cat,
-		)
+		); err != nil {
+			log.Printf("WARN: obligation regression upsert for tenant %s category %s: %v", tenantID, cat, err)
+		}
 	}
 	return nil
 }

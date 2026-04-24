@@ -90,6 +90,13 @@ test-backend:
 	@echo "Running backend tests..."
 	cd apps/backend && go test ./... -short
 
+# Run backend tests with race detector (use in CI)
+test-race:
+	@echo "Running backend tests with race detector..."
+	cd apps/backend && go test ./... -race -short
+	@echo "Running scanner tests with race detector..."
+	cd apps/goScanner && go test ./... -race
+
 # Run frontend tests
 test-frontend:
 	@echo "Running frontend tests..."
