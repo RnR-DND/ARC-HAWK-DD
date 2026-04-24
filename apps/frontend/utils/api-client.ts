@@ -25,6 +25,17 @@ export const apiClient: AxiosInstance = axios.create({
     withCredentials: true, // send httpOnly session cookies automatically
 });
 
+// Request Interceptor — inject Bearer token from localStorage when present.
+apiClient.interceptors.request.use((config) => {
+    if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('arc_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+    }
+    return config;
+});
+
 // Response Interceptor
 // Global 401 handling: set a localStorage flag so the login page can display
 // "Your session expired". Debounced to avoid a redirect storm when many API

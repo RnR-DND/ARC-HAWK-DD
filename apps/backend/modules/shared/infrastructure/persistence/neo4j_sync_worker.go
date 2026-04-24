@@ -16,11 +16,17 @@ var neo4jSyncDeadLetterTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "Total neo4j sync queue rows transitioned to dead_letter status",
 })
 
+// neo4jSyncer is the subset of Neo4jRepository used by the sync worker.
+// Extracted to allow test doubles without a real Neo4j connection.
+type neo4jSyncer interface {
+	SyncFindingsToPIICategories(ctx context.Context, assetID string, piiTypeCounts map[string]int) error
+}
+
 // Neo4jSyncWorker drains the neo4j_sync_queue outbox table.
 // It runs as a background goroutine providing at-least-once delivery of Neo4j writes.
 type Neo4jSyncWorker struct {
 	db        *sql.DB
-	neo4jRepo *Neo4jRepository
+	neo4jRepo neo4jSyncer
 	stop      chan struct{}
 	interval  time.Duration
 }
