@@ -12,6 +12,7 @@ volumes:
   neo4j_data:
   neo4j_logs:
   vault_data:
+  redis_data:
 
 services:
   postgres:
@@ -179,6 +180,28 @@ services:
       retries: 5
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    container_name: arc-platform-redis
+    networks:
+      arc-platform-internal:
+        ipv4_address: 172.31.240.16
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: ./apps/backend
@@ -219,6 +242,8 @@ services:
       - SUPERMEMORY_ENABLED=${SUPERMEMORY_ENABLED:-false}
       - SUPERMEMORY_API_KEY=${SUPERMEMORY_API_KEY:-}
       - SUPERMEMORY_API_URL=${SUPERMEMORY_API_URL:-https://api.supermemory.ai}
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     env_file:
       - .env
     depends_on:
@@ -229,6 +254,8 @@ services:
       temporal:
         condition: service_started
       go-scanner:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     deploy:
       resources:
