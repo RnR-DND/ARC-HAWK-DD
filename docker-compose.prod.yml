@@ -1,0 +1,111 @@
+# Production overrides — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file:
+#   - Locks down port bindings (only frontend:3000 and backend:8080 exposed)
+#   - Sets NODE_ENV=production
+#   - Removes debug flags
+#   - Adds log rotation to all services
+
+services:
+  postgres:
+    ports: []          # no host binding; reached only via internal network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  neo4j:
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  presidio-analyzer:
+    environment:
+      - LOG_LEVEL=WARNING
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  temporal:
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  temporal-ui:
+    ports: []          # access via reverse proxy only
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  vault:
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  backend:
+    ports:
+      - "127.0.0.1:8080:8080"   # loopback only — sit behind a reverse proxy
+    environment:
+      - GIN_MODE=release
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  frontend:
+    ports:
+      - "0.0.0.0:3000:3000"     # public — terminate TLS at load balancer
+    environment:
+      - NODE_ENV=production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  go-scanner:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  prometheus:
+    ports: []          # scrape internally; expose via Grafana only
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    ports: []          # access via reverse proxy only
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -18,6 +18,7 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: arc-platform-db
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.10
@@ -33,9 +34,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 512M
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,8 +45,9 @@ services:
   neo4j:
     image: neo4j:5.15-community
     container_name: arc-platform-neo4j
-    # neo4j 5.x with APOC exits(1) on first start after plugin install then restarts cleanly
-    restart: on-failure
+    # unless-stopped covers on-failure; neo4j 5.x with APOC exits(1) on first
+    # start after plugin install then restarts cleanly — this handles that.
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.11
@@ -63,9 +66,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 1G
     healthcheck:
-      test: [ "CMD-SHELL", "cypher-shell -u ${NEO4J_USERNAME} -p ${NEO4J_PASSWORD} 'RETURN 1'" ]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
       interval: 10s
       timeout: 20s
       retries: 10
@@ -74,6 +78,7 @@ services:
   presidio-analyzer:
     image: mcr.microsoft.com/presidio-analyzer:latest
     container_name: arc-platform-presidio
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.12
@@ -87,9 +92,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 1G
     healthcheck:
-      test: [ "CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1" ]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -97,6 +103,7 @@ services:
   temporal:
     image: temporalio/auto-setup:1.22.0
     container_name: arc-platform-temporal
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.13
@@ -115,9 +122,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "0.5"
           memory: 1G
     healthcheck:
-      test: [ "CMD-SHELL", "tctl --address localhost:7233 cluster health || curl -sf http://localhost:7233 || true" ]
+      test: ["CMD-SHELL", "tctl --address localhost:7233 cluster health || curl -sf http://localhost:7233 || true"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -126,6 +134,7 @@ services:
   temporal-ui:
     image: temporalio/ui:2.21.0
     container_name: arc-platform-temporal-ui
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.14
@@ -141,8 +150,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
           cpus: "0.5"
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080 || exit 1"]
       interval: 30s
@@ -153,6 +162,7 @@ services:
   vault:
     image: hashicorp/vault:1.15
     container_name: arc-platform-vault
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.15
@@ -172,9 +182,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "0.25"
           memory: 256M
     healthcheck:
-      test: [ "CMD", "vault", "status" ]
+      test: ["CMD", "vault", "status"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -183,6 +194,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: arc-platform-redis
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.16
@@ -194,19 +206,20 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "0.5"
           memory: 256M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
 
   backend:
     build:
       context: ./apps/backend
       dockerfile: Dockerfile
     container_name: arc-platform-backend
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.20
@@ -260,9 +273,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 1G
     healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1" ]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -273,6 +287,7 @@ services:
       context: ./apps/frontend
       dockerfile: Dockerfile
     container_name: arc-platform-frontend
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.30
@@ -283,8 +298,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
           cpus: "1.0"
+          memory: 512M
     depends_on:
       - backend
     healthcheck:
@@ -299,6 +314,7 @@ services:
       context: ./apps/goScanner
       dockerfile: Dockerfile
     container_name: arc-platform-go-scanner
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.41
@@ -319,6 +335,7 @@ services:
     deploy:
       resources:
         limits:
+          cpus: "1.0"
           memory: 512M
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8001/health"]
@@ -326,11 +343,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:latest
     container_name: arc-platform-prometheus
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.50
@@ -341,8 +358,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
           cpus: "0.5"
+          memory: 512M
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
       interval: 30s
@@ -352,6 +369,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: arc-platform-grafana
+    restart: unless-stopped
     networks:
       arc-platform-internal:
         ipv4_address: 172.31.240.51
@@ -364,8 +382,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
           cpus: "0.5"
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 30s
