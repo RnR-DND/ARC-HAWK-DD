@@ -11,7 +11,10 @@ import (
 )
 
 // MSSQLConnector scans a Microsoft SQL Server database.
-type MSSQLConnector struct{ db *sql.DB }
+type MSSQLConnector struct {
+	db         *sql.DB
+	sampleSize int
+}
 
 func (c *MSSQLConnector) SourceType() string { return "mssql" }
 
@@ -24,13 +27,28 @@ func (c *MSSQLConnector) Connect(ctx context.Context, config map[string]any) err
 	user := cfgString(config, "user", "username")
 	pass := cfgString(config, "password")
 	dbname := cfgString(config, "dbname", "database")
-	dsn := fmt.Sprintf("sqlserver://%s:%s@%s:%s?database=%s", user, pass, host, port, dbname)
+
+	// TLS: "disable" skips cert validation (dev only); default "true" enforces TLS.
+	encrypt := cfgString(config, "encrypt")
+	if encrypt == "" {
+		encrypt = "true"
+	}
+	trustCert := cfgString(config, "trust_server_certificate")
+	if trustCert == "" {
+		trustCert = "false"
+	}
+
+	dsn := fmt.Sprintf(
+		"sqlserver://%s:%s@%s:%s?database=%s&encrypt=%s&TrustServerCertificate=%s",
+		user, pass, host, port, dbname, encrypt, trustCert,
+	)
 	db, err := sql.Open("sqlserver", dsn)
 	if err != nil {
 		return err
 	}
 	applyPoolDefaults(db)
 	c.db = db
+	c.sampleSize = cfgInt(config, "sample_size", 1000, 50000)
 	return db.PingContext(ctx)
 }
 
@@ -70,7 +88,7 @@ func (c *MSSQLConnector) StreamFields(ctx context.Context) (<-chan connectors.Fi
 		}
 
 		for _, t := range tables {
-			query := fmt.Sprintf(`SELECT TOP 10000 * FROM [%s].[%s]`, t.schema, t.name)
+			query := fmt.Sprintf(`SELECT TOP %d * FROM [%s].[%s] ORDER BY NEWID()`, c.sampleSize, t.schema, t.name)
 			dataRows, err := c.db.QueryContext(ctx, query)
 			if err != nil {
 				continue
