@@ -65,15 +65,17 @@ func (w *Neo4jSyncWorker) Stop() {
 	close(w.stop)
 }
 
-// recoverStaleRows resets rows stuck in 'processing' back to 'failed' so they
+// recoverStaleRows resets rows stuck in 'processing' back to 'pending' so they
 // are retried. A row is considered stale when it has been in 'processing' for
 // more than 10 minutes — longer than any reasonable Neo4j write should take.
+// We reset to 'pending' (not 'failed') because a crashed worker did not
+// actually attempt the operation, so the attempt count should not increment.
 func (w *Neo4jSyncWorker) recoverStaleRows(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	res, err := w.db.ExecContext(ctx, `
 		UPDATE neo4j_sync_queue
-		SET    status     = 'failed',
+		SET    status     = 'pending',
 		       last_error = 'recovered from stale processing state',
 		       updated_at = NOW()
 		WHERE  status = 'processing'

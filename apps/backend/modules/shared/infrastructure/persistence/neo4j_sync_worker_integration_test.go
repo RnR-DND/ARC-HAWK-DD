@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/arc-platform/backend/modules/shared/testutil"
+	"github.com/google/uuid"
 )
 
 // stubNeo4j implements neo4jSyncer for integration tests.
@@ -30,7 +31,7 @@ func (s *stubNeo4j) SyncFindingsToPIICategories(_ context.Context, assetID strin
 // insertPendingRow inserts a row into neo4j_sync_queue and returns its id.
 func insertPendingRow(t *testing.T, tdb *testutil.TestDB, assetID string, attempts int, status string) string {
 	t.Helper()
-	id := fmt.Sprintf("test-%d", time.Now().UnixNano())
+	id := uuid.New().String()
 	payload, _ := json.Marshal(map[string]interface{}{
 		"asset_id":        assetID,
 		"pii_type_counts": map[string]int{"AADHAAR": 3},
