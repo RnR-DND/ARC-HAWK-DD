@@ -1,3 +1,4 @@
+// Package websocket pushes real-time scan-progress and alert events to connected browser clients.
 package websocket
 
 import (

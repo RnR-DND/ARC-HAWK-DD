@@ -1,0 +1,3918 @@
+basePath: /api/v1
+definitions:
+  gin.H:
+    additionalProperties: {}
+    type: object
+  github_com_arc-platform_backend_modules_compliance_service.ConsentBasis:
+    enum:
+    - explicit
+    - legitimate_interest
+    - contractual
+    - legal_obligation
+    type: string
+    x-enum-varnames:
+    - ConsentBasisExplicit
+    - ConsentBasisLegitimateInterest
+    - ConsentBasisContractual
+    - ConsentBasisLegalObligation
+  github_com_arc-platform_backend_modules_compliance_service.ConsentRequest:
+    properties:
+      asset_id:
+        type: string
+      consent_basis:
+        $ref: '#/definitions/github_com_arc-platform_backend_modules_compliance_service.ConsentBasis'
+      consent_expires_at:
+        type: string
+      consent_obtained_at:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      obtained_by:
+        type: string
+      pii_type:
+        type: string
+      purpose:
+        type: string
+    required:
+    - asset_id
+    - consent_basis
+    - consent_obtained_at
+    - obtained_by
+    - pii_type
+    - purpose
+    type: object
+  github_com_arc-platform_backend_modules_compliance_service.ConsentWithdrawalRequest:
+    properties:
+      withdrawal_reason:
+        type: string
+      withdrawal_requested_by:
+        type: string
+    required:
+    - withdrawal_requested_by
+    type: object
+  github_com_arc-platform_backend_modules_connections_service.ConnectionTestResult:
+    properties:
+      database_info:
+        type: string
+      error_details:
+        type: string
+      message:
+        type: string
+      response_time_ms:
+        type: integer
+      server_version:
+        type: string
+      source_type:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_arc-platform_backend_modules_scanning_service.CustomPattern:
+    properties:
+      auto_deactivated:
+        type: boolean
+      backtrack_safe:
+        type: boolean
+      category:
+        type: string
+      context_keywords:
+        description: 'WS4: context keyword boosting for custom patterns (migration
+          000038)'
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      created_by:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      false_positive_count:
+        description: 'Phase 2: false-positive tracking (migration 000036)'
+        type: integer
+      false_positive_rate:
+        type: number
+      id:
+        type: string
+      is_active:
+        type: boolean
+      last_matched_at:
+        type: string
+      match_count_lifetime:
+        type: integer
+      name:
+        type: string
+      negative_keywords:
+        items:
+          type: string
+        type: array
+      regex:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      validation_status:
+        description: 'Phase 2: regex engine hardening'
+        type: string
+    type: object
+  github_com_arc-platform_backend_modules_scanning_service.TriggerScanRequest:
+    properties:
+      classification_mode:
+        description: |-
+          ClassificationMode controls which detection engines the scanner uses.
+          Options: "regex" (regex only), "ner" (regex+spaCy NER), "contextual" (regex+NER+contextual).
+          Default (empty) = "contextual" (all engines enabled).
+        type: string
+      custom_patterns:
+        description: CustomPatterns are user-defined patterns appended to the scan;
+          populated by backend at trigger time.
+        items:
+          additionalProperties: {}
+          type: object
+        type: array
+      execution_mode:
+        enum:
+        - sequential
+        - parallel
+        type: string
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      pii_types:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      pii_types_per_source:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: |-
+          PIITypesPerSource maps profile_name → PII types for that source.
+          When set, overrides the global PIITypes for the specified sources.
+          Sources not listed here fall back to the global PIITypes.
+        type: object
+      sources:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - execution_mode
+    - name
+    - pii_types
+    - sources
+    type: object
+  modules_compliance_api.createConsentRequest:
+    properties:
+      asset_id:
+        type: string
+      consent_expires_at:
+        type: string
+      consent_given_at:
+        type: string
+      consent_mechanism:
+        description: 'ConsentMechanism must be one of: explicit, implicit, legitimate_interest'
+        type: string
+      data_subject_id:
+        type: string
+      purpose:
+        type: string
+    required:
+    - consent_given_at
+    - consent_mechanism
+    - data_subject_id
+    - purpose
+    type: object
+  modules_compliance_api.groSettings:
+    properties:
+      gro_email:
+        type: string
+      gro_name:
+        type: string
+      gro_phone:
+        type: string
+      is_significant_data_fiduciary:
+        type: boolean
+    type: object
+  modules_connections_api.AddConnectionRequest:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      profile_name:
+        maxLength: 50
+        minLength: 1
+        type: string
+      source_type:
+        enum:
+        - postgresql
+        - mysql
+        - mongodb
+        - redis
+        - sqlite
+        - oracle
+        - mssql
+        - firebase
+        - couchdb
+        - s3
+        - gcs
+        - azure_blob
+        - gdrive
+        - gdrive_workspace
+        - bigquery
+        - snowflake
+        - redshift
+        - kafka
+        - kinesis
+        - filesystem
+        - csv_excel
+        - pdf
+        - docx
+        - pptx
+        - html_files
+        - email_files
+        - parquet
+        - orc
+        - avro
+        - scanned_images
+        - text
+        - slack
+        - salesforce
+        - hubspot
+        - jira
+        - ms_teams
+        type: string
+    required:
+    - config
+    - profile_name
+    - source_type
+    type: object
+  modules_connections_api.TestConnectionRequest:
+    properties:
+      config:
+        additionalProperties: {}
+        type: object
+      source_type:
+        enum:
+        - postgresql
+        - mysql
+        - mongodb
+        - redis
+        - sqlite
+        - oracle
+        - mssql
+        - firebase
+        - couchdb
+        - s3
+        - gcs
+        - azure_blob
+        - gdrive
+        - gdrive_workspace
+        - bigquery
+        - snowflake
+        - redshift
+        - kafka
+        - kinesis
+        - filesystem
+        - csv_excel
+        - pdf
+        - docx
+        - pptx
+        - html_files
+        - email_files
+        - parquet
+        - orc
+        - avro
+        - scanned_images
+        - text
+        - slack
+        - salesforce
+        - hubspot
+        - jira
+        - ms_teams
+        type: string
+    required:
+    - config
+    - source_type
+    type: object
+  modules_remediation_api.ExecuteRemediationRequest:
+    properties:
+      action_type:
+        enum:
+        - MASK
+        - DELETE
+        - ENCRYPT
+        type: string
+      finding_ids:
+        items:
+          type: string
+        type: array
+    required:
+    - action_type
+    - finding_ids
+    type: object
+  modules_remediation_api.ExecuteRemediationResponse:
+    properties:
+      action_ids:
+        items:
+          type: string
+        type: array
+      errors:
+        items:
+          type: string
+        type: array
+      failed:
+        type: integer
+      success:
+        type: integer
+    type: object
+  modules_scanning_api.AgentSyncBatch:
+    properties:
+      batch_seq:
+        minimum: 0
+        type: integer
+      results:
+        items:
+          type: integer
+        type: array
+      scan_job_id:
+        type: string
+    required:
+    - batch_seq
+    - results
+    - scan_job_id
+    type: object
+  modules_scanning_api.AgentSyncRequest:
+    properties:
+      agent_id:
+        type: string
+      batches:
+        description: preferred field name
+        items:
+          $ref: '#/definitions/modules_scanning_api.AgentSyncBatch'
+        type: array
+      results:
+        description: legacy field name (apps/agent ≤ v1)
+        items:
+          $ref: '#/definitions/modules_scanning_api.AgentSyncBatch'
+        type: array
+    required:
+    - agent_id
+    type: object
+  modules_scanning_api.AgentSyncResponse:
+    properties:
+      accepted:
+        type: integer
+      details:
+        items:
+          $ref: '#/definitions/modules_scanning_api.BatchResult'
+        type: array
+      failed:
+        type: integer
+      late:
+        description: arrived after job completed/cancelled
+        type: integer
+      skipped:
+        description: duplicates
+        type: integer
+    type: object
+  modules_scanning_api.BatchResult:
+    properties:
+      batch_seq:
+        type: integer
+      error:
+        type: string
+      scan_job_id:
+        type: string
+      status:
+        description: '"accepted", "skipped", "arrived_late", "failed"'
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: security@arc-hawk.io
+    name: ARC-Hawk Security Team
+  description: Enterprise PII Discovery, Classification, and Lineage Tracking Platform.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: https://arc-hawk.io/terms
+  title: ARC-HAWK-DD API
+  version: 3.0.0
+paths:
+  /agent/sync:
+    post:
+      consumes:
+      - application/json
+      description: Idempotent batch ingestion from EDR agents. Requires X-Scanner-Token
+        + X-Tenant-ID headers.
+      parameters:
+      - description: Scanner service token
+        in: header
+        name: X-Scanner-Token
+        required: true
+        type: string
+      - description: Tenant UUID
+        in: header
+        name: X-Tenant-ID
+        required: true
+        type: string
+      - description: Batch payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/modules_scanning_api.AgentSyncRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modules_scanning_api.AgentSyncResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Ingest agent scan batch (idempotent)
+      tags:
+      - agent
+  /analytics/heatmap:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get PII type vs source heatmap
+      tags:
+      - analytics
+  /analytics/risk-distribution:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get risk score distribution across assets
+      tags:
+      - analytics
+  /analytics/trends:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Lookback window in days (default 30)
+        in: query
+        name: days
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get risk score trend over time
+      tags:
+      - analytics
+  /api/v1/audit/logs:
+    get:
+      consumes:
+      - application/json
+      description: Returns audit logs with optional filters for event type, user,
+        and time range
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filter by event type
+        in: query
+        name: event_type
+        type: string
+      - description: Filter by user ID
+        in: query
+        name: user_id
+        type: string
+      - description: Start time in RFC3339 format
+        in: query
+        name: from
+        type: string
+      - description: End time in RFC3339 format
+        in: query
+        name: to
+        type: string
+      - description: Maximum records to return
+        in: query
+        name: limit
+        type: integer
+      - description: Number of records to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List audit logs
+      tags:
+      - compliance
+  /api/v1/audit/recent:
+    get:
+      consumes:
+      - application/json
+      description: Returns recent activity across all users
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get recent audit activity
+      tags:
+      - compliance
+  /api/v1/audit/resource/{resourceType}/{resourceId}:
+    get:
+      consumes:
+      - application/json
+      description: Returns the full audit history for a specific resource by type
+        and ID
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Resource type
+        in: path
+        name: resourceType
+        required: true
+        type: string
+      - description: Resource ID
+        in: path
+        name: resourceId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get resource audit history
+      tags:
+      - compliance
+  /api/v1/audit/user/{userId}:
+    get:
+      consumes:
+      - application/json
+      description: Returns activity summary and audit logs for a specific user
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get user activity
+      tags:
+      - compliance
+  /api/v1/compliance/audit-trail:
+    get:
+      consumes:
+      - application/json
+      description: Returns paginated audit ledger rows for the tenant
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filter by event type (repeatable)
+        in: query
+        name: event_type
+        type: string
+      - description: Start time in RFC3339 format
+        in: query
+        name: from
+        type: string
+      - description: End time in RFC3339 format
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get compliance audit trail
+      tags:
+      - compliance
+  /api/v1/compliance/consent/records:
+    get:
+      consumes:
+      - application/json
+      description: Returns paginated consent records for the tenant
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Maximum records to return (default 50, max 200)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of records to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List compliance consent records
+      tags:
+      - compliance
+    post:
+      consumes:
+      - application/json
+      description: Creates a new consent record for a data subject
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Consent record payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/modules_compliance_api.createConsentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Create a consent record
+      tags:
+      - compliance
+  /api/v1/compliance/consent/records/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Withdraws consent by setting withdrawal_timestamp and marking inactive
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Consent record UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Withdraw a consent record
+      tags:
+      - compliance
+  /api/v1/compliance/critical:
+    get:
+      consumes:
+      - application/json
+      description: Returns assets with critical PII exposure
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get critical assets with PII exposure
+      tags:
+      - compliance
+  /api/v1/compliance/dpdpa/gaps:
+    get:
+      consumes:
+      - application/json
+      description: Returns the raw DPDPA obligation gap data as JSON
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get DPDPA obligation gaps
+      tags:
+      - compliance
+  /api/v1/compliance/dpdpa/report:
+    get:
+      consumes:
+      - application/json
+      description: Returns an HTML compliance gap report suitable for print-to-PDF
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Generate DPDPA HTML compliance report
+      tags:
+      - compliance
+  /api/v1/compliance/dpr:
+    get:
+      consumes:
+      - application/json
+      description: Returns paginated list of data principal rights requests with optional
+        filters
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filter by request status (PENDING, IN_PROGRESS, COMPLETED, REJECTED)
+        in: query
+        name: status
+        type: string
+      - description: Filter by request type
+        in: query
+        name: type
+        type: string
+      - description: Maximum records to return (default 50, max 200)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of records to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List data principal rights requests
+      tags:
+      - compliance
+    post:
+      consumes:
+      - application/json
+      description: Submits a new DPDPA data principal rights request (access, correction,
+        erasure, etc.)
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Data principal request payload
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Submit a data principal rights request
+      tags:
+      - compliance
+  /api/v1/compliance/dpr/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: Updates the status of a data principal rights request
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Request UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status update payload
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Update data principal request status
+      tags:
+      - compliance
+  /api/v1/compliance/dpr/stats:
+    get:
+      consumes:
+      - application/json
+      description: Returns counts by status and overdue compliance flag for DPDPA
+        Sec 7
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get data principal request statistics
+      tags:
+      - compliance
+  /api/v1/compliance/evidence-package:
+    post:
+      consumes:
+      - application/json
+      description: Generates a ZIP containing all DPDP evidence and streams it to
+        the client
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/zip
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Generate DPDP evidence package
+      tags:
+      - compliance
+  /api/v1/compliance/gro-settings:
+    get:
+      consumes:
+      - application/json
+      description: Returns the current tenant's Grievance Redressal Officer settings
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get GRO settings
+      tags:
+      - compliance
+    put:
+      consumes:
+      - application/json
+      description: Updates the Grievance Redressal Officer configuration for the tenant
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: GRO settings payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/modules_compliance_api.groSettings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Update GRO settings
+      tags:
+      - compliance
+  /api/v1/compliance/overview:
+    get:
+      consumes:
+      - application/json
+      description: Returns the DPDPA compliance dashboard with summary metrics
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get DPDPA compliance overview
+      tags:
+      - compliance
+  /api/v1/compliance/violations:
+    get:
+      consumes:
+      - application/json
+      description: Returns assets violating consent rules
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get consent violations
+      tags:
+      - compliance
+  /api/v1/consent/records:
+    get:
+      consumes:
+      - application/json
+      description: Returns consent records with optional filters
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filter by asset ID
+        in: query
+        name: asset_id
+        type: string
+      - description: Filter by PII type
+        in: query
+        name: pii_type
+        type: string
+      - description: Filter by consent status
+        in: query
+        name: status
+        type: string
+      - description: Maximum records to return
+        in: query
+        name: limit
+        type: integer
+      - description: Number of records to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List consent records
+      tags:
+      - compliance
+    post:
+      consumes:
+      - application/json
+      description: Records a new consent entry for a data subject
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Consent request payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_arc-platform_backend_modules_compliance_service.ConsentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Record a new consent
+      tags:
+      - compliance
+  /api/v1/consent/status/{assetId}/{piiType}:
+    get:
+      consumes:
+      - application/json
+      description: Returns the consent status for a specific asset and PII type combination
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset ID
+        in: path
+        name: assetId
+        required: true
+        type: string
+      - description: PII type
+        in: path
+        name: piiType
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get consent status for an asset and PII type
+      tags:
+      - compliance
+  /api/v1/consent/violations:
+    get:
+      consumes:
+      - application/json
+      description: Returns assets that have consent violations
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get consent violations
+      tags:
+      - compliance
+  /api/v1/consent/withdraw/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Withdraws a previously recorded consent by ID
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Consent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Withdrawal request payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_arc-platform_backend_modules_compliance_service.ConsentWithdrawalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Withdraw an existing consent
+      tags:
+      - compliance
+  /api/v1/remediation:
+    post:
+      consumes:
+      - application/json
+      description: Executes remediation actions (MASK, DELETE, or ENCRYPT) for one
+        or more findings
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Remediation execution request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/modules_remediation_api.ExecuteRemediationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/modules_remediation_api.ExecuteRemediationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Execute remediation for findings
+      tags:
+      - remediation
+  /api/v1/remediation/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves details of a specific remediation action by ID
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Remediation action ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get a single remediation action
+      tags:
+      - remediation
+  /api/v1/remediation/actions/{findingId}:
+    get:
+      consumes:
+      - application/json
+      description: Returns all remediation actions associated with a specific finding
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Finding ID
+        in: path
+        name: findingId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get remediation actions for a finding
+      tags:
+      - remediation
+  /api/v1/remediation/escalation/preview:
+    get:
+      consumes:
+      - application/json
+      description: Returns the list of findings that would be escalated (dry-run,
+        no mutations)
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Preview escalation candidates
+      tags:
+      - remediation
+  /api/v1/remediation/escalation/run:
+    post:
+      consumes:
+      - application/json
+      description: Executes the escalation pass and returns the count of escalated
+        findings
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Optional escalation run parameters
+        in: body
+        name: body
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Run escalation pass
+      tags:
+      - remediation
+  /api/v1/remediation/export:
+    get:
+      consumes:
+      - application/json
+      description: Exports remediation history as PDF (HTML) or XLSX
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 'Export format: pdf or xlsx (default pdf)'
+        in: query
+        name: format
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Export remediation report
+      tags:
+      - remediation
+  /api/v1/remediation/history:
+    get:
+      consumes:
+      - application/json
+      description: Returns the audit trail of all remediation actions
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Maximum records to return (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of records to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Filter by action type
+        in: query
+        name: action
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get remediation history
+      tags:
+      - remediation
+  /api/v1/remediation/history/{assetId}:
+    get:
+      consumes:
+      - application/json
+      description: Returns the full remediation action history for a specific asset
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset ID
+        in: path
+        name: assetId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get remediation history for an asset
+      tags:
+      - remediation
+  /api/v1/remediation/preview:
+    post:
+      consumes:
+      - application/json
+      description: Generates a preview of what remediation would do without executing
+        it
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Preview request with finding_ids and action_type
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Generate remediation preview
+      tags:
+      - remediation
+  /api/v1/remediation/rollback/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Rolls back a previously executed remediation action by action ID
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Remediation action ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Rollback a remediation action
+      tags:
+      - remediation
+  /api/v1/retention/policies:
+    post:
+      consumes:
+      - application/json
+      description: Sets or updates the data retention policy for a specific asset
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Retention policy payload
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Set retention policy for an asset
+      tags:
+      - compliance
+  /api/v1/retention/policies/{assetId}:
+    get:
+      consumes:
+      - application/json
+      description: Returns the data retention policy configured for a specific asset
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset ID
+        in: path
+        name: assetId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get retention policy for an asset
+      tags:
+      - compliance
+  /api/v1/retention/timeline/{assetId}:
+    get:
+      consumes:
+      - application/json
+      description: Returns the retention timeline history for a specific asset
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset ID
+        in: path
+        name: assetId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get retention timeline for an asset
+      tags:
+      - compliance
+  /api/v1/retention/violations:
+    get:
+      consumes:
+      - application/json
+      description: Returns findings that exceed their configured retention policy
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get retention policy violations
+      tags:
+      - compliance
+  /assets:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filter by source type
+        in: query
+        name: source_type
+        type: string
+      - description: Filter by classification
+        in: query
+        name: classification
+        type: string
+      - description: Max results
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List assets for tenant
+      tags:
+      - assets
+  /assets/{id}:
+    delete:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Delete an asset and its findings
+      tags:
+      - assets
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get asset by ID
+      tags:
+      - assets
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: '{current_password, new_password}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Change user password
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Public endpoint — no auth required
+      parameters:
+      - description: '{email, password}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: token, refresh_token, user
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Authenticate and get JWT token
+      tags:
+      - auth
+  /auth/profile:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get authenticated user profile
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Public endpoint — exchange refresh_token for new access token
+      parameters:
+      - description: '{refresh_token}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: token
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Public endpoint — creates user in caller's tenant
+      parameters:
+      - description: '{email, password, first_name, last_name}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "409":
+          description: Email already exists
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Register a new user
+      tags:
+      - auth
+  /auth/settings:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get tenant settings
+      tags:
+      - auth
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Key-value settings map
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Update tenant settings
+      tags:
+      - auth
+  /auth/users:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List all users in tenant
+      tags:
+      - auth
+  /connections:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List all connections for tenant
+      tags:
+      - connections
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Connection config
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/modules_connections_api.AddConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Add a new data source connection
+      tags:
+      - connections
+  /connections/{id}:
+    delete:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Connection UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Delete a connection
+      tags:
+      - connections
+  /connections/{id}/test:
+    post:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Connection UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_arc-platform_backend_modules_connections_service.ConnectionTestResult'
+      security:
+      - BearerAuth: []
+      summary: Test an existing saved connection
+      tags:
+      - connections
+  /connections/available-types:
+    get:
+      description: Returns 36 connector types across databases, cloud storage, warehouses,
+        queues, files, and SaaS
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'types: [{source_type, display_name, category, icon}]'
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: List all supported connector types
+      tags:
+      - connections
+  /connections/test:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: source_type + config map
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/modules_connections_api.TestConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_arc-platform_backend_modules_connections_service.ConnectionTestResult'
+      security:
+      - BearerAuth: []
+      summary: Test a connection by config (no save)
+      tags:
+      - connections
+  /dashboard/metrics:
+    get:
+      description: Returns scan counts, finding totals, risk distribution, and recent
+        activity
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get real-time dashboard metrics
+      tags:
+      - scanning
+  /dataset/golden:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get golden dataset for classifier training
+      tags:
+      - assets
+  /discovery/drift/since/{snapshotId}:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Snapshot UUID
+        in: path
+        name: snapshotId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get drift events since a snapshot
+      tags:
+      - discovery
+  /discovery/drift/timeline:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get full drift timeline
+      tags:
+      - discovery
+  /discovery/glossary:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get data glossary and term registry
+      tags:
+      - discovery
+  /discovery/inventory:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List full asset inventory with source mapping
+      tags:
+      - discovery
+  /discovery/inventory/{assetId}:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset UUID
+        in: path
+        name: assetId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get per-asset inventory detail
+      tags:
+      - discovery
+  /discovery/overview:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get discovery dashboard overview
+      tags:
+      - discovery
+  /discovery/reports:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Max results (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List recent report jobs
+      tags:
+      - discovery
+  /discovery/reports/{id}:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Report UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get report job status
+      tags:
+      - discovery
+  /discovery/reports/{id}/download:
+    get:
+      description: Returns application/pdf, text/html, text/csv, or application/json
+        depending on format
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Report UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: Report bytes
+          schema:
+            type: string
+        "425":
+          description: Report not ready yet
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Download generated report file
+      tags:
+      - discovery
+  /discovery/reports/generate:
+    post:
+      consumes:
+      - application/json
+      description: Generates html, csv, json, or pdf report asynchronously. Poll GET
+        /discovery/reports/:id for status.
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: '{snapshot_id, format: html|csv|json|pdf}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: report_id, status
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Enqueue a discovery report
+      tags:
+      - discovery
+  /discovery/risk/hotspots:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get top-N riskiest assets
+      tags:
+      - discovery
+  /discovery/risk/overview:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get aggregate risk overview
+      tags:
+      - discovery
+  /discovery/risk/scores/{assetId}:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset UUID
+        in: path
+        name: assetId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get time-series risk score for an asset
+      tags:
+      - discovery
+  /discovery/snapshots:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List point-in-time snapshots
+      tags:
+      - discovery
+  /discovery/snapshots/{id}:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Snapshot UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get a specific snapshot
+      tags:
+      - discovery
+  /discovery/snapshots/trigger:
+    post:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Trigger a new data snapshot
+      tags:
+      - discovery
+  /findings:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filter by asset UUID
+        in: query
+        name: asset_id
+        type: string
+      - description: Filter by PII type (EMAIL, AADHAAR, PAN…)
+        in: query
+        name: pii_type
+        type: string
+      - description: critical|high|medium|low
+        in: query
+        name: risk_level
+        type: string
+      - description: Max results (default 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List PII findings with filters
+      tags:
+      - findings
+  /findings/{id}/feedback:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Finding UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Submit analyst feedback on a finding
+      tags:
+      - findings
+  /findings/facets:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get facet counts for findings filters
+      tags:
+      - findings
+  /fp/check:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: '{pattern_name, field_name, asset_id}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Check if field/pattern is a known false positive
+      tags:
+      - fp-learning
+  /fp/confirmed:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Confirm a finding as true PII
+      tags:
+      - fp-learning
+  /fp/false-positives:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Mark a finding as false positive
+      tags:
+      - fp-learning
+  /fp/learnings:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List active FP learning entries
+      tags:
+      - fp-learning
+  /fp/learnings/{id}:
+    delete:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Learning UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Soft-delete an FP learning entry
+      tags:
+      - fp-learning
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Learning UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get a specific FP learning entry
+      tags:
+      - fp-learning
+  /fp/stats:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get FP learning precision/recall stats
+      tags:
+      - fp-learning
+  /lineage:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Filter by source system
+        in: query
+        name: system
+        type: string
+      - description: Filter by risk level (Critical|High|Medium|Low)
+        in: query
+        name: risk
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get semantic lineage graph
+      tags:
+      - lineage
+  /lineage/stats:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get lineage graph statistics
+      tags:
+      - lineage
+  /lineage/sync:
+    post:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Manually trigger lineage sync to Neo4j
+      tags:
+      - lineage
+  /masking/audit/{assetId}:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset UUID
+        in: path
+        name: assetId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get masking operation audit log for an asset
+      tags:
+      - masking
+  /masking/mask-asset:
+    post:
+      consumes:
+      - application/json
+      description: Dispatches to the appropriate source-system connector to mask sensitive
+        fields in-place
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: '{asset_id, strategy, dry_run}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Apply PII masking to an asset
+      tags:
+      - masking
+  /masking/status/{assetId}:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Asset UUID
+        in: path
+        name: assetId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get masking status for an asset
+      tags:
+      - masking
+  /memory/search:
+    post:
+      consumes:
+      - application/json
+      description: Hybrid memory + RAG search via Supermemory
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: '{query, limit}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Semantic search over scan history
+      tags:
+      - memory
+  /memory/status:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get memory service status
+      tags:
+      - memory
+  /patterns:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: []CustomPattern'
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List custom PII patterns
+      tags:
+      - patterns
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Pattern definition (name, regex, pii_type required)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_arc-platform_backend_modules_scanning_service.CustomPattern'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Create a custom PII pattern
+      tags:
+      - patterns
+  /patterns/{id}:
+    delete:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Pattern UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Delete a custom pattern
+      tags:
+      - patterns
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Pattern UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Update a custom pattern
+      tags:
+      - patterns
+  /patterns/{id}/false-positive:
+    post:
+      description: Increments false-positive counter; auto-deactivates if rate > 30%%
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Pattern UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Record a false positive hit for a pattern
+      tags:
+      - patterns
+  /patterns/{id}/stats:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Pattern UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get match and false-positive stats for a pattern
+      tags:
+      - patterns
+  /patterns/{id}/test:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Pattern UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: '{test_cases: [{value, should_match}]}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: pass_rate, results per case
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Test a pattern against sample values
+      tags:
+      - patterns
+  /patterns/precision:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get precision metrics for all patterns
+      tags:
+      - patterns
+  /scans:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Page size (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'data: []ScanRun'
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List scan runs
+      tags:
+      - scanning
+  /scans/{id}:
+    delete:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Scan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Delete a scan run
+      tags:
+      - scanning
+    get:
+      description: Returns full details for a single scan run
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Scan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Scan details
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Invalid ID
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not found
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get scan by ID
+      tags:
+      - scanning
+  /scans/{id}/cancel:
+    post:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Scan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Cancel a running or pending scan
+      tags:
+      - scanning
+  /scans/{id}/complete:
+    post:
+      consumes:
+      - application/json
+      description: Called by the Go scanner service to set terminal status. Requires
+        X-Scanner-Token header.
+      parameters:
+      - description: Scanner service token
+        in: header
+        name: X-Scanner-Token
+        required: true
+        type: string
+      - description: Tenant UUID
+        in: header
+        name: X-Tenant-ID
+        required: true
+        type: string
+      - description: Scan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Mark scan complete (scanner callback)
+      tags:
+      - scanning
+  /scans/{id}/delta:
+    get:
+      description: Returns findings added and removed since the immediately preceding
+        scan. Returns 204 when no prior scan exists.
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Scan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: added, removed finding lists
+          schema:
+            $ref: '#/definitions/gin.H'
+        "204":
+          description: No previous scan
+      security:
+      - BearerAuth: []
+      summary: Get finding delta vs previous scan
+      tags:
+      - scanning
+  /scans/{id}/pii-summary:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Scan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get PII type summary for a scan
+      tags:
+      - scanning
+  /scans/{id}/progress-event:
+    post:
+      consumes:
+      - application/json
+      description: Called by Go scanner every N findings to broadcast WebSocket progress.
+        Requires X-Scanner-Token.
+      parameters:
+      - description: Scanner token
+        in: header
+        name: X-Scanner-Token
+        required: true
+        type: string
+      - description: Scan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Receive live scan progress event (scanner callback)
+      tags:
+      - scanning
+  /scans/{id}/status:
+    get:
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Scan UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: status, progress, findings_count, assets_count
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not found
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Get scan status (lightweight poll)
+      tags:
+      - scanning
+  /scans/ingest:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Ingest scan results (legacy endpoint)
+      tags:
+      - scanning
+  /scans/trigger:
+    post:
+      consumes:
+      - application/json
+      description: Creates a scan entity and dispatches it to the scanner service.
+        Scan runs asynchronously; poll GET /scans/:id/status for progress.
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Scan configuration
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_arc-platform_backend_modules_scanning_service.TriggerScanRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Scan accepted — returns scan_id
+          schema:
+            $ref: '#/definitions/gin.H'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Trigger a new scan
+      tags:
+      - scanning
+  /ws:
+    get:
+      description: Upgrades HTTP to WebSocket. Broadcasts scan progress, completion,
+        and PII summary events.
+      parameters:
+      - description: Bearer {token}
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      responses:
+        "101":
+          description: Switching Protocols
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Open a WebSocket connection for real-time scan events
+      tags:
+      - websocket
+securityDefinitions:
+  APIKeyAuth:
+    description: Tenant API key for service-to-service authentication
+    in: header
+    name: X-API-Key
+    type: apiKey
+  BearerAuth:
+    description: 'JWT Bearer token. Format: "Bearer <token>"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

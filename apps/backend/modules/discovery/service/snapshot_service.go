@@ -39,7 +39,7 @@ func NewSnapshotService(repo *Repo, inventory *InventoryService, auditLogger int
 //
 // Returns the new snapshot ID. On any error inside the transaction, the snapshot is
 // marked failed (via a separate connection) and the error is returned.
-func (s *SnapshotService) TakeSnapshot(ctx context.Context, trigger domain.SnapshotTrigger, triggeredBy *uuid.UUID) (*domain.Snapshot, error) {
+func (s *SnapshotService) TakeSnapshot(ctx context.Context, trigger domain.SnapshotTrigger, triggeredBy *uuid.UUID) (snap *domain.Snapshot, retErr error) {
 	tenantID, err := persistence.EnsureTenantID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("take snapshot: %w", err)
@@ -48,7 +48,7 @@ func (s *SnapshotService) TakeSnapshot(ctx context.Context, trigger domain.Snaps
 	startAt := time.Now()
 
 	// 1. Create header in 'pending' status.
-	snap := &domain.Snapshot{
+	snap = &domain.Snapshot{
 		TenantID:    tenantID,
 		Trigger:     trigger,
 		TriggeredBy: triggeredBy,
@@ -73,7 +73,7 @@ func (s *SnapshotService) TakeSnapshot(ctx context.Context, trigger domain.Snaps
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback()
-			panic(p)
+			retErr = fmt.Errorf("snapshot tx panic: %v", p)
 		}
 	}()
 

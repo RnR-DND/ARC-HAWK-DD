@@ -424,7 +424,7 @@ func main() {
 	log.Println("\n🛣️  Registering Module Routes...")
 	log.Println(strings.Repeat("=", 70))
 
-	apiV1 := router.Group("/api/v1", authMW.Authenticate(), middleware.PolicyMiddleware(db))
+	apiV1 := router.Group("/api/v1", authMW.Authenticate(), middleware.PolicyMiddleware(db), middleware.TenantTxMiddleware(db))
 	for _, module := range registry.GetAll() {
 		module.RegisterRoutes(apiV1)
 	}

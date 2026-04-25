@@ -64,7 +64,9 @@ func (s *ConnectionService) AddConnection(ctx context.Context, sourceType, profi
 		return nil, fmt.Errorf("failed to create connection: %w", err)
 	}
 
-	// TODO: Trigger async validation (Phase 3 - Temporal workflow)
+	// TODO(temporal): Enqueue a connection-validation workflow so credentials are
+	// verified asynchronously and the connection status transitions from "pending"
+	// to "healthy" or "failed" without blocking the HTTP response.
 
 	return conn, nil
 }

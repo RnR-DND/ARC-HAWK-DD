@@ -26,7 +26,7 @@ func NewDriftDetectionService(repo *Repo) *DriftDetectionService {
 // for the same tenant and writes drift events for any meaningful differences.
 //
 // Edge case (E7): if there is NO prior snapshot, this is a no-op and returns 0.
-func (s *DriftDetectionService) DetectDrift(ctx context.Context, currentSnapshotID uuid.UUID) (int, error) {
+func (s *DriftDetectionService) DetectDrift(ctx context.Context, currentSnapshotID uuid.UUID) (n int, retErr error) {
 	tenantID, err := persistence.EnsureTenantID(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("detect drift: %w", err)
@@ -68,7 +68,7 @@ func (s *DriftDetectionService) DetectDrift(ctx context.Context, currentSnapshot
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback()
-			panic(p)
+			retErr = fmt.Errorf("drift tx panic: %v", p)
 		}
 	}()
 

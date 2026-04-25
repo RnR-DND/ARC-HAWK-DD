@@ -1,3 +1,4 @@
+// Package scanning drives PII scan lifecycle: trigger, schedule, status tracking, findings ingest, watchdog, and CSV export.
 package scanning
 
 import (

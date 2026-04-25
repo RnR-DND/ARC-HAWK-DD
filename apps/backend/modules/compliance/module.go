@@ -1,3 +1,4 @@
+// Package compliance enforces DPDPA 2023 obligations, manages evidence packages, consent records, DPR workflows, and the tamper-evident audit ledger.
 package compliance
 
 import (

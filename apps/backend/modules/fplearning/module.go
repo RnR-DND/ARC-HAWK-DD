@@ -1,3 +1,4 @@
+// Package fplearning records false-positive feedback from analysts and adjusts per-pattern precision scores over time.
 package fplearning
 
 import (

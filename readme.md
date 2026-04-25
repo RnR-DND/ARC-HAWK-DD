@@ -6,7 +6,7 @@
 [![Version](https://img.shields.io/badge/version-3.0.0-blue)](./CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](./LICENSE)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen)](apps/backend)
-[![Node.js](https://img.shields.io/badge/node-18+-green)](apps/frontend)
+[![Node.js](https://img.shields.io/badge/node-20+-green)](apps/frontend)
 [![Go Scanner](https://img.shields.io/badge/go--scanner-1.24+-00ADD8)](apps/goScanner)
 
 **Enterprise-grade PII Discovery, Classification, and Lineage Tracking Platform**
@@ -30,9 +30,13 @@ ARC-Hawk is a **comprehensive platform** that automatically discovers, validates
 - ✅ **Mathematical Validation** - 11 India-specific PII types with 100% accuracy (Verhoeff, Luhn algorithms)
 - ✅ **Multi-Source Scanning** - Filesystem, PostgreSQL, MySQL, MongoDB, S3, GCS, Redis, Slack, and more
 - ✅ **Semantic Lineage** - Visual graph showing where PII flows across your systems
-- ✅ **Compliance Ready** - DPDPA 2023 (India) mapping with consent and retention tracking
-- ✅ **Real-Time Monitoring** - Live scan progress and system health tracking
-- ✅ **Automated Remediation** - One-click masking and deletion of sensitive data
+- ✅ **Compliance Ready** - DPDPA 2023 (India) mapping with consent, DPR workflows, and retention tracking
+- ✅ **Real-Time Monitoring** - Live scan progress, connector health, and WebSocket alerts
+- ✅ **Automated Remediation** - One-click masking and deletion with tamper-evident audit ledger
+- ✅ **Scan Scheduling** - Cron-based recurring scans with schedule management UI
+- ✅ **Feedback Loop** - Analyst false-positive corrections feed back into per-pattern precision scores
+- ✅ **Evidence Packages** - One-click DPDPA compliance evidence export (PDF/JSON)
+- ✅ **OTel Tracing** - OpenTelemetry spans on scan pipeline for distributed tracing
 
 ---
 
@@ -43,7 +47,7 @@ ARC-Hawk is a **comprehensive platform** that automatically discovers, validates
 - **Docker** & **Docker Compose** (v2.0+)
 - **4GB+ RAM** recommended
 - **Go 1.24+** (for backend development)
-- **Node.js 18+** (for frontend development)
+- **Node.js 20+** (for frontend development)
 
 ### Installation
 
@@ -52,21 +56,11 @@ ARC-Hawk is a **comprehensive platform** that automatically discovers, validates
 git clone https://github.com/your-org/arc-hawk.git
 cd arc-hawk
 
-# 2. Start infrastructure services
-docker-compose up -d postgres neo4j temporal
+# 2. Configure environment
+cp .env.example .env   # edit values if needed
 
-# 3. Start backend server
-cd apps/backend
-go mod download
-go run cmd/server/main.go
-
-# 4. Start frontend (in new terminal)
-cd apps/frontend
-npm install
-npm run dev
-
-# 5. Access the Dashboard
-# Open http://localhost:3000 in your browser
+# 3. Start all services (backend, frontend, scanner, PostgreSQL, Neo4j, Redis, Temporal)
+docker-compose up
 ```
 
 **Services Available:**
@@ -140,7 +134,7 @@ ARC-Hawk uses a modern, distributed architecture with **Intelligence-at-Edge** p
 ### Core Components
 
 1. **Frontend (Next.js 14)**: Real-time dashboard with ReactFlow visualization for lineage, compliance tracking, and remediation actions
-2. **Backend (Go/Gin)**: Modular monolith with 10 business modules (Assets, Scanning, Lineage, Compliance, Discovery, Remediation, Masking, Analytics, Connections, Auth)
+2. **Backend (Go/Gin)**: Modular monolith with 14 business modules (Assets, Scanning, Lineage, Compliance, Discovery, Remediation, Masking, Analytics, Connections, Auth, FPLearning, Memory, WebSocket, Shared)
 3. **Orchestrator (Temporal)**: Manages long-running workflows with reliable retries and state management
 4. **Go Scanner (Go/Gin)**: High-performance PII detection engine at `apps/goScanner/` (port 8001) — canonical scanner; Python scanner retired
 5. **Storage**:
@@ -432,7 +426,7 @@ See [SECURITY.md](./SECURITY.md) for detailed security information.
 - Audit logging for all actions
 - Input validation and sanitization
 
-> **Note**: Authentication/Authorization is not yet implemented (see [TODO.md](./TODO.md)).
+> **Note**: JWT authentication and tenant RBAC are implemented. See [docs/development/TECHNICAL_SPECIFICATIONS.md](./docs/development/TECHNICAL_SPECIFICATIONS.md) for the auth contract.
 
 ---
 
@@ -468,9 +462,9 @@ This project is licensed under the **Apache License 2.0** - see the [LICENSE](LI
 See [TODO.md](./TODO.md) and [Limitations & Improvements](./docs/deployment/LIMITATIONS_AND_IMPROVEMENTS.md) for detailed roadmap.
 
 **High Priority:**
-- Authentication & Authorization (JWT/RBAC)
-- Complete remediation module
-- Comprehensive test suite
+- Complete remediation module (execution layer)
+- Playwright E2E CI integration
+- Multi-tenancy hardening (row-level security audit)
 
 **Medium Priority:**
 - Multi-source connector testing

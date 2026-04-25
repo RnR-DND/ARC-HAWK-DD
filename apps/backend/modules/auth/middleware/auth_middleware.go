@@ -111,7 +111,6 @@ func (m *AuthMiddleware) authenticateAPIKey(c *gin.Context) bool {
 	c.Set("user_email", "apikey@service.internal")
 	c.Set("user_role", "service")
 	c.Set("tenant_id", tenantID)
-	m.setRLSTenantContext(c, tenantID.String())
 	c.Set("api_key_id", keyID)
 	c.Set("api_key_scopes", scopes)
 	c.Set("authenticated", true)
@@ -167,8 +166,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 				c.Set("user_email", "anonymous@dev.local")
 				c.Set("user_role", "viewer")
 				c.Set("tenant_id", tenantID)
-				m.setRLSTenantContext(c, tenantID.String())
-				c.Set("authenticated", false)
+							c.Set("authenticated", false)
 				c.Next()
 				return
 			}
@@ -244,8 +242,7 @@ func (m *AuthMiddleware) Authenticate() gin.HandlerFunc {
 		c.Set("user_email", claims.Email)
 		c.Set("user_role", claims.Role)
 		c.Set("tenant_id", claims.TenantID)
-		m.setRLSTenantContext(c, claims.TenantID)
-		c.Set("user", user)
+			c.Set("user", user)
 
 		c.Next()
 	}
@@ -405,24 +402,6 @@ func GetUserFromContext(ctx context.Context) (*UserContext, bool) {
 	}, true
 }
 
-// setRLSTenantContext issues a session-level SET so PostgreSQL RLS policies on
-// tenant-scoped tables (findings, scan_runs, assets, connections, audit_logs)
-// can read app.current_tenant_id.
-//
-// LIMITATION: uses SET (session-level), not SET LOCAL (transaction-level).
-// With a connection pool a connection may carry a stale tenant_id to the next
-// request if it is reused before pg resets it. True isolation requires wrapping
-// each handler in an explicit transaction and calling database.SetTenantContext.
-func (m *AuthMiddleware) setRLSTenantContext(c *gin.Context, tenantID string) {
-	if tenantID == "" {
-		return
-	}
-	_, _ = m.postgresRepo.GetDB().ExecContext(
-		c.Request.Context(),
-		"SET app.current_tenant_id = $1",
-		tenantID,
-	)
-}
 
 func GetUserFromGin(c *gin.Context) (*UserContext, bool) {
 	userID, exists := c.Get("user_id")

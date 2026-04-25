@@ -1,3 +1,4 @@
+// Package lineage tracks how PII flows between systems, assets, and fields using a Neo4j-backed semantic graph.
 package lineage
 
 import (

@@ -1,3 +1,4 @@
+// Package remediation orchestrates deletion and masking actions against data sources and records every action in the audit log.
 package remediation
 
 import (

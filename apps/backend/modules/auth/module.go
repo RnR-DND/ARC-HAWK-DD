@@ -1,3 +1,4 @@
+// Package auth handles tenant authentication, JWT issuance, refresh tokens, and rate-limited login.
 package auth
 
 import (

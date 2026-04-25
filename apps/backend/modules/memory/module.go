@@ -1,3 +1,4 @@
+// Package memory forwards anonymised scan summaries to Supermemory for cross-session context; no raw PII is transmitted.
 package memory
 
 import (

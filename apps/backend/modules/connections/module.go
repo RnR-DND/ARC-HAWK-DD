@@ -1,3 +1,4 @@
+// Package connections manages data-source connector configurations, credential encryption, health checks, and available-type discovery.
 package connections
 
 import (

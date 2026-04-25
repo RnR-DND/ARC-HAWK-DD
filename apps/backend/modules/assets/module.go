@@ -1,3 +1,4 @@
+// Package assets manages data assets, findings, custom PII patterns, and scan result storage.
 package assets
 
 import (

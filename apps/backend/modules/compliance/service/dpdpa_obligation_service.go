@@ -262,7 +262,8 @@ func (s *DPDPAObligationService) checkSec8DataAccuracy(ctx context.Context, repo
 	defer rows.Close()
 
 	// Try to get tenant-specific threshold, fall back to 90 days.
-	// TODO: Query tenant settings for data_accuracy_rescan_days when available.
+	// TODO(tenant-settings): Replace constant with tenant.data_accuracy_rescan_days once
+	// the tenant_settings table is queryable here (requires passing a settings repo).
 	rescanDays := 90
 	threshold := time.Now().AddDate(0, 0, -rescanDays)
 	var gaps []ObligationGap

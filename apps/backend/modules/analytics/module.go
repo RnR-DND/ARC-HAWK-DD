@@ -1,3 +1,4 @@
+// Package analytics provides risk-score aggregation, trend charting, and PII exposure metrics across tenants.
 package analytics
 
 import (

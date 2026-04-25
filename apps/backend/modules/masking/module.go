@@ -1,3 +1,4 @@
+// Package masking applies configurable redaction policies (partial mask, hash, nullify) to PII findings at the source.
 package masking
 
 import (
