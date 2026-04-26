@@ -73,12 +73,12 @@ Make ARC-HAWK-DD production-ready. The platform handles sensitive PII classifica
 11. ~~Remove dead endpoints (/masking/*, /fplearning/*, /agent/*)~~ **NOT REQUIRED** — masking+fplearning have 23 frontend refs; /agent/* not registered
 12. ~~Add data-testid attributes to all critical UI elements~~ **DONE** — 168 testids across app pages
 13. ~~Fix E2E testid mismatch: `export-csv-btn` vs `export-findings-btn`~~ **DONE** — commit 3573743
-14. **[OPEN]** Add E2E test: full login → dashboard auth flow (requires auth mock infrastructure)
+14. ~~Add E2E login → dashboard auth flow~~ **DONE** — commit a5bb915: login page at /login with full data-testid coverage; auth.setup.ts Playwright fixture; 5 login.spec.ts tests with API route mocking
 
 ### P2 — Hardening
 
 15. ~~Add fuzzing tests for Indian PII validators~~ **DONE** — commit 3573743: FuzzValidateAadhaar, FuzzValidatePAN, FuzzValidateVoterID, FuzzValidateIFSC, FuzzValidatePassport with structural invariant assertions
-16. **[OPEN]** Convert mock DB tests to testcontainers integration tests (ingestion_service, neo4j_sync_worker) — container infra exists, not wired to service tests
+16. ~~Convert mock DB tests to testcontainers integration tests~~ **DONE** — commit a5bb915: neo4jSyncer interface extracted; 5 integration tests (success, failure, dead-letter, stale row recovery, empty queue) using testcontainers Postgres; NewTestDB moved to importable non-test file
 17. ~~Add `-race` flag to CI test runs~~ **DONE** — commit 3573743: `make test-race` runs both backend and scanner with -race
 18. ~~Add context timeout to neo4j_sync_worker.go QueryContext~~ **DONE** — commit 274f1b4
 19. ~~PII metadata redaction before Supermemory.ai~~ **DONE** — commit 3573743: tenant_id replaced with sha256[:12] hash in all tags/metadata; source types count only in content
